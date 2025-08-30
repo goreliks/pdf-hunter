@@ -1,0 +1,73 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Package & Distribution
+dist/
+build/
+*.egg-info/
+*.egg
+
+# UV / caching
+.uv-cache/
+.uv/
+.cache/
+pip-wheel-metadata/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Linting & Type Checking
+.ruff_cache/
+.mypy_cache/
+.pytype/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+# Keep examples & development notebooks if needed
+!notebooks/examples/**/*.ipynb
+!notebooks/development/**/*.ipynb
+
+# LangGraph
+.langgraph_api/
+
+# Project specific
+output/*.json
+!output/*.example.json
+# Keep the archive directory for reference but don't track its contents
+archive/
+
+# Mac specific
+.DS_Store
+.AppleDouble
+.LSOverride

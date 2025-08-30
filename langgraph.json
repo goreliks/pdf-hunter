@@ -1,0 +1,7 @@
+{
+    "dependencies": ["."],
+    "graphs": {
+      "static_analysis": "pdf_hunter.agents.static_analysis.graph:static_analysis_graph"
+    },
+    "env": ".env"
+  }
