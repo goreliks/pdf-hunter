@@ -89,8 +89,8 @@ if __name__ == "__main__":
     try:
         # Calculate path to test PDF file
         project_root = Path(__file__).resolve().parent.parent.parent.parent
-        test_pdf = str(project_root / "tests" / "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf")
+        test_pdf = str("tests" / "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf")
         print(f"Testing with PDF: {test_pdf}")
-        print(run_pdfid(test_pdf))
+        print(run_peepdf(test_pdf))
     except Exception as e:
         print(f"Error: {e}")
