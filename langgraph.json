@@ -1,7 +1,8 @@
 {
     "dependencies": ["."],
     "graphs": {
-      "static_analysis": "pdf_hunter.agents.static_analysis.graph:static_analysis_graph"
+      "static_analysis": "pdf_hunter.agents.static_analysis.graph:static_analysis_graph",
+      "preprocessing": "pdf_hunter.agents.preprocessing.graph:preprocessing_graph"
     },
     "env": ".env"
   }

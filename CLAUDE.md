@@ -32,12 +32,16 @@ The project uses:
 ### Running the System
 
 ```bash
-# Main entry point (from project root)
+# Main entry point for static analysis (from project root)
 uv run python -m pdf_hunter.agents.static_analysis.graph
+
+# Main entry point for preprocessing
+uv run python -m pdf_hunter.agents.preprocessing.graph
 
 # Alternative with editable install
 uv pip install -e .
 python -m pdf_hunter.agents.static_analysis.graph
+python -m pdf_hunter.agents.preprocessing.graph
 
 # Jupyter development
 jupyter lab notebooks/development/
@@ -52,6 +56,13 @@ jupyter lab notebooks/development/
 - Master coordination graph that manages the entire analysis workflow
 - Currently placeholder with minimal implementation
 
+**Preprocessing Agent** (`src/pdf_hunter/agents/preprocessing/`):
+
+- Initial processing of PDF files before detailed analysis
+- **Initialization Node**: Validates paths, calculates file hashes, and gets page count
+- **Image Extraction Node**: Extracts images from pages, calculates perceptual hashes
+- **URL Extraction Node**: Extracts URLs from annotations and text
+
 **Static Analysis Agent** (`src/pdf_hunter/agents/static_analysis/`):
 
 - Complete multi-node LangGraph implementation
@@ -64,6 +75,10 @@ jupyter lab notebooks/development/
 
 - **Analyzers**: Wrappers and external PDF tools (pdf-parser.py, pdfid.py in `external/` subdirectory)
 - **Utils**: Common utilities and helper functions
+  - **file_operations.py**: File system operations (directory creation)
+  - **hashing.py**: File hash calculation (SHA1, MD5)
+  - **image_extraction.py**: PDF image extraction and processing
+  - **url_extraction.py**: URL extraction from PDF annotations and text
 - **Schemas**: Shared data models (placeholder)
 
 **Archive** (`archive/`):
@@ -81,11 +96,12 @@ jupyter lab notebooks/development/
 
 ### Agent Workflow
 
-1. **Triage**: Scan PDF with multiple tools, classify as innocent/suspicious, generate missions
-2. **Mission Dispatch**: Parallel investigation of specific threats
-3. **Investigation**: Tool-assisted deep analysis of PDF objects and content
-4. **Review**: Evidence graph merging, strategic assessment, additional mission generation
-5. **Finalization**: Comprehensive report with verdict and actionable intelligence
+1. **Preprocessing**: Extract basic data from PDF (images, URLs, hashes)
+2. **Triage**: Scan PDF with multiple tools, classify as innocent/suspicious, generate missions
+3. **Mission Dispatch**: Parallel investigation of specific threats
+4. **Investigation**: Tool-assisted deep analysis of PDF objects and content
+5. **Review**: Evidence graph merging, strategic assessment, additional mission generation
+6. **Finalization**: Comprehensive report with verdict and actionable intelligence
 
 ## Configuration
 
@@ -113,7 +129,8 @@ OPENAI_API_KEY=your_key_here
 
 ### Notebook Development
 
-- `notebooks/development/static_analysis.ipynb`: Main development and testing notebook
+- `notebooks/development/static_analysis.ipynb`: Static analysis development and testing notebook
+- `notebooks/development/preprocessing.ipynb`: Preprocessing development and testing notebook
 - Contains step-by-step agent execution and debugging
 - Use for prototyping new features before integrating into main codebase
 
@@ -123,6 +140,10 @@ OPENAI_API_KEY=your_key_here
 src/
 └── pdf_hunter/              # Main package directory
     ├── agents/
+    │   ├── preprocessing/       # Preprocessing agent implementation
+    │   │   ├── graph.py         # LangGraph workflow definition
+    │   │   ├── nodes.py         # Individual workflow nodes
+    │   │   └── schemas.py       # State and data models
     │   ├── static_analysis/     # Main analysis agent implementation
     │   │   ├── graph.py         # LangGraph workflow definition
     │   │   ├── nodes.py         # Individual workflow nodes
@@ -139,7 +160,11 @@ src/
     │   │   ├── external/        # External PDF tools (pdf-parser.py, pdfid.py)
     │   │   └── wrappers.py      # Python wrappers for external tools
     │   ├── schemas/             # Shared data models
-    │   └── utils.py             # Common utilities
+    │   └── utils/               # Common utilities
+    │       ├── file_operations.py # File system operations
+    │       ├── hashing.py       # File hash calculation
+    │       ├── image_extraction.py # PDF image extraction
+    │       └── url_extraction.py # URL extraction from PDFs
     └── config.py                # Global configuration
 
 archive/                     # Legacy code and tools
@@ -149,6 +174,8 @@ archive/                     # Legacy code and tools
 
 notebooks/                   # Jupyter development environment
 ├── development/             # Main development notebooks
+│   ├── preprocessing.ipynb  # Preprocessing agent development
+│   └── static_analysis.ipynb # Static analysis agent development
 ├── examples/                # Example usage
 └── experiments/             # Experimental features
 
@@ -157,6 +184,7 @@ tests/                       # PDF samples and test data
 └── *.pdf                    # Sample PDF files
 
 output/                      # Generated analysis reports
+└── preprocessing_results/   # Results from preprocessing agent
 ```
 
 ## Development Patterns
