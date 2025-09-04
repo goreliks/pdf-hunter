@@ -58,8 +58,8 @@ jupyter lab notebooks/development/
 **Orchestrator** (`src/pdf_hunter/orchestrator/`):
 
 - Master coordination graph that manages the entire analysis workflow
-- Currently in a basic testing state, coordinating preprocessing and visual analysis agents
-- Not final and may change in future iterations
+- Coordinates preprocessing, visual analysis, and static analysis agents
+- Currently in a testing state and may change in future iterations
 
 **Preprocessing Agent** (`src/pdf_hunter/agents/preprocessing/`):
 
@@ -117,7 +117,7 @@ jupyter lab notebooks/development/
 6. **Review**: Evidence graph merging, strategic assessment, additional mission generation
 7. **Finalization**: Comprehensive report with verdict and actionable intelligence
 
-The orchestrator currently coordinates steps 1-2 (preprocessing and visual analysis).
+The orchestrator currently coordinates steps 1-7, running preprocessing, visual analysis, and static analysis in parallel branches.
 
 ## Configuration
 

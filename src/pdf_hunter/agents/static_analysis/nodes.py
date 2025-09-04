@@ -320,11 +320,11 @@ def finalizer_node(state: StaticAnalysisState):
         completed_investigations=completed_investigations_text
     )
 
-    final_report = llm_finalizer.invoke([
+    static_analysis_final_report = llm_finalizer.invoke([
         SystemMessage(content=finalizer_system_prompt),
         HumanMessage(content=user_prompt)
     ])
     
-    print(f"--- Final Report Generated ---\nFinal Verdict: {final_report.final_verdict}")
+    print(f"--- Final Report Generated ---\nFinal Verdict: {static_analysis_final_report.final_verdict}")
     
-    return {"final_report": final_report}
+    return {"static_analysis_final_report": static_analysis_final_report}
