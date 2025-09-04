@@ -32,16 +32,20 @@ The project uses:
 ### Running the System
 
 ```bash
-# Main entry point for static analysis (from project root)
-uv run python -m pdf_hunter.agents.static_analysis.graph
+# Run the orchestrator (coordinates preprocessing and visual analysis)
+uv run python -m pdf_hunter.orchestrator.graph
 
-# Main entry point for preprocessing
+# Run individual agents
 uv run python -m pdf_hunter.agents.preprocessing.graph
+uv run python -m pdf_hunter.agents.visual_analysis.graph
+uv run python -m pdf_hunter.agents.static_analysis.graph
 
 # Alternative with editable install
 uv pip install -e .
-python -m pdf_hunter.agents.static_analysis.graph
+python -m pdf_hunter.orchestrator.graph
 python -m pdf_hunter.agents.preprocessing.graph
+python -m pdf_hunter.agents.visual_analysis.graph
+python -m pdf_hunter.agents.static_analysis.graph
 
 # Jupyter development
 jupyter lab notebooks/development/
@@ -54,7 +58,8 @@ jupyter lab notebooks/development/
 **Orchestrator** (`src/pdf_hunter/orchestrator/`):
 
 - Master coordination graph that manages the entire analysis workflow
-- Currently placeholder with minimal implementation
+- Currently in a basic testing state, coordinating preprocessing and visual analysis agents
+- Not final and may change in future iterations
 
 **Preprocessing Agent** (`src/pdf_hunter/agents/preprocessing/`):
 
@@ -62,6 +67,13 @@ jupyter lab notebooks/development/
 - **Initialization Node**: Validates paths, calculates file hashes, and gets page count
 - **Image Extraction Node**: Extracts images from pages, calculates perceptual hashes
 - **URL Extraction Node**: Extracts URLs from annotations and text
+
+**Visual Analysis Agent** (`src/pdf_hunter/agents/visual_analysis/`):
+
+- Analyzes PDF pages visually for deceptive tactics and benign signals
+- **Visual Analysis Node**: Examines extracted images and URLs for visual deception
+- **Aggregation Node**: Combines page-level analyses into a comprehensive report
+- Identifies deception tactics, benign signals, and prioritizes URLs for deeper analysis
 
 **Static Analysis Agent** (`src/pdf_hunter/agents/static_analysis/`):
 
@@ -92,16 +104,20 @@ jupyter lab notebooks/development/
 **Investigation Mission**: Single-focused tasks with threat types (OpenAction, JavaScript, AcroForm, etc.)
 **Evidence Graph**: Nodes (PDF objects, artifacts, IOCs) and edges (relationships) representing the attack chain
 **Mission Report**: Structured findings from individual investigations
+**Visual Analysis Report**: Structured findings from visual analysis including deception tactics and benign signals
 **Final Report**: Executive summary, attack chain reconstruction, and IOCs
 
 ### Agent Workflow
 
 1. **Preprocessing**: Extract basic data from PDF (images, URLs, hashes)
-2. **Triage**: Scan PDF with multiple tools, classify as innocent/suspicious, generate missions
-3. **Mission Dispatch**: Parallel investigation of specific threats
-4. **Investigation**: Tool-assisted deep analysis of PDF objects and content
-5. **Review**: Evidence graph merging, strategic assessment, additional mission generation
-6. **Finalization**: Comprehensive report with verdict and actionable intelligence
+2. **Visual Analysis**: Analyze extracted images and URLs for visual deception tactics
+3. **Triage**: Scan PDF with multiple tools, classify as innocent/suspicious, generate missions
+4. **Mission Dispatch**: Parallel investigation of specific threats
+5. **Investigation**: Tool-assisted deep analysis of PDF objects and content
+6. **Review**: Evidence graph merging, strategic assessment, additional mission generation
+7. **Finalization**: Comprehensive report with verdict and actionable intelligence
+
+The orchestrator currently coordinates steps 1-2 (preprocessing and visual analysis).
 
 ## Configuration
 
@@ -133,6 +149,7 @@ OPENAI_API_KEY=your_key_here
 - `notebooks/development/preprocessing.ipynb`: Preprocessing development and testing notebook
 - Contains step-by-step agent execution and debugging
 - Use for prototyping new features before integrating into main codebase
+- Visual analysis and orchestrator development typically done directly in Python modules
 
 ## File Organization
 
@@ -150,7 +167,10 @@ src/
     │   │   ├── schemas.py       # State and data models
     │   │   ├── prompts.py       # LLM prompts for each node
     │   │   └── tools.py         # LangChain tool implementations
-    │   └── visual_analysis/     # Placeholder for future visual analysis
+    │   └── visual_analysis/     # Visual analysis agent implementation
+    │       ├── graph.py         # LangGraph workflow definition
+    │       ├── nodes.py         # Individual workflow nodes
+    │       └── schemas.py       # State and data models
     ├── orchestrator/            # Master coordination
     │   ├── graph.py             # Main orchestrator workflow
     │   ├── nodes.py             # Orchestrator nodes
@@ -184,7 +204,8 @@ tests/                       # PDF samples and test data
 └── *.pdf                    # Sample PDF files
 
 output/                      # Generated analysis reports
-└── preprocessing_results/   # Results from preprocessing agent
+├── preprocessing_results/   # Results from preprocessing agent
+└── orchestrator_results/    # Results from orchestrator-coordinated analysis
 ```
 
 ## Development Patterns
