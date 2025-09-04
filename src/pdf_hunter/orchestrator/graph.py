@@ -3,16 +3,18 @@ from langgraph.graph import StateGraph, START, END
 from .schemas import OrchestratorState, OrchestratorInputState
 from ..agents.preprocessing.graph import preprocessing_graph
 from ..agents.visual_analysis.graph import visual_analysis_graph
+from ..agents.static_analysis.graph import static_analysis_graph
 
 
 orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState)
 
 orchestrator_builder.add_node("preprocessing", preprocessing_graph)
+orchestrator_builder.add_node("static_analysis", static_analysis_graph)
 orchestrator_builder.add_node("visual_analysis", visual_analysis_graph)
 orchestrator_builder.add_edge(START, "preprocessing")
-
+orchestrator_builder.add_edge("preprocessing", "static_analysis")
 orchestrator_builder.add_edge("preprocessing", "visual_analysis")
-
+orchestrator_builder.add_edge("static_analysis", END)
 orchestrator_builder.add_edge("visual_analysis", END)
 
 orchestrator_graph = orchestrator_builder.compile()
@@ -25,14 +27,18 @@ if __name__ == "__main__":
     import os
     from datetime import datetime
 
-    file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
+    # file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
+    file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
     output_directory = "output/orchestrator_results"
-    number_of_pages_to_process = 1
+    # number_of_pages_to_process = 1
+    number_of_pages_to_process = 4
 
     orchestrator_input = {
+        "session_id": uuid.uuid4().hex[:8],
         "file_path": file_path,
         "output_directory": output_directory,
-        "number_of_pages_to_process": number_of_pages_to_process
+        "number_of_pages_to_process": number_of_pages_to_process,
+        "additional_context": "None"
     }
     
     print("--- STARTING PDF HUNTER ORCHESTRATOR ---")

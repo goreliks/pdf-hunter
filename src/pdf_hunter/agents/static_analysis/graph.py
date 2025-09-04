@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langgraph.prebuilt import ToolNode
-from .schemas import InvestigatorState, InvestigatorOutputState, StaticAnalysisState, StaticAnalysisInputState
+from .schemas import InvestigatorState, InvestigatorOutputState, StaticAnalysisState, StaticAnalysisInputState, StaticAnalysisOutputState
 from .nodes import investigator_node, triage_router, update_mission_list, dispatch_investigations, reviewer_node, finalizer_node
 from .tools import pdf_parser_tools
 from langgraph.prebuilt import tools_condition
@@ -46,7 +46,7 @@ def conduct_investigation(state: dict):
 # Add the wrapper as the node instead of the raw subgraph
 
 
-static_analysis_builder = StateGraph(StaticAnalysisState, input_schema=StaticAnalysisInputState)
+static_analysis_builder = StateGraph(StaticAnalysisState, input_schema=StaticAnalysisInputState, output_schema=StaticAnalysisOutputState)
 
 # Add nodes to static_analysis_builder
 static_analysis_builder.add_node("triage", triage_router)

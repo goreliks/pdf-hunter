@@ -112,7 +112,6 @@ def extract_urls_from_pdf(
     except Exception as e:
         raise RuntimeError(f"Error extracting URLs from PDF {pdf_path}: {e}")
 
-    # --- Sophisticated Deduplication ---
     # This logic ensures we don't discard legitimate, distinct findings of the same URL.
     final_urls = []
     seen_keys = set()

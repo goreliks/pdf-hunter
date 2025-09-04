@@ -215,13 +215,6 @@ class InvestigatorState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
 
-class StaticAnalysisInputState(TypedDict):
-    session_id: str
-    file_path: str
-    output_directory: str
-    additional_context: NotRequired[Optional[str]]
-
-
 class StaticAnalysisState(TypedDict):
     """
     The main state object for the orchestrating graph.
@@ -254,4 +247,20 @@ class StaticAnalysisState(TypedDict):
     triage_classification_decision: str
     triage_classification_reasoning: str
 
-    final_report: NotRequired[FinalReport]
+    static_analysis_final_report: NotRequired[FinalReport]
+
+
+class StaticAnalysisInputState(TypedDict):
+    session_id: str
+    file_path: str
+    output_directory: str
+    additional_context: NotRequired[Optional[str]]
+
+
+class StaticAnalysisOutputState(TypedDict):
+    structural_summary: Dict[str, str]
+    master_evidence_graph: EvidenceGraph
+    triage_classification_decision: str
+    triage_classification_reasoning: str
+    static_analysis_final_report: NotRequired[FinalReport]
+    errors: Annotated[List[str], operator.add]
