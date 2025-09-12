@@ -1,0 +1,47 @@
+from pydantic import BaseModel, Field
+from typing import Any, List, Literal, Optional, TypedDict
+from typing_extensions import Annotated
+import operator
+from langchain_core.messages import AnyMessage
+from ..visual_analysis.schemas import PrioritizedURL
+
+
+class AnalystFindings(BaseModel):
+    """The synthesized analysis of the investigation log."""
+    final_url: str = Field(..., description="The final destination URL reached by the Investigator.")
+    verdict: Literal["Benign", "Suspicious", "Malicious", "Inaccessible"]
+    confidence: float
+    summary: str = Field(..., description="A concise, executive summary of the investigation, explaining the key findings and the reasoning behind the verdict.")
+    detected_threats: List[str] = Field(default_factory=list)
+    domain_whois_record: Optional[str] = Field(None, description="The summary of the WHOIS record for the final root domain, extracted from the investigation log.")
+    screenshot_paths: List[str] = Field(default_factory=list, description="A list of all screenshot file paths mentioned in the investigation log.")
+
+# The final, assembled forensic report.
+class URLAnalysisResult(BaseModel):
+    """The final, assembled forensic report, created programmatically by our code."""
+    initial_url: PrioritizedURL
+    full_investigation_log: List[dict]
+    analyst_findings: AnalystFindings
+
+# The state for our final two-stage pipeline graph.
+class LinkAnalysisState(TypedDict):
+    # Inputs
+    url_task: PrioritizedURL
+    output_directory: str
+    mcp_playwright_session: Any # Holds the live MCP session
+
+    # Intermediate result
+    investigation_log: List[AnyMessage]
+    errors: Annotated[List[str], operator.add]
+
+    # Final output
+    link_analysis_final_report: URLAnalysisResult
+
+class LinkAnalysisInputState(TypedDict):
+    url_task: PrioritizedURL
+    output_directory: str
+    mcp_playwright_session: Any
+
+class LinkAnalysisOutputState(TypedDict):
+    link_analysis_final_report: URLAnalysisResult
+    errors: Annotated[List[str], operator.add]
