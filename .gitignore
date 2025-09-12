@@ -71,3 +71,6 @@ archive/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Node
+node_modules/
