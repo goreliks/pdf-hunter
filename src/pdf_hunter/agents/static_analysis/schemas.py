@@ -1,4 +1,5 @@
-from typing import List, Dict, Optional, Union, Literal, TypedDict, Annotated
+from typing import List, Dict, Optional, Union, Literal, Annotated
+from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 from enum import Enum
 import uuid
