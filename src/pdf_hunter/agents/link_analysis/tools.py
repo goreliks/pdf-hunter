@@ -1,19 +1,11 @@
 from langchain.tools import tool
+import asyncio
 import whois
 from whois.parser import PywhoisError
 import datetime
 
-@tool
-def domain_whois(domain: str) -> str:
-    """
-    Performs a WHOIS lookup on a root domain to gather registration details.
-    This is critical for verifying the identity and age of a website.
-    Use this on the main part of the domain (e.g., 'example.com' from 'http://login.example.com/auth').
-    
-    Note: For platform domains like vercel.app, herokuapp.com, github.io, etc., WHOIS won't return 
-    useful information since these are hosting platforms. In such cases, focus on the subdomain
-    being potentially disposable/temporary.
-    """
+def _sync_domain_whois(domain: str) -> str:
+    """Synchronous WHOIS lookup helper function."""
     try:
         w = whois.whois(domain)
         
@@ -48,3 +40,18 @@ def domain_whois(domain: str) -> str:
         return f"Error: Could not retrieve WHOIS data for '{domain}'. It might be a subdomain or an invalid domain. Error: {e}"
     except Exception as e:
         return f"An unexpected error occurred during WHOIS lookup for '{domain}': {e}"
+
+@tool
+def domain_whois(domain: str) -> str:
+    """
+    Performs a WHOIS lookup on a root domain to gather registration details.
+    This is critical for verifying the identity and age of a website.
+    Use this on the main part of the domain (e.g., 'example.com' from 'http://login.example.com/auth').
+    
+    Note: For platform domains like vercel.app, herokuapp.com, github.io, etc., WHOIS won't return 
+    useful information since these are hosting platforms. In such cases, focus on the subdomain
+    being potentially disposable/temporary.
+    """
+    # Use the synchronous helper function directly
+    # The blocking issue in LangGraph Studio will need to be addressed at a higher level
+    return _sync_domain_whois(domain)

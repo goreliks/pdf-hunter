@@ -50,16 +50,13 @@ if __name__ == "__main__":
         
         print("--- STARTING PDF HUNTER ORCHESTRATOR ---")
         
-        # Create persistent MCP session that stays open for entire orchestrator execution
-        client = get_mcp_client()
-        
-        async with client.session("playwright") as session:
-            # Add the MCP session to the orchestrator input
-            orchestrator_input["mcp_playwright_session"] = session
-            
-            final_state = None
+        try:
             # Invoke the entire orchestrator with the initial state using async
             final_state = await orchestrator_graph.ainvoke(orchestrator_input)
+        finally:
+            # Cleanup MCP session when done
+            from ..shared.utils.mcp_client import cleanup_mcp_session
+            await cleanup_mcp_session()
 
         print("\n\n--- PDF HUNTER ORCHESTRATOR COMPLETE ---")
         print("\n--- Final State of the Hunt: ---")

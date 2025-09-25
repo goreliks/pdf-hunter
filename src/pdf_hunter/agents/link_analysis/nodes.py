@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from langchain_mcp_adapters.tools import load_mcp_tools
@@ -23,32 +24,34 @@ async def llm_call(state: LinkAnalysisState):
 
     url_task = state["url_task"]
     output_dir = state["output_directory"]
-    session = state["mcp_playwright_session"]  # Use the persistent session passed from orchestrator
-
-    # Load tools using the existing persistent session
-    # The session should be the actual session object, not the client
+    
+    # Get the persistent MCP session and load tools fresh each time
+    from ...shared.utils.mcp_client import get_mcp_session
     from langchain_mcp_adapters.tools import load_mcp_tools
+    session = await get_mcp_session()
     mcp_tools = await load_mcp_tools(session)
     all_tools = mcp_tools + [domain_whois]
     model_with_tools = link_analysis_investigator_llm.bind_tools(all_tools)
 
     messages = state.get("investigation_log", [])
     if not messages:
+        # Get absolute path in a non-blocking way
+        abs_output_dir = await asyncio.to_thread(os.path.abspath, output_dir)
         initial_prompt = f"""
         Current date and time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         Begin your investigation.
         **URL:** {url_task.url}
         **Reason Flagged:** {url_task.reason}
-        **Output Directory for Artifacts:** {os.path.abspath(output_dir)}
+        **Output Directory for Artifacts:** {abs_output_dir}
         """
         initial_messages = [ SystemMessage(content=WFI_INVESTIGATOR_SYSTEM_PROMPT), HumanMessage(content=initial_prompt) ]
-        # Get the LLM response
-        llm_response = model_with_tools.invoke(initial_messages)
+        # Get the LLM response asynchronously - proper async pattern
+        llm_response = await model_with_tools.ainvoke(initial_messages)
         # Return both the initial messages AND the LLM response
         return {"investigation_log": initial_messages + [llm_response]}
     else:
         # For subsequent calls, use existing messages and add only the new response
-        llm_response = model_with_tools.invoke(messages)
+        llm_response = await model_with_tools.ainvoke(messages)
         return {"investigation_log": llm_response}
 
 
@@ -60,10 +63,10 @@ async def tool_node(state: LinkAnalysisState):
     async def execute_tools():
         from langchain_core.tools.base import ToolException
         
-        session = state["mcp_playwright_session"]  # Use the persistent session
-        
-        # The session should be the actual session object, not the client
+        # Get the persistent MCP session and load tools fresh each time
+        from ...shared.utils.mcp_client import get_mcp_session
         from langchain_mcp_adapters.tools import load_mcp_tools
+        session = await get_mcp_session()
         mcp_tools = await load_mcp_tools(session)
         tools = mcp_tools + [domain_whois]
         tool_by_name = {tool.name: tool for tool in tools}
@@ -74,7 +77,8 @@ async def tool_node(state: LinkAnalysisState):
             tool = tool_by_name[tool_call["name"]]
             try:
                 if tool_call["name"] == "domain_whois":
-                    observation = tool.invoke(tool_call["args"])
+                    # Use async invoke to prevent blocking
+                    observation = await asyncio.to_thread(tool.invoke, tool_call["args"])
                 else:
                     observation = await tool.ainvoke(tool_call["args"])
                 observations.append(observation)
