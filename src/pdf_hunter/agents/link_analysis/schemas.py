@@ -1,9 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Any, List, Literal, Optional, TypedDict
-from typing_extensions import Annotated
+from typing_extensions import Annotated, Sequence
 import operator
 from langchain_core.messages import AnyMessage
 from ..visual_analysis.schemas import PrioritizedURL
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 
 class AnalystFindings(BaseModel):
@@ -29,9 +31,10 @@ class LinkAnalysisState(TypedDict):
     url_task: PrioritizedURL
     output_directory: str
     mcp_playwright_session: Any # Holds the live MCP session
+    link_analysis_messages: Annotated[Sequence[BaseMessage], add_messages]
 
     # Intermediate result
-    investigation_log: List[AnyMessage]
+    investigation_log: Annotated[Sequence[BaseMessage], add_messages]
     errors: Annotated[List[str], operator.add]
 
     # Final output

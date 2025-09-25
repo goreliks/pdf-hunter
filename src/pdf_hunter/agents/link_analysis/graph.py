@@ -5,74 +5,72 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from langgraph.graph import StateGraph, START, END
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from .nodes import investigator_node, analyst_node
 from .schemas import LinkAnalysisState, LinkAnalysisInputState, LinkAnalysisOutputState
 from ..visual_analysis.schemas import PrioritizedURL
+from .nodes import llm_call, tool_node, analyst_node, should_continue
+from ...shared.utils.mcp_client import get_mcp_client
 
 
 pipeline = StateGraph(LinkAnalysisState, input_schema=LinkAnalysisInputState, output_schema=LinkAnalysisOutputState)
 
+
 # Add the nodes to the graph
-pipeline.add_node("investigator", investigator_node)
+pipeline.add_node("llm", llm_call)
+pipeline.add_node("tools", tool_node)
 pipeline.add_node("analyst", analyst_node)
-
 # Define the edges, creating a linear flow
-pipeline.add_edge(START, "investigator")
-pipeline.add_edge("investigator", "analyst")
+pipeline.add_edge(START, "llm")
+pipeline.add_conditional_edges(
+    "llm",
+    should_continue,
+    {"tool_node": "tools", "analyst_node": "analyst"}
+)
+pipeline.add_edge("tools", "llm")
 pipeline.add_edge("analyst", END)
-
 # Compile the graph and export it for external use
 link_analysis_graph = pipeline.compile()
 
 
+
 if __name__ == "__main__":
+    from .schemas import PrioritizedURL
     import asyncio
-    import os
-    from pathlib import Path
-    from langchain_mcp_adapters.client import MultiServerMCPClient
-    from ..visual_analysis.schemas import PrioritizedURL
+
+    output_dir = "./mcp_outputs/final_pipeline_test"
+
+    test_state = {
+        "url_task": PrioritizedURL(
+            url="https://www.fcbarcelona.com/en/",
+            reason="URL for testing",
+            priority=1,
+            page_number=0
+        ),
+        "output_directory": output_dir
+    }
 
     async def main():
-        output_dir = "./mcp_outputs/final_pipeline_test"
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        print("\n🚀 Running the full Investigator -> Analyst pipeline...")
         
-        url_to_investigate = PrioritizedURL(
-            url="http://hrms.wb.gov.in.hrmspanel.online/",
-            priority=1,
-            reason="Flagged as a potential government portal impersonation.",
-            page_number=1
-        )
-
-        client = MultiServerMCPClient({
-            "playwright": {
-                "command": "npx",
-                "args": ["@playwright/mcp@latest", "--headless", f"--output-dir={output_dir}", "--save-trace", "--isolated"],
-                "transport": "stdio"
-            }
-        })
+        client = get_mcp_client()
         
         async with client.session("playwright") as session:
-            initial_input = {
-                "url_task": url_to_investigate,
-                "output_directory": output_dir,
-                "mcp_playwright_session": session
-            }
+            # Add the MCP session to the test state
+            test_state_with_session = test_state.copy()
+            test_state_with_session["mcp_playwright_session"] = session
             
-            print("\n🚀 Running the full Investigator -> Analyst pipeline...")
-            final_state = await link_analysis_graph.ainvoke(initial_input)
-            
-            print("\n\n" + "="*50)
-            print("📊✅ FINAL FORENSIC REPORT ✅📊")
-            print("="*50)
-            if final_state.get("link_analysis_final_report"):
-                print(final_state["link_analysis_final_report"].model_dump_json(indent=2))
-            else:
-                print("Pipeline did not produce a final report.")
-            
-        print(f"\n🎉 Full pipeline complete! Check {os.path.abspath(output_dir)} for all artifacts.")
+            final_state = await link_analysis_graph.ainvoke(test_state_with_session)
+        
+        print("\n\n" + "="*50)
+        print("📊✅ FINAL FORENSIC REPORT ✅📊")
+        print("="*50)
+        if final_state.get("link_analysis_final_report"):
+            print(final_state["link_analysis_final_report"].model_dump_json(indent=2))
+        else:
+            print("No final report generated.")
 
-        # Save final state to JSON file
+                # Save final state to JSON file
         if final_state:
             # Generate unique filename with timestamp
             unique_id = uuid.uuid4().hex[:8]
@@ -90,7 +88,8 @@ if __name__ == "__main__":
                 if hasattr(obj, 'model_dump'):
                     return obj.model_dump()
                 elif isinstance(obj, dict):
-                    return {k: make_serializable(v) for k, v in obj.items()}
+                    # Skip the MCP session key to avoid serialization issues
+                    return {k: make_serializable(v) for k, v in obj.items() if k != "mcp_playwright_session"}
                 elif isinstance(obj, list):
                     return [make_serializable(item) for item in obj]
                 else:

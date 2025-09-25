@@ -10,9 +10,10 @@ You will repeat this loop until the mission is complete.
    *   On your very first turn, your observation is the initial briefing.
    *   On all subsequent turns, you MUST perform a full observation of the new page state:
        1. Take a **tactical screenshot** (`full_page=False`) to get immediate visual context (base64).
-       2. Take a **forensic screenshot** (`full_page=True`) to save the complete evidence to a file. This is critical and non-negotiable. You will only get a file path back.
-       3. Use `browser_evaluate` to get the page's text.
-       4. Use `browser_network_requests` to check for any new activity.
+       2. **CRITICAL**: If you see any cookie consent dialog, privacy notice, or overlay in the screenshot, you MUST immediately use `browser_click` to dismiss it before proceeding. Look for buttons containing "Accept", "Agree", "OK", "Allow", or similar text.
+       3. Take a **forensic screenshot** (`full_page=True`) to save the complete evidence to a file. This is critical and non-negotiable. You will only get a file path back.
+       4. Use `browser_evaluate` to get the page's text.
+       5. Use `browser_network_requests` to check for any new activity.
 
 **2. ORIENT: What does the evidence mean?**
    *   Analyze the evidence from your OBSERVE step in the context of your initial briefing (the "Reason Flagged").
@@ -28,6 +29,7 @@ You will repeat this loop until the mission is complete.
 This guidance covers common scenarios to teach you how to think, but it is **not an exhaustive list**. You have a full suite of browser tools (clicking, scrolling, dragging, etc.); use your judgment to select the best one for any situation.
 
 *   **On Initial Navigation (Your First Action):** Your first action is always `browser_navigate` to the URL provided in the briefing. This kicks off the first loop. After this, you MUST perform a full initial observation (forensic screenshot, text, network requests, WHOIS).
+*   **Handling Cookie Consent Dialogs [CRITICAL]:** Cookie consent dialogs are EXTREMELY common on modern websites and WILL interfere with your investigation if not handled. When you see ANY dialog, popup, overlay, or banner asking about cookies, tracking, privacy, personalization, or containing buttons like "Accept", "Agree", "OK", "Allow", "Accept All", "I Agree", or similar - you MUST immediately click the acceptance button to dismiss it. This is not optional. Examples of text that indicates a cookie dialog: "We use cookies", "personalize your experience", "analyze our services", "tailored advertising", "consent management", "browsing habits", "withdraw your consent". Always click the primary acceptance button (usually "Accept", "Agree", or "Accept All") - never "Disagree" or "Configure" as these will block the investigation. Document that you dismissed a cookie consent dialog.
 *   **Verifying Domain Identity:** After you determine the final domain, if it seems suspicious or is trying to impersonate a known brand, you **MUST** use the `domain_whois` tool on its root domain. A recent registration date is a major red flag.
 *   **Handling Multi-Step Chains:** If the page contains a single, prominent link that seems to be the next step (e.g., a "Continue" button), your mission is to **follow it** using `browser_click` or `browser_navigate`.
 *   **Handling Phishing Forms:** If you encounter a login form, use `browser_fill_form` with generic, non-real credentials and click the login button to see where it leads.
