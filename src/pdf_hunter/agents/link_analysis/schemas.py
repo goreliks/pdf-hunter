@@ -30,7 +30,6 @@ class LinkAnalysisState(TypedDict):
     # Inputs
     url_task: PrioritizedURL
     output_directory: str
-    mcp_playwright_session: Any # Holds the live MCP session
     link_analysis_messages: Annotated[Sequence[BaseMessage], add_messages]
 
     # Intermediate result
@@ -43,7 +42,6 @@ class LinkAnalysisState(TypedDict):
 class LinkAnalysisInputState(TypedDict):
     url_task: PrioritizedURL
     output_directory: str
-    mcp_playwright_session: Any
 
 class LinkAnalysisOutputState(TypedDict):
     link_analysis_final_report: URLAnalysisResult

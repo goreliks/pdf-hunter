@@ -42,9 +42,6 @@ class OrchestratorState(TypedDict):
     # --- Results from Link Analysis Agent ---
     link_analysis_final_report: NotRequired[Annotated[List[URLAnalysisResult], operator.add]]
 
-    # --- MCP Session Data ---
-    mcp_playwright_session: NotRequired[object]  # Holds the live MCP session
-
     # --- Global Error Tracking ---
     errors: Annotated[List[list], operator.add]
 
@@ -55,4 +52,3 @@ class OrchestratorInputState(TypedDict):
     output_directory: str
     number_of_pages_to_process: int
     additional_context: NotRequired[Optional[str]]
-    mcp_playwright_session: NotRequired[object]  # Holds the live MCP session

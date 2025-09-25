@@ -5,12 +5,10 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from langgraph.graph import StateGraph, START, END
-from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from .schemas import LinkAnalysisState, LinkAnalysisInputState, LinkAnalysisOutputState
 from ..visual_analysis.schemas import PrioritizedURL
 from .nodes import llm_call, tool_node, analyst_node, should_continue
-from ...shared.utils.mcp_client import get_mcp_client
 
 
 pipeline = StateGraph(LinkAnalysisState, input_schema=LinkAnalysisInputState, output_schema=LinkAnalysisOutputState)
@@ -53,14 +51,12 @@ if __name__ == "__main__":
     async def main():
         print("\n🚀 Running the full Investigator -> Analyst pipeline...")
         
-        client = get_mcp_client()
-        
-        async with client.session("playwright") as session:
-            # Add the MCP session to the test state
-            test_state_with_session = test_state.copy()
-            test_state_with_session["mcp_playwright_session"] = session
-            
-            final_state = await link_analysis_graph.ainvoke(test_state_with_session)
+        try:
+            final_state = await link_analysis_graph.ainvoke(test_state)
+        finally:
+            # Cleanup MCP session when done
+            from ...shared.utils.mcp_client import cleanup_mcp_session
+            await cleanup_mcp_session()
         
         print("\n\n" + "="*50)
         print("📊✅ FINAL FORENSIC REPORT ✅📊")

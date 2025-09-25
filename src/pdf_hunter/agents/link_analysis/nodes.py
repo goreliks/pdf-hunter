@@ -23,11 +23,11 @@ async def llm_call(state: LinkAnalysisState):
 
     url_task = state["url_task"]
     output_dir = state["output_directory"]
-    session = state["mcp_playwright_session"]  # Use the persistent session passed from orchestrator
-
-    # Load tools using the existing persistent session
-    # The session should be the actual session object, not the client
+    
+    # Get the persistent MCP session and load tools fresh each time
+    from ...shared.utils.mcp_client import get_mcp_session
     from langchain_mcp_adapters.tools import load_mcp_tools
+    session = await get_mcp_session()
     mcp_tools = await load_mcp_tools(session)
     all_tools = mcp_tools + [domain_whois]
     model_with_tools = link_analysis_investigator_llm.bind_tools(all_tools)
@@ -60,10 +60,10 @@ async def tool_node(state: LinkAnalysisState):
     async def execute_tools():
         from langchain_core.tools.base import ToolException
         
-        session = state["mcp_playwright_session"]  # Use the persistent session
-        
-        # The session should be the actual session object, not the client
+        # Get the persistent MCP session and load tools fresh each time
+        from ...shared.utils.mcp_client import get_mcp_session
         from langchain_mcp_adapters.tools import load_mcp_tools
+        session = await get_mcp_session()
         mcp_tools = await load_mcp_tools(session)
         tools = mcp_tools + [domain_whois]
         tool_by_name = {tool.name: tool for tool in tools}

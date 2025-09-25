@@ -13,8 +13,7 @@ def dispatch_link_analysis(state: OrchestratorState):
             # Use Send to dispatch each URL to a separate link_analysis instance
             return [Send("link_analysis", {
                 "url_task": url,
-                "output_directory": state["output_directory"],
-                "mcp_playwright_session": state.get("mcp_playwright_session")
+                "output_directory": state["output_directory"]
             }) for url in high_priority_urls]
     
     # No high priority URLs found, go to END
