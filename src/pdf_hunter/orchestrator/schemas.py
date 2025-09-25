@@ -7,6 +7,7 @@ from ..agents.preprocessing.schemas import ExtractedImage, ExtractedURL
 from ..agents.visual_analysis.schemas import VisualAnalysisReport
 from ..agents.preprocessing.schemas import PDFHashData
 from ..agents.static_analysis.schemas import EvidenceGraph, FinalReport
+from ..agents.link_analysis.schemas import URLAnalysisResult
 
 class OrchestratorState(TypedDict):
     """
@@ -38,6 +39,12 @@ class OrchestratorState(TypedDict):
     triage_classification_reasoning: NotRequired[str]
     static_analysis_final_report: NotRequired[FinalReport]
 
+    # --- Results from Link Analysis Agent ---
+    link_analysis_final_report: NotRequired[Annotated[List[URLAnalysisResult], operator.add]]
+
+    # --- MCP Session Data ---
+    mcp_playwright_session: NotRequired[object]  # Holds the live MCP session
+
     # --- Global Error Tracking ---
     errors: Annotated[List[list], operator.add]
 
@@ -48,3 +55,4 @@ class OrchestratorInputState(TypedDict):
     output_directory: str
     number_of_pages_to_process: int
     additional_context: NotRequired[Optional[str]]
+    mcp_playwright_session: NotRequired[object]  # Holds the live MCP session

@@ -163,7 +163,7 @@ def aggregation_node(state: VisualAnalysisState):
     all_tactics = [tactic for p in page_analyses for tactic in p.deception_tactics]
     all_signals = [signal for p in page_analyses for signal in p.benign_signals]
     all_priority_urls = [url for p in page_analyses for url in p.prioritized_urls]
-    high_priority_urls = [url for url in all_priority_urls if url.priority <= 2]
+    high_priority_urls = [url for url in all_priority_urls if url.priority <= 5]
 
     # Generate the Executive Summary.
     summary = (
