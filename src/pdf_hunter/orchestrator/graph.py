@@ -1,26 +1,28 @@
 from langgraph.graph import StateGraph, START, END
 
-from .schemas import OrchestratorState, OrchestratorInputState
+from .schemas import OrchestratorState, OrchestratorInputState, OrchestratorOutputState
 from ..agents.preprocessing.graph import preprocessing_graph
 from ..agents.visual_analysis.graph import visual_analysis_graph
 from ..agents.static_analysis.graph import static_analysis_graph
 from ..agents.link_analysis.graph import link_analysis_graph
-from .nodes import dispatch_link_analysis
-from ..shared.utils.mcp_client import get_mcp_client
+from ..agents.finalizer.graph import finalizer_graph
+from ..shared.utils.serializer import serialize_state_safely
 
 
-orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState)
+orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState, output_schema=OrchestratorOutputState)
 
 orchestrator_builder.add_node("preprocessing", preprocessing_graph)
 orchestrator_builder.add_node("static_analysis", static_analysis_graph)
 orchestrator_builder.add_node("visual_analysis", visual_analysis_graph)
 orchestrator_builder.add_node("link_analysis", link_analysis_graph)
+orchestrator_builder.add_node("finalizer", finalizer_graph)
 orchestrator_builder.add_edge(START, "preprocessing")
 orchestrator_builder.add_edge("preprocessing", "static_analysis")
 orchestrator_builder.add_edge("preprocessing", "visual_analysis")
-orchestrator_builder.add_edge("static_analysis", END)
-orchestrator_builder.add_edge("link_analysis", END)
-orchestrator_builder.add_conditional_edges("visual_analysis", dispatch_link_analysis, [END, "link_analysis"])
+orchestrator_builder.add_edge("visual_analysis", "link_analysis")
+orchestrator_builder.add_edge("static_analysis", "finalizer")
+orchestrator_builder.add_edge("link_analysis", "finalizer")
+orchestrator_builder.add_edge("finalizer", END)
 
 orchestrator_graph = orchestrator_builder.compile()
 
@@ -93,17 +95,7 @@ if __name__ == "__main__":
             json_path = os.path.join(output_directory, filename)
             
             # Convert final state to JSON-serializable format
-            def make_serializable(obj):
-                if hasattr(obj, 'model_dump'):
-                    return obj.model_dump()
-                elif isinstance(obj, dict):
-                    return {k: make_serializable(v) for k, v in obj.items() if k != 'mcp_playwright_session'}
-                elif isinstance(obj, list):
-                    return [make_serializable(item) for item in obj]
-                else:
-                    return obj
-            
-            serializable_state = make_serializable(final_state)
+            serializable_state = serialize_state_safely(final_state)
             
             # Save to JSON file
             with open(json_path, 'w', encoding='utf-8') as f:
