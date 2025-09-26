@@ -40,7 +40,10 @@ Your primary task is a **rigorous, two-sided cross-examination**. Guide your ana
 Your analysis must be captured in a **rich, structured JSON object** that conforms to the `PageAnalysisResult` schema.
 Your final verdict must be a synthesis of how you weighed the evidence from both Part A and Part B, considering all available context.
 
-**A key requirement is for the `technical_data` field within a `DetailedFinding`. This field MUST be a JSON-formatted string.** For example, if a link is deceptive, its technical data should be represented as `'{\"url\": \"http://bad-domain.com\", \"xref\": 55}'`. If there is no technical data, the value should be `null`.
+**Key Requirements:**
+1. **`technical_data` field within `DetailedFinding`**: This field MUST be a JSON-formatted string. For example, if a link is deceptive, its technical data should be represented as `'{\"url\": \"http://bad-domain.com\", \"xref\": 55}'`. If there is no technical data, the value should be `null`.
+
+2. **`prioritized_urls` field**: When flagging URLs for further investigation, populate the `source_context` field with "PDF document with [description of context]" (e.g., "PDF document with verification prompt") and the `extraction_method` field with the URL type from the technical blueprint (e.g., "qr_code", "annotation", "text").
 
 **CRITICAL:** Your report must be for the **CURRENT PAGE ONLY**. Do not include findings from previous pages in your output. Use the previous page context for your reasoning, but report only on what you see on the current page.
 """

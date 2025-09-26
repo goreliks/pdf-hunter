@@ -39,8 +39,14 @@ def _create_structured_forensic_briefing(page_result: PageAnalysisResult) -> str
         for finding in high_significance_findings:
             # Extract the most critical piece of technical data (like a URL) for the briefing.
             tech_data_summary = ""
-            if finding.technical_data and 'url' in finding.technical_data:
-                tech_data_summary = f" (URL: '{finding.technical_data['url']}')"
+            if finding.technical_data:
+                try:
+                    tech_data = json.loads(finding.technical_data)
+                    if 'url' in tech_data:
+                        tech_data_summary = f" (URL: '{tech_data['url']}')"
+                except (json.JSONDecodeError, TypeError):
+                    # If technical_data is not valid JSON, skip the URL extraction
+                    pass
             
             briefing.append(f"  * {finding.assessment}{tech_data_summary}")
     

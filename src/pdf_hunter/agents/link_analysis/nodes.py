@@ -37,12 +37,22 @@ async def llm_call(state: LinkAnalysisState):
     if not messages:
         # Get absolute path in a non-blocking way
         abs_output_dir = await asyncio.to_thread(os.path.abspath, output_dir)
+        # Build context information
+        source_context = getattr(url_task, 'source_context', 'PDF document')
+        extraction_method = getattr(url_task, 'extraction_method', 'unknown method')
+        
         initial_prompt = f"""
         Current date and time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         Begin your investigation.
-        **URL:** {url_task.url}
+        
+        **INVESTIGATION BRIEFING:**
+        **URL to Investigate:** {url_task.url}
+        **Source Document:** {source_context}
+        **Extraction Method:** {extraction_method} (from PDF page {url_task.page_number})
         **Reason Flagged:** {url_task.reason}
         **Output Directory for Artifacts:** {abs_output_dir}
+        
+        **IMPORTANT:** This URL was extracted from a PDF document, not discovered on a website. The PDF may have used social engineering tactics (like fake verification prompts) to trick users into visiting this URL. Your investigation should focus on where this URL leads and whether it's part of a larger attack chain.
         """
         initial_messages = [ SystemMessage(content=WFI_INVESTIGATOR_SYSTEM_PROMPT), HumanMessage(content=initial_prompt) ]
         # Get the LLM response asynchronously - proper async pattern

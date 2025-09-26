@@ -43,7 +43,7 @@ class PreprocessingState(TypedDict):
     pdf_hash: Optional[PDFHashData]
     page_count: Optional[int]
     extracted_images: List[ExtractedImage]
-    extracted_urls: List[ExtractedURL]
+    extracted_urls: Annotated[List[ExtractedURL], operator.add]
 
     # --- Error Tracking ---
     # Using Annotated with operator.add allows LangGraph to automatically

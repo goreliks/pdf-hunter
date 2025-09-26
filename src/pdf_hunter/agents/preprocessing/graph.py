@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 
 from .schemas import PreprocessingState, PreprocessingInputState, PreprocessingOutputState
-from .nodes import initialization_node, image_extraction_node, url_extraction_node
+from .nodes import initialization_node, image_extraction_node, qr_extraction_node, url_extraction_node
 
 
 preprocessing_builder = StateGraph(PreprocessingState, input_schema=PreprocessingInputState, output_schema=PreprocessingOutputState)
@@ -9,15 +9,17 @@ preprocessing_builder = StateGraph(PreprocessingState, input_schema=Preprocessin
 preprocessing_builder.add_node("initialize", initialization_node)
 preprocessing_builder.add_node("extract_images", image_extraction_node)
 preprocessing_builder.add_node("extract_urls", url_extraction_node)
+preprocessing_builder.add_node("extract_qr_codes", qr_extraction_node)
 
 preprocessing_builder.add_edge(START, "initialize")
 
 preprocessing_builder.add_edge("initialize", "extract_images")
 preprocessing_builder.add_edge("initialize", "extract_urls")
+preprocessing_builder.add_edge("initialize", "extract_qr_codes")
 
 preprocessing_builder.add_edge("extract_images", END)
 preprocessing_builder.add_edge("extract_urls", END)
-
+preprocessing_builder.add_edge("extract_qr_codes", END)
 
 preprocessing_graph = preprocessing_builder.compile()
 
@@ -25,7 +27,7 @@ preprocessing_graph = preprocessing_builder.compile()
 if __name__ == "__main__":
     import pprint
 
-    file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
+    file_path = "/Users/gorelik/Courses/pdf-hunter/tests/hello_qr_and_link.pdf"
     output_directory = "output/preprocessing_results"
 
     initial_state = {
@@ -53,3 +55,5 @@ if __name__ == "__main__":
         if final_state.get('extracted_urls'):
             print("Example URL Finding:")
             pprint.pprint(final_state['extracted_urls'][0])
+
+    print(f"state: {final_state}")

@@ -25,6 +25,8 @@ class PrioritizedURL(BaseModel):
     priority: int = Field(..., description="Priority level (1=highest, 5=lowest).")
     reason: str = Field(..., description="Reason for the priority assessment.")
     page_number: int = Field(..., description="The page number (0-indexed) where this URL was most prominently found.")
+    source_context: Optional[str] = Field(None, description="Context about the source document (e.g., 'PDF document with verification prompt')")
+    extraction_method: Optional[str] = Field(None, description="How the URL was extracted (e.g., 'qr_code', 'annotation', 'text')")
 
 
 class DetailedFinding(BaseModel):

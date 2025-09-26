@@ -10,6 +10,7 @@ from pdf_hunter.shared.utils.hashing import calculate_file_hashes
 from pdf_hunter.shared.utils.image_extraction import extract_pages_as_base64_images, calculate_image_phash, get_pdf_page_count, save_image
 from pdf_hunter.shared.utils.url_extraction import extract_urls_from_pdf
 from pdf_hunter.shared.utils.file_operations import ensure_output_directory
+from pdf_hunter.shared.utils.qr_extraction import process_pdf_for_qr_codes
 
 
 def initialization_node(state: PreprocessingState):
@@ -142,5 +143,36 @@ def url_extraction_node(state: PreprocessingState):
 
     except Exception as e:
         error_msg = f"Error during URL extraction: {e}"
+        print(f"[ERROR] {error_msg}")
+        return {"errors": [error_msg]}
+    
+
+def qr_extraction_node(state: PreprocessingState):
+    """
+    Extracts QR codes from the specified pages of the PDF.
+    """
+    print("--- Preprocessing Node: Extracting QR Codes ---")
+    try:
+        file_path = state['file_path']
+        pages_to_process = state.get('pages_to_process')
+
+        # If specific pages aren't defined, default to the first page.
+        if not pages_to_process:
+            pages_to_process = [0] if state.get('page_count', 0) > 0 else []
+
+        # 1. Extract QR code data using our utility
+        qr_data_list = process_pdf_for_qr_codes(
+            pdf_path=file_path,
+            specific_pages=pages_to_process
+        )
+
+        # 2. Convert the dictionaries into ExtractedURL Pydantic objects.
+        extracted_qr_urls = [ExtractedURL(**qr_data) for qr_data in qr_data_list]
+
+        print(f"Extracted {len(extracted_qr_urls)} QR code URL(s).")
+        return {"extracted_urls": extracted_qr_urls}
+
+    except Exception as e:
+        error_msg = f"Error during QR code extraction: {e}"
         print(f"[ERROR] {error_msg}")
         return {"errors": [error_msg]}
