@@ -36,6 +36,7 @@ if __name__ == "__main__":
     async def main():
         file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
         # file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
+        file_path = "/Users/gorelik/Courses/pdf-hunter/tests/hello_qr_and_link.pdf"
         output_directory = "output/orchestrator_results"
         # number_of_pages_to_process = 1
         number_of_pages_to_process = 4
