@@ -15,7 +15,10 @@ PDF Hunter is a multi-agent AI framework for automated PDF threat hunting built 
 uv sync
 
 # For development features (Jupyter notebooks)
-uv pip install -e .[dev]
+uv sync --group dev
+
+# Optional: vLLM support (Linux/Windows only, not macOS)
+uv sync --group vllm
 
 # Install Playwright MCP dependency for link analysis
 npm install
@@ -28,9 +31,28 @@ The project uses:
 - **Python**: 3.11+ (required, <3.12)
 - **Package Management**: pyproject.toml with hatchling build backend, uv.lock for dependency management
 - **LangGraph Platform**: Configured with langgraph.json for multi-graph deployment
+- **AI Models**: OpenAI GPT-4o (default), with optional Ollama support for local inference
 - **Dependencies**: LangGraph, LangChain, OpenAI, PDF analysis tools (peepdf-3, pdfid, PyMuPDF), computer vision (OpenCV, pyzbar for QR codes), MCP adapters for browser automation
 - **Development**: Jupyter notebooks for prototyping and testing
 - **Node.js**: Required for Playwright MCP server (@playwright/mcp)
+
+### Model Configuration
+
+The system supports multiple AI model providers configured in `src/pdf_hunter/config.py`:
+
+**OpenAI (Default)**
+- **Model**: GPT-4o 
+- **Setup**: Requires `OPENAI_API_KEY` in `.env`
+- **Advantages**: Most reliable, supports vision tasks, excellent reasoning
+- **Usage**: Recommended for production use
+
+**Ollama (Local Inference)**
+- **Models**: Qwen2.5:7b (text), Qwen2.5-VL:7b (vision)
+- **Setup**: Install Ollama and uncomment Ollama configuration in config.py
+- **Advantages**: Local inference, no API costs, dual-model optimization
+- **Usage**: For development, privacy-sensitive environments, or cost optimization
+
+To switch providers, edit the active configuration in `src/pdf_hunter/config.py`.
 
 ### Running the System
 
@@ -364,10 +386,26 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 
 ### LLM Architecture
 - **LangChain Integration**: Unified LLM interface with `init_chat_model`
-- **Specialized Models**: Each analysis task uses dedicated LLM instances
+- **Specialized Models**: Each analysis task uses dedicated LLM instances (10 total)
+- **Multi-Provider Support**: OpenAI GPT-4o (default) with Ollama support for local inference
+- **Dual-Model Optimization**: When using Ollama, supports separate models for text (Qwen2.5:7b) and vision (Qwen2.5-VL:7b) tasks
 - **Function Calling**: Tool-using models optimized for PDF analysis and web reconnaissance
 - **Structured Output**: Pydantic schema generation for consistent data formats
-- **Future Optimization**: Architecture supports model-specific optimization (vision models for visual analysis, function-calling models for tool use)
+- **Clean Dependencies**: Removed Hugging Face transformers/torch dependencies for simplified deployment
+
+## Recent Architecture Improvements
+
+### Model Configuration Overhaul (September 2025)
+- **Simplified Providers**: Moved from complex multi-provider setup to clean OpenAI default + Ollama option
+- **Dependency Cleanup**: Removed all Hugging Face transformers, torch, and accelerate dependencies
+- **Dual-Model Support**: Added support for specialized text/vision models when using Ollama
+- **Configuration Centralization**: All model settings managed in `src/pdf_hunter/config.py`
+- **Flexible Switching**: Easy provider switching via configuration comments
+
+### Performance Optimizations
+- **Cleaner Dependencies**: Reduced package size by removing unused ML dependencies
+- **Local Inference Option**: Ollama support enables offline/private deployments
+- **Task-Specific Models**: Vision tasks can use specialized VL models for better accuracy
 
 ## Security Considerations
 
