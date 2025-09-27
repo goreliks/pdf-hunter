@@ -76,10 +76,10 @@ The system operates under three core principles:
 - **Session Management**: Auto-generates session ID using `{sha1}_{timestamp}` format
 - **Directory Creation**: Creates session-specific directory structure for organized output
 - **Initialization Node**: Validates paths, calculates file hashes (SHA1/MD5), gets page count
-- **Image Extraction Node**: Renders pages to images, calculates perceptual hashes (pHash)
+- **Image Extraction Node**: Renders pages to images, calculates perceptual hashes (pHash), saves with pHash-based filenames
 - **URL Extraction Node**: Extracts URLs from annotations and text with coordinates
 - **QR Code Detection**: Detects QR codes in extracted images using OpenCV and pyzbar
-- **Output**: File metadata, page images, URLs, QR code data, session directory
+- **Output**: File metadata, page images with pHash-based naming, URLs, QR code data, session directory
 
 **Agent 2: Static Analysis** (`src/pdf_hunter/agents/static_analysis/`):
 - **Triage Node**: Multi-tool PDF scanning (pdfid, pdf-parser, peepdf)
@@ -233,7 +233,7 @@ src/
     │   └── utils/               # Common utilities
     │       ├── file_operations.py # File system operations
     │       ├── hashing.py       # File hash calculation
-    │       ├── image_extraction.py # PDF image extraction
+    │       ├── image_extraction.py # PDF image extraction with pHash-based file naming
     │       ├── url_extraction.py # URL extraction from PDFs
     │       ├── qr_extraction.py # NEW - QR code detection and extraction
     │       ├── mcp_client.py    # NEW - MCP client for browser automation
@@ -326,7 +326,7 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **OpenCV**: QR code detection and image processing
 - **pyzbar**: QR/barcode decoding
 - **Pillow**: Image manipulation
-- **imagehash**: Perceptual hashing for duplicate detection
+- **imagehash**: Perceptual hashing for duplicate detection and intelligent file naming
 
 ### Browser Automation
 - **@playwright/mcp**: MCP server for browser automation

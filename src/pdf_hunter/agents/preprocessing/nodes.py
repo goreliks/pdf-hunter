@@ -105,7 +105,8 @@ def image_extraction_node(state: PreprocessingState):
                 image=pil_image,
                 output_dir=preprocessing_dir,
                 page_number=img_data['page_number'],
-                image_format="PNG"
+                image_format="PNG",
+                phash=phash
             )
 
             # 5. Create the structured ExtractedImage object
