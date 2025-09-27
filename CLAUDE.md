@@ -171,9 +171,27 @@ The system is configured for LangGraph Platform deployment with `langgraph.json`
 
 ### LLM Configuration
 
-- **Default Model**: GPT-4.1 (configured in `src/pdf_hunter/config.py`)
-- **Temperature**: 0.0 for consistent analysis
-- All agents use the same model configuration for consistency
+- **Default Model**: GPT-4o (configured in `src/pdf_hunter/config.py`)
+- **Temperature**: 0.0 for consistent, deterministic analysis
+- **Agent-Specific Models**: Each agent and task has dedicated LLM instances for optimal performance
+
+#### LLM Specialization by Task Type:
+
+**Tool-Using Models** (Function Calling Optimized):
+- `static_analysis_investigator_llm`: PDF parser tool binding for deep analysis
+- `link_analysis_investigator_llm`: Browser automation and MCP tool binding
+
+**Structured Output Models** (Pydantic Schema Generation):
+- All triage, analysis, and verdict models use structured output for consistent data formats
+- Graph merger models for intelligent evidence consolidation
+
+**Natural Language Generation**:
+- `finalizer_llm`: Human-readable markdown report generation
+- Report synthesis models for executive summaries
+
+**Analysis vs. Synthesis Models**:
+- **Analysis Models**: Process raw data (triage, investigation)
+- **Synthesis Models**: High-level reasoning and decision making (reviewer, analyst, finalizer)
 
 ## Testing
 
@@ -343,6 +361,13 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **pdfid**: PDF structure analysis  
 - **PyMuPDF**: PDF rendering and content extraction
 - **python-whois**: Domain analysis for link investigation
+
+### LLM Architecture
+- **LangChain Integration**: Unified LLM interface with `init_chat_model`
+- **Specialized Models**: Each analysis task uses dedicated LLM instances
+- **Function Calling**: Tool-using models optimized for PDF analysis and web reconnaissance
+- **Structured Output**: Pydantic schema generation for consistent data formats
+- **Future Optimization**: Architecture supports model-specific optimization (vision models for visual analysis, function-calling models for tool use)
 
 ## Security Considerations
 
