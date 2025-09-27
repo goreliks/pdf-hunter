@@ -20,3 +20,6 @@ visual_analysis_llm = init_chat_model("openai:gpt-4.1", temperature=0.0)
 
 link_analysis_investigator_llm = init_chat_model("openai:gpt-4.1", temperature=0.0)
 link_analysis_analyst_llm = init_chat_model("openai:gpt-4.1", temperature=0.0)
+
+finalizer_llm = init_chat_model("openai:gpt-4.1", temperature=0.0)
+final_verdict_llm = init_chat_model("openai:gpt-4.1", temperature=0.0)

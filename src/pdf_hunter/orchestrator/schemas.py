@@ -8,6 +8,7 @@ from ..agents.visual_analysis.schemas import VisualAnalysisReport
 from ..agents.preprocessing.schemas import PDFHashData
 from ..agents.static_analysis.schemas import EvidenceGraph, FinalReport
 from ..agents.link_analysis.schemas import URLAnalysisResult
+from ..agents.finalizer.schemas import FinalVerdict
 
 class OrchestratorState(TypedDict):
     """
@@ -40,7 +41,11 @@ class OrchestratorState(TypedDict):
     static_analysis_final_report: NotRequired[FinalReport]
 
     # --- Results from Link Analysis Agent ---
-    link_analysis_final_report: NotRequired[Annotated[List[URLAnalysisResult], operator.add]]
+    link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]
+
+    # --- Results from Finalization Agent ---
+    final_report: NotRequired[str]
+    final_verdict: NotRequired[FinalVerdict]
 
     # --- Global Error Tracking ---
     errors: Annotated[List[list], operator.add]
@@ -52,3 +57,7 @@ class OrchestratorInputState(TypedDict):
     output_directory: str
     number_of_pages_to_process: int
     additional_context: NotRequired[Optional[str]]
+
+
+class OrchestratorOutputState(TypedDict):
+    final_verdict: NotRequired[FinalVerdict]

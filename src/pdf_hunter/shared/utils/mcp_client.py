@@ -1,27 +1,36 @@
 import asyncio
+import uuid
 from contextlib import asynccontextmanager
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 output_dir = "./mcp_outputs/final_pipeline_test"
 
-mcp_config = {
-    "playwright": {
-        "command": "npx",
-        "args": ["@playwright/mcp@latest", f"--output-dir={output_dir}", "--save-trace", "--isolated"],
-        "transport": "stdio"
+def get_mcp_config(task_id: str = None):
+    """Get MCP configuration with optional task-specific output directory."""
+    if task_id:
+        task_output_dir = f"{output_dir}/task_{task_id}"
+    else:
+        task_output_dir = output_dir
+        
+    return {
+        "playwright": {
+            "command": "npx",
+            "args": ["@playwright/mcp@latest", "--headless", f"--output-dir={task_output_dir}", "--save-trace", "--isolated"],
+            "transport": "stdio"
+        }
     }
-}
 
-_client = None
-_session_manager = None
+_clients = {}
+_session_managers = {}
 _session_lock = None
 
-def get_mcp_client():
+def get_mcp_client(task_id: str = None):
     """Get or initialize MCP client lazily to avoid issues with LangGraph Platform."""
-    global _client
-    if _client is None:
-        _client = MultiServerMCPClient(mcp_config)
-    return _client
+    global _clients
+    client_key = task_id or "default"
+    if client_key not in _clients:
+        _clients[client_key] = MultiServerMCPClient(get_mcp_config(task_id))
+    return _clients[client_key]
 
 class MCPSessionManager:
     """Manages a persistent MCP session that can be reused across operations."""
@@ -59,34 +68,51 @@ class MCPSessionManager:
                 self.session = None
                 self.session_context = None
 
-async def get_mcp_session():
-    """Get or initialize a persistent MCP session for playwright.
+async def get_mcp_session(task_id: str = None):
+    """Get or initialize a task-specific MCP session for playwright.
     
-    This function ensures a single session is maintained across all operations
-    while being safe for concurrent access. The session is automatically 
-    initialized when first accessed and reused for subsequent calls.
+    This function ensures isolated sessions for parallel tasks while being safe 
+    for concurrent access. Each task gets its own browser context and output directory.
+    
+    Args:
+        task_id: Optional task identifier for session isolation. If None, uses default session.
     """
-    global _session_manager, _session_lock
+    global _session_managers, _session_lock
     
     # Initialize the lock on first access
     if _session_lock is None:
         _session_lock = asyncio.Lock()
     
+    session_key = task_id or "default"
+    
     async with _session_lock:
-        if _session_manager is None:
-            client = get_mcp_client()
-            _session_manager = MCPSessionManager(client)
+        if session_key not in _session_managers:
+            client = get_mcp_client(task_id)
+            _session_managers[session_key] = MCPSessionManager(client)
         
-        return await _session_manager.get_session()
+        return await _session_managers[session_key].get_session()
 
-async def cleanup_mcp_session():
-    """Cleanup the global MCP session. Call this when shutting down."""
-    global _session_manager, _session_lock
+async def cleanup_mcp_session(task_id: str = None):
+    """Cleanup MCP session(s). Call this when shutting down.
+    
+    Args:
+        task_id: If provided, cleanup only the specific task session. 
+                 If None, cleanup all sessions.
+    """
+    global _session_managers, _session_lock
     
     if _session_lock is None:
         return
         
     async with _session_lock:
-        if _session_manager is not None:
-            await _session_manager.cleanup()
-            _session_manager = None
+        if task_id:
+            # Cleanup specific task session
+            session_key = task_id
+            if session_key in _session_managers:
+                await _session_managers[session_key].cleanup()
+                del _session_managers[session_key]
+        else:
+            # Cleanup all sessions
+            for session_manager in _session_managers.values():
+                await session_manager.cleanup()
+            _session_managers.clear()

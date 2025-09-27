@@ -1,9 +1,9 @@
 from pydantic import BaseModel, Field
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, NotRequired, Optional
 from typing_extensions import TypedDict
 from typing_extensions import Annotated, Sequence
 import operator
-from ..visual_analysis.schemas import PrioritizedURL
+from ..visual_analysis.schemas import PrioritizedURL, VisualAnalysisReport
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
@@ -28,21 +28,39 @@ class URLAnalysisResult(BaseModel):
 # The state for our final two-stage pipeline graph.
 class LinkAnalysisState(TypedDict):
     # Inputs
-    url_task: PrioritizedURL
     output_directory: str
-    link_analysis_messages: Annotated[Sequence[BaseMessage], add_messages]
+    visual_analysis_report: NotRequired[VisualAnalysisReport]
 
-    # Intermediate result
-    investigation_log: Annotated[Sequence[BaseMessage], add_messages]
     errors: Annotated[List[str], operator.add]
 
-    # Final output
-    link_analysis_final_report: URLAnalysisResult
+    link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]
 
 class LinkAnalysisInputState(TypedDict):
+    output_directory: str
+    visual_analysis_report: NotRequired[VisualAnalysisReport]
+
+
+class LinkAnalysisOutputState(TypedDict):
+    link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]
+    errors: NotRequired[Annotated[List[str], operator.add]]
+
+
+class LinkInvestigatorState(TypedDict):
+    """
+    State for the Link Investigator sub-agent.
+    """
+    # Inputs
     url_task: PrioritizedURL
     output_directory: str
 
-class LinkAnalysisOutputState(TypedDict):
+    # Intermediate
+    investigation_logs: Annotated[Sequence[BaseMessage], operator.add]
+
+    # Outputs
+    errors: NotRequired[Annotated[List[str], operator.add]]
     link_analysis_final_report: URLAnalysisResult
-    errors: Annotated[List[str], operator.add]
+
+
+class LinkInvestigatorOutputState(TypedDict):
+    link_analysis_final_report: URLAnalysisResult
+    errors: NotRequired[Annotated[List[str], operator.add]]
