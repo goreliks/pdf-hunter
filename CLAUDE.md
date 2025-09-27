@@ -86,7 +86,8 @@ The system operates under three core principles:
 - **Investigator Subgraph**: Parallel mission-based investigations
 - **Reviewer Node**: Evidence graph merging and strategic analysis
 - **Threat Detection**: OpenAction, JavaScript, AcroForm, EmbeddedFile analysis
-- **Output**: Evidence graph, mission reports, structural analysis
+- **State Persistence**: Automatic final state saving for debugging and analysis tracking
+- **Output**: Evidence graph, mission reports, structural analysis, persistent state files
 
 **Agent 3: Visual Analysis** (`src/pdf_hunter/agents/visual_analysis/`):
 - **Enhanced VDA Persona**: Visual Deception Analyst combining HCI/UX security, cognitive psychology, and digital forensics
@@ -262,7 +263,8 @@ output/                      # Generated analysis reports (session-based organiz
 ├── {sha1}_{timestamp}/  # Session-specific directory for each PDF analysis
 │   ├── preprocessing/       # Preprocessing agent outputs
 │   │   └── extracted_images/
-│   ├── static_analysis/     # Static analysis outputs (when run standalone)
+│   ├── static_analysis/     # Static analysis outputs and state files
+│   │   └── static_analysis_final_state_session_{sha1}_{timestamp}.json
 │   ├── visual_analysis/     # Visual analysis outputs (when run standalone)
 │   ├── link_analysis/       # Link analysis investigation artifacts
 │   │   └── task_url_XXX/    # Task-specific browser screenshots and analysis
