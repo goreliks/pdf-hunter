@@ -1,16 +1,21 @@
 import asyncio
+import os
 import uuid
 from contextlib import asynccontextmanager
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-output_dir = "./mcp_outputs/final_pipeline_test"
+def get_mcp_config(task_id: str = None, base_output_dir: str = None):
+    """Get MCP configuration with task-specific output directory under link_analysis."""
+    # Default to current directory if no base directory provided
+    if base_output_dir is None:
+        base_output_dir = "./output"
 
-def get_mcp_config(task_id: str = None):
-    """Get MCP configuration with optional task-specific output directory."""
+    # Create link_analysis subdirectory under session directory
+    link_analysis_dir = os.path.join(base_output_dir, "link_analysis")
     if task_id:
-        task_output_dir = f"{output_dir}/task_{task_id}"
+        task_output_dir = os.path.join(link_analysis_dir, f"task_{task_id}")
     else:
-        task_output_dir = output_dir
+        task_output_dir = link_analysis_dir
         
     return {
         "playwright": {
@@ -24,12 +29,12 @@ _clients = {}
 _session_managers = {}
 _session_lock = None
 
-def get_mcp_client(task_id: str = None):
+def get_mcp_client(task_id: str = None, base_output_dir: str = None):
     """Get or initialize MCP client lazily to avoid issues with LangGraph Platform."""
     global _clients
-    client_key = task_id or "default"
+    client_key = f"{task_id or 'default'}_{base_output_dir or 'default'}"
     if client_key not in _clients:
-        _clients[client_key] = MultiServerMCPClient(get_mcp_config(task_id))
+        _clients[client_key] = MultiServerMCPClient(get_mcp_config(task_id, base_output_dir))
     return _clients[client_key]
 
 class MCPSessionManager:
@@ -68,28 +73,29 @@ class MCPSessionManager:
                 self.session = None
                 self.session_context = None
 
-async def get_mcp_session(task_id: str = None):
+async def get_mcp_session(task_id: str = None, base_output_dir: str = None):
     """Get or initialize a task-specific MCP session for playwright.
-    
-    This function ensures isolated sessions for parallel tasks while being safe 
+
+    This function ensures isolated sessions for parallel tasks while being safe
     for concurrent access. Each task gets its own browser context and output directory.
-    
+
     Args:
         task_id: Optional task identifier for session isolation. If None, uses default session.
+        base_output_dir: Optional base output directory for session. If None, uses default.
     """
     global _session_managers, _session_lock
-    
+
     # Initialize the lock on first access
     if _session_lock is None:
         _session_lock = asyncio.Lock()
-    
-    session_key = task_id or "default"
-    
+
+    session_key = f"{task_id or 'default'}_{base_output_dir or 'default'}"
+
     async with _session_lock:
         if session_key not in _session_managers:
-            client = get_mcp_client(task_id)
+            client = get_mcp_client(task_id, base_output_dir)
             _session_managers[session_key] = MCPSessionManager(client)
-        
+
         return await _session_managers[session_key].get_session()
 
 async def cleanup_mcp_session(task_id: str = None):

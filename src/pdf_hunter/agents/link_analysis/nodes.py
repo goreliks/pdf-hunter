@@ -24,24 +24,28 @@ async def llm_call(state: LinkInvestigatorState):
     """
 
     url_task = state["url_task"]
-    output_dir = state["output_directory"]
-    
+    session_output_dir = state["output_directory"]
+
     # Generate unique task ID for this investigation to ensure session isolation
     task_id = f"url_{abs(hash(url_task.url))}"
-    
+
+    # Create task-specific investigation directory under link analysis
+    link_analysis_dir = os.path.join(session_output_dir, "link_analysis", "investigations")
+    task_investigation_dir = os.path.join(link_analysis_dir, task_id)
+    os.makedirs(task_investigation_dir, exist_ok=True)
+
     # Get the task-specific MCP session and load tools fresh each time
     from ...shared.utils.mcp_client import get_mcp_session
     from langchain_mcp_adapters.tools import load_mcp_tools
-    session = await get_mcp_session(task_id)
+    session = await get_mcp_session(task_id, session_output_dir)
     mcp_tools = await load_mcp_tools(session)
     all_tools = mcp_tools + [domain_whois]
     model_with_tools = link_analysis_investigator_llm.bind_tools(all_tools)
 
     messages = state.get("investigation_logs", [])
     if not messages:
-        # Get absolute path in a non-blocking way and make it task-specific
-        task_output_dir = f"{output_dir}/task_{task_id}"
-        abs_output_dir = await asyncio.to_thread(os.path.abspath, task_output_dir)
+        # Get absolute path for the task investigation directory
+        abs_task_investigation_dir = await asyncio.to_thread(os.path.abspath, task_investigation_dir)
         # Build context information
         source_context = getattr(url_task, 'source_context', 'PDF document')
         extraction_method = getattr(url_task, 'extraction_method', 'unknown method')
@@ -55,7 +59,7 @@ async def llm_call(state: LinkInvestigatorState):
         **Source Document:** {source_context}
         **Extraction Method:** {extraction_method} (from PDF page {url_task.page_number})
         **Reason Flagged:** {url_task.reason}
-        **Output Directory for Artifacts:** {abs_output_dir}
+        **Note**: Screenshots and traces will be automatically saved to the MCP output directory for this investigation.
         
         **IMPORTANT:** This URL was extracted from a PDF document, not discovered on a website. The PDF may have used social engineering tactics (like fake verification prompts) to trick users into visiting this URL. Your investigation should focus on where this URL leads and whether it's part of a larger attack chain.
         """
@@ -75,9 +79,15 @@ async def tool_node(state: LinkInvestigatorState):
 
     tool_calls = state["investigation_logs"][-1].tool_calls
     url_task = state["url_task"]
-    
+    session_output_dir = state["output_directory"]
+
     # Generate the same task ID as used in llm_call for session consistency
     task_id = f"url_{abs(hash(url_task.url))}"
+
+    # Create task-specific investigation directory under link analysis
+    link_analysis_dir = os.path.join(session_output_dir, "link_analysis", "investigations")
+    task_investigation_dir = os.path.join(link_analysis_dir, task_id)
+    os.makedirs(task_investigation_dir, exist_ok=True)
 
     async def execute_tools():
         from langchain_core.tools.base import ToolException
@@ -85,7 +95,7 @@ async def tool_node(state: LinkInvestigatorState):
         # Get the task-specific MCP session and load tools fresh each time
         from ...shared.utils.mcp_client import get_mcp_session
         from langchain_mcp_adapters.tools import load_mcp_tools
-        session = await get_mcp_session(task_id)
+        session = await get_mcp_session(task_id, session_output_dir)
         mcp_tools = await load_mcp_tools(session)
         tools = mcp_tools + [domain_whois]
         tool_by_name = {tool.name: tool for tool in tools}
@@ -199,6 +209,12 @@ def filter_high_priority_urls(state: LinkAnalysisState):
     """
     Filter and return only high priority URLs from the visual analysis report.
     """
+    # Create link analysis investigations directory
+    session_output_dir = state.get("output_directory")
+    if session_output_dir:
+        link_analysis_dir = os.path.join(session_output_dir, "link_analysis", "investigations")
+        os.makedirs(link_analysis_dir, exist_ok=True)
+
     if "visual_analysis_report" in state and state["visual_analysis_report"]:
         visual_report = state["visual_analysis_report"]
         # Handle both dict and object formats

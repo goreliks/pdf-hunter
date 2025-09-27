@@ -77,6 +77,8 @@ class VisualAnalysisState(TypedDict):
     """
     State for the Visual Analysis agent.
     """
+    output_directory: str  # Added for session management
+    session_id: str        # Added for session management
     extracted_images: List[ExtractedImage]
     extracted_urls: List[ExtractedURL]
     number_of_pages_to_process: int
@@ -86,12 +88,16 @@ class VisualAnalysisState(TypedDict):
 
 
 class VisualAnalysisInputState(TypedDict):
+    output_directory: str  # Added for session management
+    session_id: str        # Added for session management
     extracted_images: List[ExtractedImage]
     extracted_urls: List[ExtractedURL]
     number_of_pages_to_process: int
 
 
 class VisualAnalysisOutputState(TypedDict):
+    output_directory: str  # Added to pass session directory to other agents
+    session_id: str        # Added to pass session ID to other agents
     page_analyses: List[PageAnalysisResult]
     visual_analysis_report: VisualAnalysisReport
     errors: Annotated[List[str], operator.add]

@@ -18,3 +18,4 @@ class FinalizerState(TypedDict):
     final_verdict: NotRequired[FinalVerdict]
     errors: Annotated[List[str], operator.add]
     output_directory: str
+    session_id: str        # Added for session management
