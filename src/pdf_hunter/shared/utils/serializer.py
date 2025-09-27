@@ -34,3 +34,12 @@ def serialize_state_safely(state: Dict[str, Any]) -> str:
     serializable_data = make_serializable(state)
     # return json.dumps(serializable_data, indent=2, ensure_ascii=False)
     return serializable_data
+
+
+def dump_state_to_file(state: Dict[str, Any], file_path: str):
+    """
+    Dump the orchestrator state to a JSON file safely.
+    """
+    serializable_state = serialize_state_safely(state)
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(serializable_state, f, indent=2, ensure_ascii=False)

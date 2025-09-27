@@ -76,17 +76,18 @@ The system operates under three core principles:
 - **Session Management**: Auto-generates session ID using `{sha1}_{timestamp}` format
 - **Directory Creation**: Creates session-specific directory structure for organized output
 - **Initialization Node**: Validates paths, calculates file hashes (SHA1/MD5), gets page count
-- **Image Extraction Node**: Renders pages to images, calculates perceptual hashes (pHash)
+- **Image Extraction Node**: Renders pages to images, calculates perceptual hashes (pHash), saves with pHash-based filenames
 - **URL Extraction Node**: Extracts URLs from annotations and text with coordinates
 - **QR Code Detection**: Detects QR codes in extracted images using OpenCV and pyzbar
-- **Output**: File metadata, page images, URLs, QR code data, session directory
+- **Output**: File metadata, page images with pHash-based naming, URLs, QR code data, session directory
 
 **Agent 2: Static Analysis** (`src/pdf_hunter/agents/static_analysis/`):
 - **Triage Node**: Multi-tool PDF scanning (pdfid, pdf-parser, peepdf)
 - **Investigator Subgraph**: Parallel mission-based investigations
 - **Reviewer Node**: Evidence graph merging and strategic analysis
 - **Threat Detection**: OpenAction, JavaScript, AcroForm, EmbeddedFile analysis
-- **Output**: Evidence graph, mission reports, structural analysis
+- **State Persistence**: Automatic final state saving for debugging and analysis tracking
+- **Output**: Evidence graph, mission reports, structural analysis, persistent state files
 
 **Agent 3: Visual Analysis** (`src/pdf_hunter/agents/visual_analysis/`):
 - **Enhanced VDA Persona**: Visual Deception Analyst combining HCI/UX security, cognitive psychology, and digital forensics
@@ -101,14 +102,15 @@ The system operates under three core principles:
 - **MCP Integration**: Uses Playwright MCP server for browser automation
 - **Link Investigator**: Automated web reconnaissance of suspicious URLs
 - **Analyst Node**: Structured analysis of link findings
-- **Output**: URL reputation, content analysis, threat indicators
+- **State Persistence**: Automatic state saving for debugging and recovery
+- **Output**: URL reputation, content analysis, threat indicators, persistent state files
 
 **Agent 5: Finalizer** (`src/pdf_hunter/agents/finalizer/`):
 - **NEW AGENT**: Comprehensive report generation and final verdict
 - **Reporter Node**: Synthesizes all agent findings into executive summary
 - **Final Verdict Node**: Makes final malicious/benign determination
-- **File Output**: Writes structured JSON reports to disk
-- **Output**: Final report, verdict, actionable intelligence
+- **Enhanced File Output**: Uses centralized serialization for consistent state dumps
+- **Output**: Final report, verdict, actionable intelligence, persistent analysis state
 
 ### Advanced Features
 
@@ -126,7 +128,9 @@ The system operates under three core principles:
 **State Serialization** (`src/pdf_hunter/shared/utils/serializer.py`):
 - Safe JSON serialization of complex orchestrator state
 - Handles Pydantic models, nested structures, and non-serializable objects
-- Essential for debugging and state persistence
+- `serialize_state_safely()`: Converts complex state to JSON-serializable format
+- `dump_state_to_file()`: Direct file writing with automatic serialization
+- Essential for debugging and state persistence across all agents
 
 ### Key Data Structures
 
@@ -167,9 +171,27 @@ The system is configured for LangGraph Platform deployment with `langgraph.json`
 
 ### LLM Configuration
 
-- **Default Model**: GPT-4.1 (configured in `src/pdf_hunter/config.py`)
-- **Temperature**: 0.0 for consistent analysis
-- All agents use the same model configuration for consistency
+- **Default Model**: GPT-4o (configured in `src/pdf_hunter/config.py`)
+- **Temperature**: 0.0 for consistent, deterministic analysis
+- **Agent-Specific Models**: Each agent and task has dedicated LLM instances for optimal performance
+
+#### LLM Specialization by Task Type:
+
+**Tool-Using Models** (Function Calling Optimized):
+- `static_analysis_investigator_llm`: PDF parser tool binding for deep analysis
+- `link_analysis_investigator_llm`: Browser automation and MCP tool binding
+
+**Structured Output Models** (Pydantic Schema Generation):
+- All triage, analysis, and verdict models use structured output for consistent data formats
+- Graph merger models for intelligent evidence consolidation
+
+**Natural Language Generation**:
+- `finalizer_llm`: Human-readable markdown report generation
+- Report synthesis models for executive summaries
+
+**Analysis vs. Synthesis Models**:
+- **Analysis Models**: Process raw data (triage, investigation)
+- **Synthesis Models**: High-level reasoning and decision making (reviewer, analyst, finalizer)
 
 ## Testing
 
@@ -233,7 +255,7 @@ src/
     │   └── utils/               # Common utilities
     │       ├── file_operations.py # File system operations
     │       ├── hashing.py       # File hash calculation
-    │       ├── image_extraction.py # PDF image extraction
+    │       ├── image_extraction.py # PDF image extraction with pHash-based file naming
     │       ├── url_extraction.py # URL extraction from PDFs
     │       ├── qr_extraction.py # NEW - QR code detection and extraction
     │       ├── mcp_client.py    # NEW - MCP client for browser automation
@@ -259,7 +281,8 @@ output/                      # Generated analysis reports (session-based organiz
 ├── {sha1}_{timestamp}/  # Session-specific directory for each PDF analysis
 │   ├── preprocessing/       # Preprocessing agent outputs
 │   │   └── extracted_images/
-│   ├── static_analysis/     # Static analysis outputs (when run standalone)
+│   ├── static_analysis/     # Static analysis outputs and state files
+│   │   └── static_analysis_final_state_session_{sha1}_{timestamp}.json
 │   ├── visual_analysis/     # Visual analysis outputs (when run standalone)
 │   ├── link_analysis/       # Link analysis investigation artifacts
 │   │   └── task_url_XXX/    # Task-specific browser screenshots and analysis
@@ -326,7 +349,7 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **OpenCV**: QR code detection and image processing
 - **pyzbar**: QR/barcode decoding
 - **Pillow**: Image manipulation
-- **imagehash**: Perceptual hashing for duplicate detection
+- **imagehash**: Perceptual hashing for duplicate detection and intelligent file naming
 
 ### Browser Automation
 - **@playwright/mcp**: MCP server for browser automation
@@ -338,6 +361,13 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **pdfid**: PDF structure analysis  
 - **PyMuPDF**: PDF rendering and content extraction
 - **python-whois**: Domain analysis for link investigation
+
+### LLM Architecture
+- **LangChain Integration**: Unified LLM interface with `init_chat_model`
+- **Specialized Models**: Each analysis task uses dedicated LLM instances
+- **Function Calling**: Tool-using models optimized for PDF analysis and web reconnaissance
+- **Structured Output**: Pydantic schema generation for consistent data formats
+- **Future Optimization**: Architecture supports model-specific optimization (vision models for visual analysis, function-calling models for tool use)
 
 ## Security Considerations
 

@@ -28,11 +28,9 @@ orchestrator_graph = orchestrator_builder.compile()
 
 if __name__ == "__main__":
     import pprint
-    import uuid
     import json
     import os
     import asyncio
-    from datetime import datetime
 
     async def main():
         file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"

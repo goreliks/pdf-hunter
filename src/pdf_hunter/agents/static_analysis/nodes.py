@@ -1,3 +1,4 @@
+import os
 from .schemas import StaticAnalysisState, MissionStatus, InvestigatorState
 from pdf_hunter.shared.analyzers.wrappers import run_pdfid, run_pdf_parser_full_statistical_analysis, run_peepdf
 from .prompts import triage_system_prompt, triage_user_prompt, investigator_system_prompt, investigator_user_prompt
@@ -14,6 +15,7 @@ from .prompts import reviewer_system_prompt, reviewer_user_prompt
 from .prompts import finalizer_system_prompt, finalizer_user_prompt
 from pdf_hunter.config import static_analysis_triage_llm, static_analysis_investigator_llm, static_analysis_graph_merger_llm, static_analysis_reviewer_llm, static_analysis_finalizer_llm
 from .schemas import TriageReport,MissionReport, ReviewerReport,FinalReport
+from pdf_hunter.shared.utils.serializer import dump_state_to_file
 
 
 llm_router = static_analysis_triage_llm.with_structured_output(TriageReport)
@@ -324,6 +326,18 @@ def finalizer_node(state: StaticAnalysisState):
         SystemMessage(content=finalizer_system_prompt),
         HumanMessage(content=user_prompt)
     ])
+
+    try:
+        # Save the final state to a JSON file for debugging and records
+        session_output_directory = state.get("output_directory", "output")
+        session_id = state.get("session_id", "unknown_session")
+        finalizer_directory = os.path.join(session_output_directory, "static_analysis")
+        os.makedirs(finalizer_directory, exist_ok=True)
+        json_filename = f"static_analysis_final_state_session_{session_id}.json"
+        json_path = os.path.join(finalizer_directory, json_filename)
+        dump_state_to_file(state, json_path)
+    except Exception as e:
+        state["errors"] = state.get("errors", []) + [f"Error saving final state to JSON: {e}"]
     
     print(f"--- Final Report Generated ---\nFinal Verdict: {static_analysis_final_report.final_verdict}")
     

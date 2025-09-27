@@ -88,7 +88,8 @@ def save_image(
     image: Image.Image,
     output_dir: pathlib.Path,
     page_number: int,
-    image_format: str = "PNG"
+    image_format: str = "PNG",
+    phash: Optional[str] = None
 ) -> pathlib.Path:
     """
     Saves a PIL Image with a descriptive filename.
@@ -104,7 +105,7 @@ def save_image(
     """
     # Use the output directory name as a prefix for the image file
     # to group images from the same analysis session.
-    file_stem = output_dir.name
+    file_stem = phash if phash else output_dir.name
     filename = f"{file_stem}_page_{page_number}.{image_format.lower()}"
     output_path = output_dir / filename
     

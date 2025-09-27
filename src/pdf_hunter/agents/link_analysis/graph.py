@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph, START, END
 
 from .schemas import LinkAnalysisState, LinkAnalysisInputState, LinkAnalysisOutputState, LinkInvestigatorState, LinkInvestigatorOutputState
 from ..visual_analysis.schemas import PrioritizedURL
-from .nodes import llm_call, tool_node, analyst_node, should_continue, dispatch_link_analysis, filter_high_priority_urls
+from .nodes import llm_call, tool_node, analyst_node, should_continue, dispatch_link_analysis, filter_high_priority_urls, save_link_analysis_state
 
 
 link_investigator_state = StateGraph(LinkInvestigatorState, output_schema=LinkInvestigatorOutputState)
@@ -47,9 +47,11 @@ pipeline = StateGraph(LinkAnalysisState, input_schema=LinkAnalysisInputState, ou
 
 pipeline.add_node("filter_high_priority_urls", filter_high_priority_urls)
 pipeline.add_node("conduct_link_analysis", conduct_link_analysis)
+pipeline.add_node("save_link_analysis_state", save_link_analysis_state)
 pipeline.add_edge(START, "filter_high_priority_urls")
-pipeline.add_conditional_edges("filter_high_priority_urls", dispatch_link_analysis, ["conduct_link_analysis", END])
-pipeline.add_edge("conduct_link_analysis", END)
+pipeline.add_conditional_edges("filter_high_priority_urls", dispatch_link_analysis, ["conduct_link_analysis", "save_link_analysis_state"])
+pipeline.add_edge("conduct_link_analysis", "save_link_analysis_state")
+pipeline.add_edge("save_link_analysis_state", END)
 
 link_analysis_graph = pipeline.compile()
 
@@ -57,7 +59,7 @@ if __name__ == "__main__":
     from .schemas import PrioritizedURL
     import asyncio
 
-    output_dir = "./mcp_outputs/final_pipeline_test"
+    output_dir = "./outputs/test_link_analysis"
 
     test_state = {
         "visual_analysis_report": {
@@ -92,42 +94,10 @@ if __name__ == "__main__":
         print("\n\n" + "="*50)
         print("📊✅ FINAL FORENSIC REPORT ✅📊")
         print("="*50)
-        if final_state.get("link_analysis_final_report"):
-            print(final_state["link_analysis_final_report"].model_dump_json(indent=2))
+        if final_state.get("link_analysis_final_reports"):
+            for report in final_state["link_analysis_final_reports"]:
+                print(report.model_dump_json(indent=2))
         else:
             print("No final report generated.")
-
-                # Save final state to JSON file
-        if final_state:
-            # Generate unique filename with timestamp
-            unique_id = uuid.uuid4().hex[:8]
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"link_analysis_report_session_{unique_id}_{timestamp}.json"
-            
-            # Ensure output directory exists
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Full path for the JSON file
-            json_path = os.path.join(output_dir, filename)
-
-            # Convert final state to JSON-serializable format
-            def make_serializable(obj):
-                if hasattr(obj, 'model_dump'):
-                    return obj.model_dump()
-                elif isinstance(obj, dict):
-                    # Skip the MCP session key to avoid serialization issues
-                    return {k: make_serializable(v) for k, v in obj.items() if k != "mcp_playwright_session"}
-                elif isinstance(obj, list):
-                    return [make_serializable(item) for item in obj]
-                else:
-                    return obj
-            
-            serializable_state = make_serializable(final_state)
-            
-            # Save to JSON file
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(serializable_state, f, indent=2, ensure_ascii=False)
-            
-            print(f"\n--- Final state saved to: {json_path} ---")
 
     asyncio.run(main())
