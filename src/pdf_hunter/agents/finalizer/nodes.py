@@ -1,12 +1,10 @@
-# src/pdf_hunter/agents/finalizer/nodes.py
-
 import json
 import os
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage
 from pdf_hunter.config import finalizer_llm, final_verdict_llm
 from pdf_hunter.orchestrator.schemas import OrchestratorState
-from pdf_hunter.shared.utils.serializer import serialize_state_safely
+from pdf_hunter.shared.utils.serializer import serialize_state_safely, dump_state_to_file
 from .prompts import FINALIZER_SYSTEM_PROMPT, FINALIZER_USER_PROMPT, FINAL_VERDICT_SYSTEM_PROMPT, FINAL_VERDICT_USER_PROMPT
 from .schemas import FinalVerdict
 
@@ -74,14 +72,11 @@ def write_the_results_to_file(state: OrchestratorState) -> dict:
     # --- Save the complete state to a JSON file for debugging and records ---
     json_filename = f"final_state_session_{session_id}.json"
     json_path = os.path.join(finalizer_directory, json_filename)
-    serializable_state = serialize_state_safely(state)
 
     try:
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(serializable_state, f, indent=4, ensure_ascii=False)
-        print(f"--- Final state saved to: {json_path} ---")
+        dump_state_to_file(state, json_path)
     except Exception as e:
-        print(f"--- Error writing final state to JSON: {e} ---")
+        state["errors"] = state.get("errors", []) + [f"Error saving final state to JSON: {e}"]
 
     # --- Save the final, complete Markdown report ---
     report_filename = f"final_report_session_{session_id}.md"

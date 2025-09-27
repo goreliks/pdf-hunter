@@ -101,14 +101,15 @@ The system operates under three core principles:
 - **MCP Integration**: Uses Playwright MCP server for browser automation
 - **Link Investigator**: Automated web reconnaissance of suspicious URLs
 - **Analyst Node**: Structured analysis of link findings
-- **Output**: URL reputation, content analysis, threat indicators
+- **State Persistence**: Automatic state saving for debugging and recovery
+- **Output**: URL reputation, content analysis, threat indicators, persistent state files
 
 **Agent 5: Finalizer** (`src/pdf_hunter/agents/finalizer/`):
 - **NEW AGENT**: Comprehensive report generation and final verdict
 - **Reporter Node**: Synthesizes all agent findings into executive summary
 - **Final Verdict Node**: Makes final malicious/benign determination
-- **File Output**: Writes structured JSON reports to disk
-- **Output**: Final report, verdict, actionable intelligence
+- **Enhanced File Output**: Uses centralized serialization for consistent state dumps
+- **Output**: Final report, verdict, actionable intelligence, persistent analysis state
 
 ### Advanced Features
 
@@ -126,7 +127,9 @@ The system operates under three core principles:
 **State Serialization** (`src/pdf_hunter/shared/utils/serializer.py`):
 - Safe JSON serialization of complex orchestrator state
 - Handles Pydantic models, nested structures, and non-serializable objects
-- Essential for debugging and state persistence
+- `serialize_state_safely()`: Converts complex state to JSON-serializable format
+- `dump_state_to_file()`: Direct file writing with automatic serialization
+- Essential for debugging and state persistence across all agents
 
 ### Key Data Structures
 

@@ -3,9 +3,9 @@ import json
 import asyncio
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
-from langchain_mcp_adapters.tools import load_mcp_tools
 from typing import Literal
 from .tools import domain_whois
+from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from langgraph.constants import Send, END
 
 
@@ -227,3 +227,26 @@ def filter_high_priority_urls(state: LinkAnalysisState):
             high_priority_urls = [url for url in high_priority_urls if url.priority <= 5]
             return {"high_priority_urls": high_priority_urls}
     return {"high_priority_urls": []}
+
+
+def save_link_analysis_state(state: LinkAnalysisState):
+    """
+    Save the entire link analysis state to a JSON file for debugging and records.
+    """
+    session_output_dir = state.get("output_directory", "output")
+    session_id = state.get("session_id", "unknown_session")
+
+    # Create link analysis subdirectory
+    link_analysis_directory = os.path.join(session_output_dir, "link_analysis")
+    os.makedirs(link_analysis_directory, exist_ok=True)
+
+    json_filename = f"link_analysis_state_session_{session_id}.json"
+    json_path = os.path.join(link_analysis_directory, json_filename)
+
+    try:
+        dump_state_to_file(state, json_path)
+        print(f"--- Link analysis state saved to: {json_path} ---")
+    except Exception as e:
+        state["errors"] = state.get("errors", []) + [f"Error writing link analysis state to JSON: {e} ---"]
+
+    return {}
