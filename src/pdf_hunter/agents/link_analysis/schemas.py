@@ -29,6 +29,7 @@ class URLAnalysisResult(BaseModel):
 class LinkAnalysisState(TypedDict):
     # Inputs
     output_directory: str
+    session_id: str        # Added for session management
     visual_analysis_report: NotRequired[VisualAnalysisReport]
 
     errors: Annotated[List[str], operator.add]
@@ -37,10 +38,13 @@ class LinkAnalysisState(TypedDict):
 
 class LinkAnalysisInputState(TypedDict):
     output_directory: str
+    session_id: str        # Added for session management
     visual_analysis_report: NotRequired[VisualAnalysisReport]
 
 
 class LinkAnalysisOutputState(TypedDict):
+    output_directory: str  # Added to pass session directory to other agents
+    session_id: str        # Added to pass session ID to other agents
     link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]
     errors: NotRequired[Annotated[List[str], operator.add]]
 
@@ -52,6 +56,7 @@ class LinkInvestigatorState(TypedDict):
     # Inputs
     url_task: PrioritizedURL
     output_directory: str
+    session_id: str        # Added for session management
 
     # Intermediate
     investigation_logs: Annotated[Sequence[BaseMessage], operator.add]

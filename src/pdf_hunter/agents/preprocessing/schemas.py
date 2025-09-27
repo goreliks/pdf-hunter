@@ -38,6 +38,7 @@ class PreprocessingState(TypedDict):
     output_directory: str
     pages_to_process: Optional[List[int]] # List of 0-based page numbers to process
     number_of_pages_to_process: int
+    session_id: Optional[str]  # Added for session management
 
     # --- Outputs ---
     pdf_hash: Optional[PDFHashData]
@@ -55,9 +56,12 @@ class PreprocessingInputState(TypedDict):
     file_path: str
     output_directory: str
     number_of_pages_to_process: int
+    session_id: Optional[str]  # Added for session management
 
 
 class PreprocessingOutputState(TypedDict):
+    output_directory: str  # Added to pass session directory to other agents
+    session_id: str        # Added to pass session ID to other agents
     pdf_hash: Optional[PDFHashData]
     page_count: Optional[int]
     pages_to_process: List[int]

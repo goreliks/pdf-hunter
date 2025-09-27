@@ -67,16 +67,19 @@ The system operates under three core principles:
 **Orchestrator** (`src/pdf_hunter/orchestrator/`):
 - Master coordination graph managing the entire analysis workflow
 - **Updated Workflow**: START → preprocessing → {static_analysis, visual_analysis} → link_analysis → finalizer → END
+- **Session Management**: Auto-generates session IDs and creates session-specific directories
 - **State Management**: Aggregates results from all agents using LangGraph's additive list aggregation
 - **Serialization**: Safe state serialization for persistence and debugging
 
 **Agent 1: Preprocessing** (`src/pdf_hunter/agents/preprocessing/`):
 - **Purpose**: Extract safe, high-signal artifacts without executing content
+- **Session Management**: Auto-generates session ID using `{sha1}_{timestamp}` format
+- **Directory Creation**: Creates session-specific directory structure for organized output
 - **Initialization Node**: Validates paths, calculates file hashes (SHA1/MD5), gets page count
 - **Image Extraction Node**: Renders pages to images, calculates perceptual hashes (pHash)
 - **URL Extraction Node**: Extracts URLs from annotations and text with coordinates
-- **QR Code Detection**: NEW - Detects QR codes in extracted images using OpenCV and pyzbar
-- **Output**: File metadata, page images, URLs, QR code data
+- **QR Code Detection**: Detects QR codes in extracted images using OpenCV and pyzbar
+- **Output**: File metadata, page images, URLs, QR code data, session directory
 
 **Agent 2: Static Analysis** (`src/pdf_hunter/agents/static_analysis/`):
 - **Triage Node**: Multi-tool PDF scanning (pdfid, pdf-parser, peepdf)
@@ -117,7 +120,8 @@ The system operates under three core principles:
 **MCP Client Integration** (`src/pdf_hunter/shared/utils/mcp_client.py`):
 - Multi-server MCP client for browser automation
 - Playwright integration for link analysis
-- Task-specific output management and isolation
+- Session-aware directory management for screenshots and traces
+- Task-specific output isolation under session directories
 
 **State Serialization** (`src/pdf_hunter/shared/utils/serializer.py`):
 - Safe JSON serialization of complex orchestrator state
@@ -251,9 +255,18 @@ tests/                       # PDF samples and test data
 ├── test_mal_one.pdf        # Malicious PDF sample
 └── *.pdf                   # Additional test files
 
-output/                      # Generated analysis reports
-├── preprocessing_results/   # Results from preprocessing agent
-└── orchestrator_results/    # Complete orchestration results
+output/                      # Generated analysis reports (session-based organization)
+├── {sha1}_{timestamp}/  # Session-specific directory for each PDF analysis
+│   ├── preprocessing/       # Preprocessing agent outputs
+│   │   └── extracted_images/
+│   ├── static_analysis/     # Static analysis outputs (when run standalone)
+│   ├── visual_analysis/     # Visual analysis outputs (when run standalone)
+│   ├── link_analysis/       # Link analysis investigation artifacts
+│   │   └── task_url_XXX/    # Task-specific browser screenshots and analysis
+│   └── finalizer/           # Final reports and state files
+│       ├── final_report_session_{sha1}_{timestamp}.md
+│       └── final_state_session_{sha1}_{timestamp}.json
+└── mcp_outputs/             # Legacy MCP output directory (for standalone usage)
 
 .langgraph_api/             # LangGraph Platform state
 ├── .langgraph_checkpoint.*.pckl  # Checkpoint files

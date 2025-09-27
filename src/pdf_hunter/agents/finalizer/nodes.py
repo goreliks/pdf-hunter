@@ -64,15 +64,16 @@ def write_the_results_to_file(state: OrchestratorState) -> dict:
     """
     print("--- Finalizer Node: Writing Final Results to Files ---")
 
-    output_directory = state.get("output_directory", "output/finalizer_results")
+    session_output_directory = state.get("output_directory", "output")
     session_id = state.get("session_id", "unknown_session")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    os.makedirs(output_directory, exist_ok=True)
+    # Create finalizer subdirectory
+    finalizer_directory = os.path.join(session_output_directory, "finalizer")
+    os.makedirs(finalizer_directory, exist_ok=True)
 
     # --- Save the complete state to a JSON file for debugging and records ---
-    json_filename = f"final_state_session_{session_id}_{timestamp}.json"
-    json_path = os.path.join(output_directory, json_filename)
+    json_filename = f"final_state_session_{session_id}.json"
+    json_path = os.path.join(finalizer_directory, json_filename)
     serializable_state = serialize_state_safely(state)
 
     try:
@@ -83,8 +84,8 @@ def write_the_results_to_file(state: OrchestratorState) -> dict:
         print(f"--- Error writing final state to JSON: {e} ---")
 
     # --- Save the final, complete Markdown report ---
-    report_filename = f"final_report_session_{session_id}_{timestamp}.md"
-    report_path = os.path.join(output_directory, report_filename)
+    report_filename = f"final_report_session_{session_id}.md"
+    report_path = os.path.join(finalizer_directory, report_filename)
     
     # The 'final_report' from the state is now the complete, definitive version.
     # No "enhancing" is needed.

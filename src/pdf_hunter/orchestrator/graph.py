@@ -43,9 +43,8 @@ if __name__ == "__main__":
         number_of_pages_to_process = 4
 
         orchestrator_input = {
-            "session_id": uuid.uuid4().hex[:8],
             "file_path": file_path,
-            "output_directory": output_directory,
+            "output_directory": "output",  # Base directory, session-specific will be created
             "number_of_pages_to_process": number_of_pages_to_process,
             "additional_context": "None"
         }
@@ -82,25 +81,28 @@ if __name__ == "__main__":
 
         # Save final state to JSON file
         if final_state:
-            # Generate unique filename with timestamp
-            unique_id = uuid.uuid4().hex[:8]
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"analysis_report_session_{unique_id}_{timestamp}.json"
-            
+            # Use session-specific directory from final state
+            session_output_directory = final_state.get('output_directory')
+            session_id = final_state.get('session_id', 'unknown')
+            filename = f"analysis_report_session_{session_id}.json"
+
             # Ensure output directory exists
-            os.makedirs(output_directory, exist_ok=True)
-            
-            # Full path for the JSON file
-            json_path = os.path.join(output_directory, filename)
-            
-            # Convert final state to JSON-serializable format
-            serializable_state = serialize_state_safely(final_state)
-            
-            # Save to JSON file
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(serializable_state, f, indent=2, ensure_ascii=False)
-            
-            print(f"\n--- Final state saved to: {json_path} ---")
+            if session_output_directory:
+                os.makedirs(session_output_directory, exist_ok=True)
+
+                # Full path for the JSON file
+                json_path = os.path.join(session_output_directory, filename)
+
+                # Convert final state to JSON-serializable format
+                serializable_state = serialize_state_safely(final_state)
+
+                # Save to JSON file
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(serializable_state, f, indent=2, ensure_ascii=False)
+
+                print(f"\n--- Final state saved to: {json_path} ---")
+            else:
+                print("\n--- Warning: No output directory found in final state ---")
 
     # Run the async main function
     asyncio.run(main())
