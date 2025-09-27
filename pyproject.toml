@@ -79,6 +79,7 @@ dependencies = [
     "langchain-community==0.3.27",
     "langchain-core==0.3.69",
     "langchain-mcp-adapters>=0.1.9",
+    "langchain-ollama>=0.3.5",
     "langchain-openai==0.3.28",
     "langchain-text-splitters==0.3.8",
     "langgraph>=0.5.3",
@@ -103,7 +104,7 @@ dependencies = [
     "nest-asyncio==1.6.0",
     "notebook==7.4.4",
     "notebook-shim==0.2.4",
-    "numpy==2.3.1",
+    "numpy>=1.24,<2.3",
     "openai==1.97.0",
     "opencv-python>=4.11.0.86",
     "orjson==3.11.0",
@@ -199,6 +200,10 @@ packages = ["src/pdf_hunter"]
 dev = [
     "ipykernel>=6.29.5",
     "jupyterlab>=4.4.4",
+]
+vllm = [
+    "vllm>=0.8.4",  # Supports numpy 2.x (disabled on macOS)
+    "numpy>=1.24,<2.3",  # Compatible range
 ]
 
 # You can add or change metadata anytime later, e.g.:

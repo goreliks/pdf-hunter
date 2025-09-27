@@ -1,11 +1,13 @@
 # src/pdf_hunter/agents/visual_analysis/nodes.py
 
 import json
+import os
 from typing import List
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from .schemas import VisualAnalysisState, PageAnalysisResult, VisualAnalysisReport
+from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from .prompts import VISUAL_ANALYSIS_SYSTEM_PROMPT, VISUAL_ANALYSIS_USER_PROMPT
 from pdf_hunter.config import visual_analysis_llm
 
@@ -191,6 +193,17 @@ def aggregation_node(state: VisualAnalysisState):
         all_benign_signals=all_signals,
         high_priority_urls=high_priority_urls
     )
-    
-    print(f"--- Final Verdict: {visual_analysis_report.overall_verdict} (Confidence: {visual_analysis_report.overall_confidence:.2f}) ---")
+
+    try:
+        # Save the final report to a JSON file for record-keeping.
+        session_output_directory = state.get("output_directory", "output")
+        session_id = state.get("session_id", "unknown")
+        visual_analysis_directory = os.path.join(session_output_directory, "visual_analysis")
+        os.makedirs(visual_analysis_directory, exist_ok=True)
+        json_filename = f"visual_analysis_state_session_{session_id}.json"
+        json_path = os.path.join(visual_analysis_directory, json_filename)
+        dump_state_to_file(visual_analysis_report, json_path)
+    except Exception as e:
+        state["errors"] = state.get("errors", []) + [f"Error saving visual analysis report to JSON: {e}"]
+        
     return {"visual_analysis_report": visual_analysis_report}
