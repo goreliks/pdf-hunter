@@ -15,12 +15,12 @@ from pdf_hunter.shared.utils.file_operations import ensure_output_directory
 from pdf_hunter.shared.utils.qr_extraction import process_pdf_for_qr_codes
 
 
-def initialization_node(state: PreprocessingState):
+def setup_session(state: PreprocessingState):
     """
-    Initializes the preprocessing by validating paths, calculating hashes,
+    Initializes the PDF extraction by validating paths, calculating hashes,
     generating session_id, and creating session-specific directory structure.
     """
-    print("--- Preprocessing Node: Initializing Analysis ---")
+    print("--- PDF Extraction: Setting Up Session ---")
     try:
         file_path = state['file_path']
         base_output_directory = state.get('output_directory', 'output')
@@ -67,12 +67,12 @@ def initialization_node(state: PreprocessingState):
         return {"errors": [error_msg]}
 
 
-def image_extraction_node(state: PreprocessingState):
+def extract_pdf_images(state: PreprocessingState):
     """
     Extracts images from the specified pages of the PDF, calculates their
     perceptual hash (phash), and saves them to the preprocessing subdirectory.
     """
-    print("--- Preprocessing Node: Extracting Images ---")
+    print("--- PDF Extraction: Extracting PDF Images ---")
     try:
         file_path = state['file_path']
         session_output_dir = state['output_directory']
@@ -129,12 +129,12 @@ def image_extraction_node(state: PreprocessingState):
         return {"errors": [error_msg]}
 
 
-def url_extraction_node(state: PreprocessingState):
+def find_embedded_urls(state: PreprocessingState):
     """
     Extracts URLs from the specified pages of the PDF from both
     annotations and raw text.
     """
-    print("--- Preprocessing Node: Extracting URLs ---")
+    print("--- PDF Extraction: Finding Embedded URLs ---")
     try:
         file_path = state['file_path']
         pages_to_process = state.get('pages_to_process')
@@ -163,11 +163,11 @@ def url_extraction_node(state: PreprocessingState):
         return {"errors": [error_msg]}
     
 
-def qr_extraction_node(state: PreprocessingState):
+def scan_qr_codes(state: PreprocessingState):
     """
     Extracts QR codes from the specified pages of the PDF.
     """
-    print("--- Preprocessing Node: Extracting QR Codes ---")
+    print("--- PDF Extraction: Scanning QR Codes ---")
     try:
         file_path = state['file_path']
         pages_to_process = state.get('pages_to_process')

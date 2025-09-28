@@ -26,8 +26,8 @@ llm_reviewer = static_analysis_reviewer_llm.with_structured_output(ReviewerRepor
 llm_finalizer = static_analysis_finalizer_llm.with_structured_output(FinalReport)
 
 
-def triage_router(state: StaticAnalysisState):
-    print("--- Triage Node: Starting Initial Analysis ---")
+def identify_suspicious_elements(state: StaticAnalysisState):
+    print("--- File Analysis: Identifying Suspicious Elements ---")
     file_path = state['file_path']
 
     pdfid_output = run_pdfid(file_path)
@@ -67,7 +67,7 @@ def triage_router(state: StaticAnalysisState):
     return updates
 
 
-def update_mission_list(state: StaticAnalysisState):
+def create_analysis_tasks(state: StaticAnalysisState):
     updated_missions = []
     for mission in state['mission_list']:
         if mission.status == MissionStatus.NEW:
@@ -76,13 +76,13 @@ def update_mission_list(state: StaticAnalysisState):
     return {"mission_list": updated_missions}
 
 
-def dispatch_investigations(state: StaticAnalysisState): 
+def assign_analysis_tasks(state: StaticAnalysisState): 
     """
     Dispatches all missions currently in 'NEW' status to the investigator pool.
     Updates the status of dispatched missions to 'IN_PROGRESS'.
     """
     
-    print("\n--- Dispatcher Node: Checking for new missions ---")
+    print("\n--- File Analysis: Checking for New Analysis Tasks ---")
     
     missions_to_dispatch = [
         m for m in state['mission_list'] 
@@ -90,10 +90,10 @@ def dispatch_investigations(state: StaticAnalysisState):
         and m.mission_id not in state.get('completed_investigations', {})
     ]
     if not missions_to_dispatch:
-        return "reviewer_node"
+        return "review_analysis_results"
     return [
         Send(
-            "conduct_investigation",
+            "run_file_analysis",
             {
                 "file_path": state['file_path'],
                 "mission": mission,
@@ -105,7 +105,7 @@ def dispatch_investigations(state: StaticAnalysisState):
     ]
 
 
-def investigator_node(state: InvestigatorState):
+def file_analyzer(state: InvestigatorState):
     """
     Investigator node that runs one step of the investigation.
     """
@@ -137,7 +137,7 @@ def investigator_node(state: InvestigatorState):
     # --- State and Routing Logic ---
     if not result.tool_calls:
         # The agent has decided the mission is over and did not call a tool.
-        print(f"Mission {state['mission'].mission_id} complete. Generating final report.")
+        print(f"Analysis task {state['mission'].mission_id} complete. Generating final report.")
         
         # Add the agent's last thought to the history before asking for the report
         final_messages = messages + [result]
@@ -183,13 +183,13 @@ def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[Evi
     return result.master_graph
 
 
-def reviewer_node(state: StaticAnalysisState) -> Command[Literal["finalizer_node", "update_mission_list"]]:
+def review_analysis_results(state: StaticAnalysisState) -> Command[Literal["summarize_file_analysis", "create_analysis_tasks"]]:
     """
     Acts as the "Chief Pathologist." This node now performs two roles:
     1. PROCESSES the raw results from the completed investigations (Reducer's job).
     2. ANALYZES the processed results to decide the next strategic step (Reviewer's job).
     """
-    print("\n--- Reviewer Node: Processing and Reviewing Results ---")
+    print("\n--- File Analysis: Processing and Reviewing Results ---")
 
     # --- Part 1: PROCESS raw investigation results (The Reducer's Logic) ---
     
@@ -284,21 +284,21 @@ def reviewer_node(state: StaticAnalysisState) -> Command[Literal["finalizer_node
     
     if result.is_investigation_complete:
         print("Reviewer Decision: Investigation is complete. Proceeding to finalizer.")
-        goto = "finalizer_node"
+        goto = "summarize_file_analysis"
     else:
         if result.new_missions:
             print(f"Reviewer Decision: Investigation continues. Adding {len(result.new_missions)} new mission(s).")
         else:
             print("Reviewer Decision: Investigation continues, but no new missions were generated. Looping to re-evaluate.")
-        goto = "update_mission_list"
+        goto = "create_analysis_tasks"
         
     return Command(goto=goto, update=updates)
 
 
 from langchain_core.messages.utils import get_buffer_string
 
-def finalizer_node(state: StaticAnalysisState):
-    print("\n--- Finalizer Node: Generating Final Autopsy Report ---")
+def summarize_file_analysis(state: StaticAnalysisState):
+    print("\n--- File Analysis: Generating Final Analysis Summary ---")
 
     master_graph_json = state['master_evidence_graph'].model_dump_json(indent=2)
     mission_reports_json = json.dumps({mid: r.model_dump() for mid, r in state['mission_reports'].items()}, indent=2)

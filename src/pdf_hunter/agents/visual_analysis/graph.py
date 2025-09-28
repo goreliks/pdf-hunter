@@ -1,19 +1,19 @@
 from langgraph.graph import StateGraph, START, END
 
 from .schemas import VisualAnalysisState
-from .nodes import visual_analysis_node, aggregation_node
+from .nodes import analyze_pdf_images, compile_image_findings
 
 
 visual_analysis_builder = StateGraph(VisualAnalysisState)
 
-visual_analysis_builder.add_node("visual_analysis", visual_analysis_node)
-visual_analysis_builder.add_node("aggregate_report", aggregation_node)
+visual_analysis_builder.add_node("analyze_pdf_images", analyze_pdf_images)
+visual_analysis_builder.add_node("compile_image_findings", compile_image_findings)
 
-visual_analysis_builder.add_edge(START, "visual_analysis")
+visual_analysis_builder.add_edge(START, "analyze_pdf_images")
 
-visual_analysis_builder.add_edge("visual_analysis", "aggregate_report")
+visual_analysis_builder.add_edge("analyze_pdf_images", "compile_image_findings")
 
-visual_analysis_builder.add_edge("aggregate_report", END)
+visual_analysis_builder.add_edge("compile_image_findings", END)
 
 visual_analysis_graph = visual_analysis_builder.compile()
 

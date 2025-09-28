@@ -55,11 +55,12 @@ def _create_structured_forensic_briefing(page_result: PageAnalysisResult) -> str
     return "\n".join(briefing)
 
 
-def visual_analysis_node(state: VisualAnalysisState):
+def analyze_pdf_images(state: VisualAnalysisState):
     """
-    Performs a sequential, context-aware visual analysis of each page.
+    Visual Deception Analyst (VDA) analyzes pages with a focus on visually
+    deceptive content, phishing, and presentation concerns.
     """
-    print("--- Visual Analysis Node: Starting Page-by-Page Analysis ---")
+    print("--- Image Analysis: Starting Visual Deception Analysis ---")
     
     try:
         num_pages_to_process = state.get("number_of_pages_to_process", 1)
@@ -124,12 +125,12 @@ def visual_analysis_node(state: VisualAnalysisState):
         return {"errors": [error_msg]}
 
 
-def aggregation_node(state: VisualAnalysisState):
+def compile_image_findings(state: VisualAnalysisState):
     """
     Aggregates all page-level analyses into a final, conclusive report using
     robust, programmatic logic.
     """
-    print("--- Visual Analysis Node: Aggregating Final Report ---")
+    print("--- Image Analysis: Aggregating Final Report ---")
     page_analyses = state.get("page_analyses", [])
 
     if not page_analyses:

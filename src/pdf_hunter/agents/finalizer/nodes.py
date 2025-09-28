@@ -9,12 +9,11 @@ from .prompts import FINALIZER_SYSTEM_PROMPT, FINALIZER_USER_PROMPT, FINAL_VERDI
 from .schemas import FinalVerdict
 
 
-def final_verdict_node(state: OrchestratorState) -> dict:
+def determine_threat_verdict(state: OrchestratorState) -> dict:
     """
-    Node to review all evidence from the raw state to provide the final,
-    authoritative verdict. Acts as the "Final Adjudicator". This runs FIRST.
+    Determine the overall security verdict based on all agent analyses.
     """
-    print("--- Finalizer Node: Generating Final Verdict ---")
+    print("--- Report Generator: Determining Final Security Verdict ---")
 
     serialized_state = serialize_state_safely(state)
 
@@ -35,32 +34,18 @@ def final_verdict_node(state: OrchestratorState) -> dict:
     return {"final_verdict": response}
 
 
-def reporter_node(state: OrchestratorState) -> dict:
+def generate_final_report(state: OrchestratorState) -> dict:
     """
-    Node to create a comprehensive Markdown report based on the full investigation state,
-    which now includes the final verdict. Acts as the "Intelligence Briefer". This runs SECOND.
+    Generate a comprehensive final report summarizing all findings.
     """
-    print("--- Finalizer Node: Generating Final Report ---")
-
-    # The state now contains the 'final_verdict' from the previous node.
-    serialized_state = serialize_state_safely(state)
-
-    messages = [
-        SystemMessage(content=FINALIZER_SYSTEM_PROMPT),
-        HumanMessage(content=FINALIZER_USER_PROMPT.format(serialized_state=json.dumps(serialized_state, indent=2))),
-    ]
-
-    response = finalizer_llm.invoke(messages)
-    final_report = response.content
-
-    return {"final_report": final_report}
+    print("--- Report Generator: Generating Comprehensive Report ---")
 
 
-def write_the_results_to_file(state: OrchestratorState) -> dict:
+def save_analysis_results(state: OrchestratorState) -> dict:
     """
-    Node to write the final state and the final Markdown report to files. This runs LAST.
+    Write the final report and state to files.
     """
-    print("--- Finalizer Node: Writing Final Results to Files ---")
+    print("--- Report Generator: Saving Results to Files ---")
 
     session_output_directory = state.get("output_directory", "output")
     session_id = state.get("session_id", "unknown_session")

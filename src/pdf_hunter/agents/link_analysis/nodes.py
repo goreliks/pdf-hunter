@@ -17,7 +17,7 @@ from .prompts import WFI_INVESTIGATOR_SYSTEM_PROMPT , WFI_ANALYST_SYSTEM_PROMPT,
 
 
 
-async def llm_call(state: LinkInvestigatorState):
+async def investigate_url(state: LinkInvestigatorState):
     """Analyze current state and decide on tool usage with MCP integration.
 
     This node uses an LLM to determine the next steps in the investigation,
@@ -77,13 +77,13 @@ async def llm_call(state: LinkInvestigatorState):
 
 
 
-async def tool_node(state: LinkInvestigatorState):
+async def execute_browser_tools(state: LinkInvestigatorState):
 
     tool_calls = state["investigation_logs"][-1].tool_calls
     url_task = state["url_task"]
     session_output_dir = state["output_directory"]
 
-    # Generate the same task ID as used in llm_call for session consistency
+    # Generate the same task ID as used in investigate_url for session consistency
     task_id = f"url_{abs(hash(url_task.url))}"
 
     # Create task-specific investigation directory under link analysis
@@ -144,7 +144,7 @@ async def tool_node(state: LinkInvestigatorState):
 
 
 # --- Node 2: Analyst ---
-async def analyst_node(state: LinkInvestigatorState) -> dict:
+async def analyze_url_content(state: LinkInvestigatorState) -> dict:
     """Synthesizes all evidence and assembles the final report."""
     url_task = state["url_task"]
     investigation_log = state["investigation_logs"]
@@ -175,22 +175,22 @@ async def analyst_node(state: LinkInvestigatorState) -> dict:
     return {"link_analysis_final_report": link_analysis_final_report}
 
 
-def should_continue(state: LinkInvestigatorState) -> Literal["tool_node", "analyst_node"]:
+def should_continue(state: LinkInvestigatorState) -> Literal["execute_browser_tools", "analyze_url_content"]:
     """Determine whether to continue with tool execution or proceed to analysis.
     This function checks the latest messages in the investigation log to see if
-    any tools were called. If tools were called, it returns "tool_node" to continue
-    executing tools. If no tools were called, it returns "analyst_node" to proceed
+    any tools were called. If tools were called, it returns "execute_browser_tools" to continue
+    executing tools. If no tools were called, it returns "analyze_url_content" to proceed
     to the analysis phase.
     """
     messages = state["investigation_logs"]
     last_message = messages[-1]
 
     if last_message.tool_calls:
-        return "tool_node"
-    return "analyst_node"
+        return "execute_browser_tools"
+    return "analyze_url_content"
 
 
-def dispatch_link_analysis(state: LinkAnalysisState):
+def route_url_analysis(state: LinkAnalysisState):
     """
     Dispatch the link analysis tasks based on high priority URLs from visual analysis.
     Uses Send to parallelize URL analysis across multiple instances.
@@ -234,9 +234,9 @@ def filter_high_priority_urls(state: LinkAnalysisState):
     return {"high_priority_urls": high_priority_urls}
 
 
-def save_link_analysis_state(state: LinkAnalysisState):
+def save_url_analysis_state(state: LinkAnalysisState):
     """
-    Save the entire link analysis state to a JSON file for debugging and records.
+    Saving the final state to disk for debugging and tracking.
     """
     session_output_dir = state.get("output_directory", "output")
     session_id = state.get("session_id", "unknown_session")

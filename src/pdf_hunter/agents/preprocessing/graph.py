@@ -1,25 +1,25 @@
 from langgraph.graph import StateGraph, START, END
 
 from .schemas import PreprocessingState, PreprocessingInputState, PreprocessingOutputState
-from .nodes import initialization_node, image_extraction_node, qr_extraction_node, url_extraction_node
+from .nodes import setup_session, extract_pdf_images, scan_qr_codes, find_embedded_urls
 
 
 preprocessing_builder = StateGraph(PreprocessingState, input_schema=PreprocessingInputState, output_schema=PreprocessingOutputState)
 
-preprocessing_builder.add_node("initialize", initialization_node)
-preprocessing_builder.add_node("extract_images", image_extraction_node)
-preprocessing_builder.add_node("extract_urls", url_extraction_node)
-preprocessing_builder.add_node("extract_qr_codes", qr_extraction_node)
+preprocessing_builder.add_node("setup_session", setup_session)
+preprocessing_builder.add_node("extract_pdf_images", extract_pdf_images)
+preprocessing_builder.add_node("find_embedded_urls", find_embedded_urls)
+preprocessing_builder.add_node("scan_qr_codes", scan_qr_codes)
 
-preprocessing_builder.add_edge(START, "initialize")
+preprocessing_builder.add_edge(START, "setup_session")
 
-preprocessing_builder.add_edge("initialize", "extract_images")
-preprocessing_builder.add_edge("initialize", "extract_urls")
-preprocessing_builder.add_edge("initialize", "extract_qr_codes")
+preprocessing_builder.add_edge("setup_session", "extract_pdf_images")
+preprocessing_builder.add_edge("setup_session", "find_embedded_urls")
+preprocessing_builder.add_edge("setup_session", "scan_qr_codes")
 
-preprocessing_builder.add_edge("extract_images", END)
-preprocessing_builder.add_edge("extract_urls", END)
-preprocessing_builder.add_edge("extract_qr_codes", END)
+preprocessing_builder.add_edge("extract_pdf_images", END)
+preprocessing_builder.add_edge("find_embedded_urls", END)
+preprocessing_builder.add_edge("scan_qr_codes", END)
 
 preprocessing_graph = preprocessing_builder.compile()
 
@@ -36,11 +36,11 @@ if __name__ == "__main__":
         "number_of_pages_to_process": 1,  # We want to process only the first page (page 0)
     }
 
-    print(f"--- Running Preprocessing on: {file_path} ---")
+    print(f"--- Running PDF Extraction on: {file_path} ---")
 
     final_state = preprocessing_graph.invoke(initial_state)
 
-    print("\n--- Preprocessing Complete. Final State: ---")
+    print("\n--- PDF Extraction Complete. Final State: ---")
     
     pprint.pprint(final_state)
 

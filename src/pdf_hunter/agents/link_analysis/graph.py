@@ -8,23 +8,22 @@ from langgraph.graph import StateGraph, START, END
 
 from .schemas import LinkAnalysisState, LinkAnalysisInputState, LinkAnalysisOutputState, LinkInvestigatorState, LinkInvestigatorOutputState
 from ..visual_analysis.schemas import PrioritizedURL
-from .nodes import llm_call, tool_node, analyst_node, should_continue, dispatch_link_analysis, filter_high_priority_urls, save_link_analysis_state
+from .nodes import investigate_url, execute_browser_tools, analyze_url_content, should_continue, route_url_analysis, filter_high_priority_urls, save_url_analysis_state
 
 
 link_investigator_state = StateGraph(LinkInvestigatorState, output_schema=LinkInvestigatorOutputState)
 
 # Add the nodes to the graph
-link_investigator_state.add_node("link_investigator", llm_call)
-link_investigator_state.add_node("tools", tool_node)
-link_investigator_state.add_node("analyst_node", analyst_node)
-link_investigator_state.add_edge(START, "link_investigator")
+link_investigator_state.add_node("investigate_url", investigate_url)
+link_investigator_state.add_node("execute_browser_tools", execute_browser_tools)
+link_investigator_state.add_node("analyze_url_content", analyze_url_content)
+link_investigator_state.add_edge(START, "investigate_url")
 link_investigator_state.add_conditional_edges(
-    "link_investigator",
-    should_continue,
-    {"tool_node": "tools", "analyst_node": "analyst_node"}
+    "investigate_url",
+    should_continue
 )
-link_investigator_state.add_edge("tools", "link_investigator")
-link_investigator_state.add_edge("analyst_node", END)
+link_investigator_state.add_edge("execute_browser_tools", "investigate_url")
+link_investigator_state.add_edge("analyze_url_content", END)
 # Compile the graph and export it for external use
 link_investigator_graph = link_investigator_state.compile()
 
@@ -47,11 +46,11 @@ pipeline = StateGraph(LinkAnalysisState, input_schema=LinkAnalysisInputState, ou
 
 pipeline.add_node("filter_high_priority_urls", filter_high_priority_urls)
 pipeline.add_node("conduct_link_analysis", conduct_link_analysis)
-pipeline.add_node("save_link_analysis_state", save_link_analysis_state)
+pipeline.add_node("save_url_analysis_state", save_url_analysis_state)
 pipeline.add_edge(START, "filter_high_priority_urls")
-pipeline.add_conditional_edges("filter_high_priority_urls", dispatch_link_analysis, ["conduct_link_analysis", "save_link_analysis_state"])
-pipeline.add_edge("conduct_link_analysis", "save_link_analysis_state")
-pipeline.add_edge("save_link_analysis_state", END)
+pipeline.add_conditional_edges("filter_high_priority_urls", route_url_analysis, ["conduct_link_analysis", "save_url_analysis_state"])
+pipeline.add_edge("conduct_link_analysis", "save_url_analysis_state")
+pipeline.add_edge("save_url_analysis_state", END)
 
 link_analysis_graph = pipeline.compile()
 

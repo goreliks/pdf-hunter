@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, START, END
-from .nodes import reporter_node, final_verdict_node, write_the_results_to_file
+from .nodes import generate_final_report, determine_threat_verdict, save_analysis_results
 
 # The finalizer's state is the same as the Orchestrator's, so no need to redefine
 from ...orchestrator.schemas import OrchestratorState
@@ -7,14 +7,14 @@ from ...orchestrator.schemas import OrchestratorState
 # We can use a simple builder here as the state is passed directly from the orchestrator
 finalizer_builder = StateGraph(OrchestratorState)
 
-finalizer_builder.add_node("reporter", reporter_node)
-finalizer_builder.add_node("final_verdict", final_verdict_node)
-finalizer_builder.add_node("write_results", write_the_results_to_file)
+finalizer_builder.add_node("generate_final_report", generate_final_report)
+finalizer_builder.add_node("determine_threat_verdict", determine_threat_verdict)
+finalizer_builder.add_node("save_analysis_results", save_analysis_results)
 
-finalizer_builder.add_edge(START, "final_verdict")
-finalizer_builder.add_edge("final_verdict", "reporter")
-finalizer_builder.add_edge("reporter", "write_results")
-finalizer_builder.add_edge("write_results", END)
+finalizer_builder.add_edge(START, "determine_threat_verdict")
+finalizer_builder.add_edge("determine_threat_verdict", "generate_final_report")
+finalizer_builder.add_edge("generate_final_report", "save_analysis_results")
+finalizer_builder.add_edge("save_analysis_results", END)
 
 finalizer_graph = finalizer_builder.compile()
 
