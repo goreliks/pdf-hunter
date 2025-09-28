@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langgraph.prebuilt import ToolNode
-from .schemas import InvestigatorState, InvestigatorOutputState, StaticAnalysisState, StaticAnalysisInputState, StaticAnalysisOutputState
+from .schemas import InvestigatorState, InvestigatorOutputState, FileAnalysisState, FileAnalysisInputState, FileAnalysisOutputState
 from .nodes import file_analyzer, identify_suspicious_elements, create_analysis_tasks, assign_analysis_tasks, review_analysis_results, summarize_file_analysis
 from .tools import pdf_parser_tools
 from langgraph.prebuilt import tools_condition
@@ -18,11 +18,7 @@ investigator_builder.add_edge("tools", "investigation")
 
 investigator_builder.add_conditional_edges(
     "investigation",
-    tools_condition,  # This automatically routes to "tools" if tool_calls exist, otherwise continues
-    {
-        "tools": "tools",      # If tools_condition returns "tools"
-        "__end__": END  # If tools_condition returns "__end__" (no tool calls)
-    }
+    tools_condition,
 )
 
 investigator_graph = investigator_builder.compile()
@@ -46,7 +42,7 @@ def run_file_analysis(state: dict):
 # Add the wrapper as the node instead of the raw subgraph
 
 
-static_analysis_builder = StateGraph(StaticAnalysisState, input_schema=StaticAnalysisInputState, output_schema=StaticAnalysisOutputState)
+static_analysis_builder = StateGraph(FileAnalysisState, input_schema=FileAnalysisInputState, output_schema=FileAnalysisOutputState)
 
 # Add nodes to static_analysis_builder
 static_analysis_builder.add_node("identify_suspicious_elements", identify_suspicious_elements)

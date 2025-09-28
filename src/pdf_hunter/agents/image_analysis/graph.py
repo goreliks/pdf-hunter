@@ -1,10 +1,10 @@
 from langgraph.graph import StateGraph, START, END
 
-from .schemas import VisualAnalysisState
+from .schemas import ImageAnalysisState
 from .nodes import analyze_pdf_images, compile_image_findings
 
 
-visual_analysis_builder = StateGraph(VisualAnalysisState)
+visual_analysis_builder = StateGraph(ImageAnalysisState)
 
 visual_analysis_builder.add_node("analyze_pdf_images", analyze_pdf_images)
 visual_analysis_builder.add_node("compile_image_findings", compile_image_findings)
@@ -20,7 +20,7 @@ visual_analysis_graph = visual_analysis_builder.compile()
 
 if __name__ == "__main__":
     import pprint
-    from ..preprocessing.graph import preprocessing_graph
+    from ..pdf_extraction.graph import preprocessing_graph
 
     file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
     output_directory = "output/visual_analysis_results"

@@ -28,9 +28,9 @@ class ExtractedURL(BaseModel):
     xref: Optional[int] = Field(None, description="The PDF cross-reference number of the link annotation object")
 
 
-class PreprocessingState(TypedDict):
+class PDFExtractionState(TypedDict):
     """
-    State for the PDF Preprocessing agent.
+    State for the PDF Extraction agent.
     Manages the extraction of visual and structural data from a PDF.
     """
     # --- Inputs ---
@@ -52,14 +52,14 @@ class PreprocessingState(TypedDict):
     errors: Annotated[List[str], operator.add]
 
 
-class PreprocessingInputState(TypedDict):
+class PDFExtractionInputState(TypedDict):
     file_path: str
     output_directory: str
     number_of_pages_to_process: int
     session_id: Optional[str]  # Added for session management
 
 
-class PreprocessingOutputState(TypedDict):
+class PDFExtractionOutputState(TypedDict):
     output_directory: str  # Added to pass session directory to other agents
     session_id: str        # Added to pass session ID to other agents
     pdf_hash: Optional[PDFHashData]

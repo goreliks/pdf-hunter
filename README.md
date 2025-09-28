@@ -18,22 +18,22 @@ PDF Hunter uses a sophisticated 5-agent pipeline orchestrated via LangGraph:
 
 ```mermaid
 graph TD
-    A[📄 PDF Input] --> B[🔍 Preprocessing Agent]
-    B --> C[🧬 Static Analysis Agent]
-    B --> D[👁️ Visual Analysis Agent]
-    C --> E[🌐 Link Analysis Agent]
+    A[📄 PDF Input] --> B[🔍 PDF Extraction Agent]
+    B --> C[🧬 File Analysis Agent]
+    B --> D[👁️ Image Analysis Agent]
+    C --> E[🌐 URL Investigation Agent]
     D --> E
-    E --> F[📊 Finalizer Agent]
+    E --> F[📊 Report Generator Agent]
     F --> G[📋 Final Report]
 ```
 
 ### Agent Capabilities
 
-- **🔍 Preprocessing**: Extract metadata, images, URLs, QR codes safely
-- **🧬 Static Analysis**: Multi-tool PDF scanning with mission-based investigations  
-- **👁️ Visual Analysis**: Visual deception detection and URL prioritization
-- **🌐 Link Analysis**: Automated web reconnaissance of suspicious URLs
-- **📊 Finalizer**: Comprehensive report generation and final verdict
+- **🔍 PDF Extraction**: Extract metadata, images, URLs, QR codes safely
+- **🧬 File Analysis**: Multi-tool PDF scanning with mission-based investigations  
+- **👁️ Image Analysis**: Visual deception detection and URL prioritization
+- **🌐 URL Investigation**: Automated web reconnaissance of suspicious URLs
+- **📊 Report Generator**: Comprehensive report generation and final verdict
 
 ## 🚀 Quick Start
 
@@ -141,11 +141,11 @@ Run agents in isolation for development and testing:
 
 ```bash
 # Test individual agents
-uv run python -m pdf_hunter.agents.preprocessing.graph
-uv run python -m pdf_hunter.agents.static_analysis.graph
-uv run python -m pdf_hunter.agents.visual_analysis.graph
-uv run python -m pdf_hunter.agents.link_analysis.graph
-uv run python -m pdf_hunter.agents.finalizer.graph
+uv run python -m pdf_hunter.agents.pdf_extraction.graph
+uv run python -m pdf_hunter.agents.file_analysis.graph
+uv run python -m pdf_hunter.agents.image_analysis.graph
+uv run python -m pdf_hunter.agents.url_investigation.graph
+uv run python -m pdf_hunter.agents.report_generator.graph
 ```
 
 ### LangGraph Platform Deployment
@@ -173,11 +173,11 @@ PDF Hunter creates session-based output directories:
 ```
 output/
 ├── {sha1}_{timestamp}/          # Session-specific analysis
-│   ├── preprocessing/           # Extracted images, metadata
-│   ├── static_analysis/         # Evidence graphs, mission reports
-│   ├── visual_analysis/         # Visual deception analysis
-│   ├── link_analysis/          # URL reconnaissance reports
-│   └── finalizer/              # Final reports and verdicts
+│   ├── pdf_extraction/          # Extracted images, metadata
+│   ├── file_analysis/           # Evidence graphs, mission reports
+│   ├── image_analysis/          # Visual deception analysis
+│   ├── url_investigation/       # URL reconnaissance reports
+│   └── report_generator/        # Final reports and verdicts
 │       ├── final_report_session_{id}.md
 │       └── final_state_session_{id}.json
 ```
@@ -198,7 +198,7 @@ Configure in `src/pdf_hunter/config.py`:
 ```python
 # Example: Switch to Ollama for local inference
 # Uncomment Ollama configuration and update LLM initializations:
-# static_analysis_triage_llm = init_chat_model(**ollama_config)
+# file_analysis_triage_llm = init_chat_model(**ollama_config)
 ```
 
 ### Platform Configuration
@@ -209,10 +209,10 @@ LangGraph platform configuration in `langgraph.json`:
 {
     "dependencies": ["."],
     "graphs": {
-        "static_analysis": "pdf_hunter.agents.static_analysis.graph:static_analysis_graph",
-        "preprocessing": "pdf_hunter.agents.preprocessing.graph:preprocessing_graph", 
+        "file_analysis": "pdf_hunter.agents.file_analysis.graph:file_analysis_graph",
+        "pdf_extraction": "pdf_hunter.agents.pdf_extraction.graph:pdf_extraction_graph", 
         "orchestrator": "pdf_hunter.orchestrator.graph:orchestrator_graph",
-        "link_analysis": "pdf_hunter.agents.link_analysis.graph:link_analysis_graph"
+        "url_investigation": "pdf_hunter.agents.url_investigation.graph:url_investigation_graph"
     },
     "env": ".env"
 }
@@ -235,7 +235,7 @@ Test files are included in `tests/`:
 uv run pytest
 
 # Test individual components
-uv run python -m pdf_hunter.agents.preprocessing.graph
+uv run python -m pdf_hunter.agents.pdf_extraction.graph
 ```
 
 ## 🛠️ Development

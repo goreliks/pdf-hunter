@@ -37,8 +37,23 @@ def determine_threat_verdict(state: OrchestratorState) -> dict:
 def generate_final_report(state: OrchestratorState) -> dict:
     """
     Generate a comprehensive final report summarizing all findings.
+    Node to create a comprehensive Markdown report based on the full investigation state,
+    which now includes the final verdict. Acts as the "Intelligence Briefer".
     """
     print("--- Report Generator: Generating Comprehensive Report ---")
+
+    # The state now contains the 'final_verdict' from the previous node.
+    serialized_state = serialize_state_safely(state)
+
+    messages = [
+        SystemMessage(content=FINALIZER_SYSTEM_PROMPT),
+        HumanMessage(content=FINALIZER_USER_PROMPT.format(serialized_state=json.dumps(serialized_state, indent=2))),
+    ]
+
+    response = finalizer_llm.invoke(messages)
+    final_report = response.content
+
+    return {"final_report": final_report}
 
 
 def save_analysis_results(state: OrchestratorState) -> dict:
@@ -50,13 +65,13 @@ def save_analysis_results(state: OrchestratorState) -> dict:
     session_output_directory = state.get("output_directory", "output")
     session_id = state.get("session_id", "unknown_session")
 
-    # Create finalizer subdirectory
-    finalizer_directory = os.path.join(session_output_directory, "finalizer")
-    os.makedirs(finalizer_directory, exist_ok=True)
+    # Create report generator subdirectory
+    report_generator_directory = os.path.join(session_output_directory, "report_generator")
+    os.makedirs(report_generator_directory, exist_ok=True)
 
     # --- Save the complete state to a JSON file for debugging and records ---
     json_filename = f"final_state_session_{session_id}.json"
-    json_path = os.path.join(finalizer_directory, json_filename)
+    json_path = os.path.join(report_generator_directory, json_filename)
 
     try:
         dump_state_to_file(state, json_path)
@@ -65,7 +80,7 @@ def save_analysis_results(state: OrchestratorState) -> dict:
 
     # --- Save the final, complete Markdown report ---
     report_filename = f"final_report_session_{session_id}.md"
-    report_path = os.path.join(finalizer_directory, report_filename)
+    report_path = os.path.join(report_generator_directory, report_filename)
     
     # The 'final_report' from the state is now the complete, definitive version.
     # No "enhancing" is needed.

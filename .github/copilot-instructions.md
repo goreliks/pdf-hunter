@@ -31,8 +31,8 @@ uv sync --group dev           # Install with Jupyter support
 uv run python -m pdf_hunter.orchestrator.graph  # Run complete pipeline
 
 # Individual agent testing
-uv run python -m pdf_hunter.agents.preprocessing.graph
-uv run python -m pdf_hunter.agents.static_analysis.graph
+uv run python -m pdf_hunter.agents.pdf_extraction.graph
+uv run python -m pdf_hunter.agents.file_analysis.graph
 
 # LangGraph Platform deployment
 langgraph up                  # Deploy all graphs via API
@@ -50,16 +50,16 @@ jupyter lab notebooks/development/
 ## Agent Architecture
 
 ### Orchestrator (`src/pdf_hunter/orchestrator/`)
-- **Workflow**: preprocessing → {static_analysis || visual_analysis} → link_analysis → finalizer
+- **Workflow**: pdf_extraction → {file_analysis || image_analysis} → url_investigation → report_generator
 - **State Aggregation**: Uses `operator.add` for collecting agent results
 - **Session Management**: Auto-generates session IDs and directory structures
 
 ### Agent Specialization Patterns
-- **Preprocessing**: Pure utility (no LLM) - image extraction, URL/QR detection
-- **Static Analysis**: Multi-tool scanning + mission-based parallel investigations
-- **Visual Analysis**: VDA (Visual Deception Analyst) persona for UI/UX security analysis
-- **Link Analysis**: Browser automation via MCP Playwright integration
-- **Finalizer**: Executive report synthesis and final verdict generation
+- **PDF Extraction**: Pure utility (no LLM) - image extraction, URL/QR detection
+- **File Analysis**: Multi-tool scanning + mission-based parallel investigations
+- **Image Analysis**: VDA (Visual Deception Analyst) persona for UI/UX security analysis
+- **URL Investigation**: Browser automation via MCP Playwright integration
+- **Report Generator**: Executive report synthesis and final verdict generation
 
 ## Critical Development Patterns
 
@@ -69,23 +69,23 @@ URLs flow through a sophisticated status management system:
 # URLMissionStatus enum progression
 NEW → IN_PROGRESS → {COMPLETED | FAILED | NOT_RELEVANT}
 ```
-- Visual analysis generates `PrioritizedURL` objects with contextual ranking
-- Link analysis filters by priority (≤5 = analyzed, >5 = skipped)
+- Image analysis generates `PrioritizedURL` objects with contextual ranking
+- URL investigation filters by priority (≤5 = analyzed, >5 = skipped)
 - Status prevents duplicate analysis and enables loop prevention
 
 ### MCP Integration
 - **Browser Automation**: `shared/utils/mcp_client.py` for Playwright MCP server
 - **Session Isolation**: Task-specific directories under session paths
-- **Tool Binding**: Link analysis agent uses MCP tools for web reconnaissance
+- **Tool Binding**: URL investigation agent uses MCP tools for web reconnaissance
 
 ### File Organization by Session
 ```
 output/{session_id}/
-├── preprocessing/           # Page images with pHash naming
-├── static_analysis/        # Evidence graphs, state persistence
-├── link_analysis/          # URL investigations with screenshots
-│   └── task_url_*/        # Individual URL analysis artifacts
-└── finalizer/             # Final reports and verdict
+├── pdf_extraction/          # Page images with pHash naming
+├── file_analysis/           # Evidence graphs, state persistence
+├── url_investigation/       # URL investigations with screenshots
+│   └── task_url_*/         # Individual URL analysis artifacts
+└── report_generator/        # Final reports and verdict
 ```
 
 ## Testing & Debugging
@@ -127,7 +127,7 @@ errors: Annotated[List[list], operator.add]  # Orchestrator level (nested)
 - **Don't** hardcode file paths - use session-based directory management
 - **Don't** skip state serialization - debugging relies on persistent state files  
 - **Do** use dedicated LLM instances per agent task for optimal performance
-- **Do** follow the URL status lifecycle for link analysis features
+- **Do** follow the URL status lifecycle for URL investigation features
 - **Do** leverage existing shared utilities before creating new ones
 
 ## Adding New Features

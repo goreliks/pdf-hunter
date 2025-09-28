@@ -1,5 +1,5 @@
 import os
-from .schemas import StaticAnalysisState, MissionStatus, InvestigatorState
+from .schemas import FileAnalysisState, MissionStatus, InvestigatorState
 from pdf_hunter.shared.analyzers.wrappers import run_pdfid, run_pdf_parser_full_statistical_analysis, run_peepdf
 from .prompts import triage_system_prompt, triage_user_prompt, investigator_system_prompt, investigator_user_prompt
 import json
@@ -26,7 +26,7 @@ llm_reviewer = static_analysis_reviewer_llm.with_structured_output(ReviewerRepor
 llm_finalizer = static_analysis_finalizer_llm.with_structured_output(FinalReport)
 
 
-def identify_suspicious_elements(state: StaticAnalysisState):
+def identify_suspicious_elements(state: FileAnalysisState):
     print("--- File Analysis: Identifying Suspicious Elements ---")
     file_path = state['file_path']
 
@@ -67,7 +67,7 @@ def identify_suspicious_elements(state: StaticAnalysisState):
     return updates
 
 
-def create_analysis_tasks(state: StaticAnalysisState):
+def create_analysis_tasks(state: FileAnalysisState):
     updated_missions = []
     for mission in state['mission_list']:
         if mission.status == MissionStatus.NEW:
@@ -76,7 +76,7 @@ def create_analysis_tasks(state: StaticAnalysisState):
     return {"mission_list": updated_missions}
 
 
-def assign_analysis_tasks(state: StaticAnalysisState): 
+def assign_analysis_tasks(state: FileAnalysisState): 
     """
     Dispatches all missions currently in 'NEW' status to the investigator pool.
     Updates the status of dispatched missions to 'IN_PROGRESS'.
@@ -183,7 +183,7 @@ def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[Evi
     return result.master_graph
 
 
-def review_analysis_results(state: StaticAnalysisState) -> Command[Literal["summarize_file_analysis", "create_analysis_tasks"]]:
+def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summarize_file_analysis", "create_analysis_tasks"]]:
     """
     Acts as the "Chief Pathologist." This node now performs two roles:
     1. PROCESSES the raw results from the completed investigations (Reducer's job).
@@ -297,7 +297,7 @@ def review_analysis_results(state: StaticAnalysisState) -> Command[Literal["summ
 
 from langchain_core.messages.utils import get_buffer_string
 
-def summarize_file_analysis(state: StaticAnalysisState):
+def summarize_file_analysis(state: FileAnalysisState):
     print("\n--- File Analysis: Generating Final Analysis Summary ---")
 
     master_graph_json = state['master_evidence_graph'].model_dump_json(indent=2)
@@ -331,9 +331,9 @@ def summarize_file_analysis(state: StaticAnalysisState):
         # Save the final state to a JSON file for debugging and records
         session_output_directory = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown_session")
-        finalizer_directory = os.path.join(session_output_directory, "static_analysis")
+        finalizer_directory = os.path.join(session_output_directory, "file_analysis")
         os.makedirs(finalizer_directory, exist_ok=True)
-        json_filename = f"static_analysis_final_state_session_{session_id}.json"
+        json_filename = f"file_analysis_final_state_session_{session_id}.json"
         json_path = os.path.join(finalizer_directory, json_filename)
         dump_state_to_file(state, json_path)
     except Exception as e:

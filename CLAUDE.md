@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PDF Hunter is a multi-agent AI framework for automated PDF threat hunting built using Python 3.11+ and LangGraph. The system uses AI-powered agents orchestrated via LangGraph to analyze potentially malicious PDFs and generate comprehensive security reports. The framework employs a sophisticated multi-agent orchestration pattern with specialized agents for preprocessing, static analysis, visual analysis, link analysis, and final reporting.
+PDF Hunter is a multi-agent AI framework for automated PDF threat hunting built using Python 3.11+ and LangGraph. The system uses AI-powered agents orchestrated via LangGraph to analyze potentially malicious PDFs and generate comprehensive security reports. The framework employs a sophisticated multi-agent orchestration pattern with specialized agents for PDF extraction, file analysis, image analysis, URL investigation, and report generation.
 
 ## Development Setup
 
@@ -71,11 +71,11 @@ To switch providers, update the LLM initializations in `src/pdf_hunter/config.py
 uv run python -m pdf_hunter.orchestrator.graph
 
 # Run individual agents in isolation
-uv run python -m pdf_hunter.agents.preprocessing.graph
-uv run python -m pdf_hunter.agents.visual_analysis.graph
-uv run python -m pdf_hunter.agents.static_analysis.graph
-uv run python -m pdf_hunter.agents.link_analysis.graph
-uv run python -m pdf_hunter.agents.finalizer.graph
+uv run python -m pdf_hunter.agents.pdf_extraction.graph
+uv run python -m pdf_hunter.agents.image_analysis.graph
+uv run python -m pdf_hunter.agents.file_analysis.graph
+uv run python -m pdf_hunter.agents.url_investigation.graph
+uv run python -m pdf_hunter.agents.report_generator.graph
 
 # LangGraph Platform deployment (all graphs available via API)
 langgraph up
@@ -98,12 +98,12 @@ The system operates under three core principles:
 
 **Orchestrator** (`src/pdf_hunter/orchestrator/`):
 - Master coordination graph managing the entire analysis workflow
-- **Updated Workflow**: START → preprocessing → {static_analysis, visual_analysis} → link_analysis → finalizer → END
+- **Updated Workflow**: START → pdf_extraction → {file_analysis, image_analysis} → url_investigation → report_generator → END
 - **Session Management**: Auto-generates session IDs and creates session-specific directories
 - **State Management**: Aggregates results from all agents using LangGraph's additive list aggregation
 - **Serialization**: Safe state serialization for persistence and debugging
 
-**Agent 1: Preprocessing** (`src/pdf_hunter/agents/preprocessing/`):
+**Agent 1: PDF Extraction** (`src/pdf_hunter/agents/pdf_extraction/`):
 - **Purpose**: Extract safe, high-signal artifacts without executing content
 - **Session Management**: Auto-generates session ID using `{sha1}_{timestamp}` format
 - **Directory Creation**: Creates session-specific directory structure for organized output
@@ -113,7 +113,7 @@ The system operates under three core principles:
 - **QR Code Detection**: Detects QR codes in extracted images using OpenCV and pyzbar
 - **Output**: File metadata, page images with pHash-based naming, URLs, QR code data, session directory
 
-**Agent 2: Static Analysis** (`src/pdf_hunter/agents/static_analysis/`):
+**Agent 2: File Analysis** (`src/pdf_hunter/agents/file_analysis/`):
 - **Triage Node**: Multi-tool PDF scanning (pdfid, pdf-parser, peepdf)
 - **Investigator Subgraph**: Parallel mission-based investigations
 - **Reviewer Node**: Evidence graph merging and strategic analysis
@@ -121,7 +121,7 @@ The system operates under three core principles:
 - **State Persistence**: Automatic final state saving for debugging and analysis tracking
 - **Output**: Evidence graph, mission reports, structural analysis, persistent state files
 
-**Agent 3: Visual Analysis** (`src/pdf_hunter/agents/visual_analysis/`):
+**Agent 3: Image Analysis** (`src/pdf_hunter/agents/image_analysis/`):
 - **Enhanced VDA Persona**: Visual Deception Analyst combining HCI/UX security, cognitive psychology, and digital forensics
 - **Core Analysis**: Visual-technical cross-examination for deception detection
 - **Page-Level Analysis**: Examines visual presentation vs. technical elements
@@ -130,8 +130,8 @@ The system operates under three core principles:
 - **Status Tracking**: URLs generated with `NEW` status for downstream processing
 - **Output**: Deception tactics, benign signals, prioritized URLs with status tracking for link analysis
 
-**Agent 4: Link Analysis** (`src/pdf_hunter/agents/link_analysis/`):
-- **NEW AGENT**: Dedicated deep analysis of URLs identified by visual analysis
+**Agent 4: URL Investigation** (`src/pdf_hunter/agents/url_investigation/`):
+- **NEW AGENT**: Dedicated deep analysis of URLs identified by image analysis
 - **MCP Integration**: Uses Playwright MCP server for browser automation
 - **URL Status Management**: Filters and updates URL mission status (`IN_PROGRESS`, `NOT_RELEVANT`)
 - **Link Investigator**: Automated web reconnaissance of suspicious URLs
@@ -140,7 +140,7 @@ The system operates under three core principles:
 - **State Persistence**: Automatic state saving for debugging and recovery
 - **Output**: URL reputation, content analysis, threat indicators, persistent state files with status
 
-**Agent 5: Finalizer** (`src/pdf_hunter/agents/finalizer/`):
+**Agent 5: Report Generator** (`src/pdf_hunter/agents/report_generator/`):
 - **NEW AGENT**: Comprehensive report generation and final verdict
 - **Reporter Node**: Synthesizes all agent findings into executive summary
 - **Final Verdict Node**: Makes final malicious/benign determination
@@ -178,7 +178,7 @@ The system operates under three core principles:
 
 #### URL Status Tracking System
 
-**URLMissionStatus Enum** (`src/pdf_hunter/agents/visual_analysis/schemas.py`):
+**URLMissionStatus Enum** (`src/pdf_hunter/agents/image_analysis/schemas.py`):
 - `NEW`: URLs initially flagged by visual analysis (default state)
 - `IN_PROGRESS`: URLs currently being analyzed by link analysis agent
 - `COMPLETED`: URLs successfully analyzed with findings
@@ -186,18 +186,18 @@ The system operates under three core principles:
 - `NOT_RELEVANT`: Low-priority URLs not selected for analysis
 
 **Status Workflow**:
-1. **Visual Analysis**: Generates `PrioritizedURL` objects with `NEW` status
-2. **Link Analysis Filter**: Updates status to `IN_PROGRESS` (priority ≤ 5) or `NOT_RELEVANT` (priority > 5)
-3. **Link Analysis Completion**: Analyst node updates to `COMPLETED` or `FAILED` based on analysis outcome
+1. **Image Analysis**: Generates `PrioritizedURL` objects with `NEW` status
+2. **URL Investigation Filter**: Updates status to `IN_PROGRESS` (priority ≤ 5) or `NOT_RELEVANT` (priority > 5)
+3. **URL Investigation Completion**: Analyst node updates to `COMPLETED` or `FAILED` based on analysis outcome
 4. **State Persistence**: Status tracked in session files for loop prevention and debugging
 
 ### Complete Agent Workflow
 
-1. **Preprocessing**: Extract metadata, images, URLs, QR codes from PDF
-2. **Static Analysis**: Multi-tool scanning, mission dispatch, evidence gathering
-3. **Visual Analysis**: Visual deception detection, URL prioritization (runs in parallel with static analysis)
-4. **Link Analysis**: Deep reconnaissance of prioritized URLs using browser automation
-5. **Finalization**: Comprehensive report synthesis, final verdict, file output
+1. **PDF Extraction**: Extract metadata, images, URLs, QR codes from PDF
+2. **File Analysis**: Multi-tool scanning, mission dispatch, evidence gathering
+3. **Image Analysis**: Visual deception detection, URL prioritization (runs in parallel with file analysis)
+4. **URL Investigation**: Deep reconnaissance of prioritized URLs using browser automation
+5. **Report Generation**: Comprehensive report synthesis, final verdict, file output
 
 The orchestrator coordinates all five agents in a sophisticated pipeline with parallel processing where appropriate.
 
@@ -205,29 +205,29 @@ The orchestrator coordinates all five agents in a sophisticated pipeline with pa
 
 **Detailed URL Lifecycle Management:**
 
-1. **Preprocessing Stage**:
+1. **PDF Extraction Stage**:
    - URLs extracted from PDF annotations and text
    - QR codes detected and decoded to URLs
    - All URLs stored as `ExtractedURL` objects (no status tracking at this stage)
 
-2. **Visual Analysis Stage**:
+2. **Image Analysis Stage**:
    - LLM analyzes visual context and generates `PrioritizedURL` objects
    - Each URL assigned priority (1=highest, 5=lowest) and contextual reasoning
    - All URLs initialized with `mission_status = NEW`
-   - URLs aggregated into `visual_analysis_report.all_priority_urls`
+   - URLs aggregated into `image_analysis_report.all_priority_urls`
 
-3. **Link Analysis Filter Stage** (`filter_high_priority_urls`):
-   - Processes URLs from visual analysis report
+3. **URL Investigation Filter Stage** (`filter_high_priority_urls`):
+   - Processes URLs from image analysis report
    - **High Priority URLs** (priority ≤ 5): Status updated to `IN_PROGRESS`
    - **Low Priority URLs** (priority > 5): Status updated to `NOT_RELEVANT`
    - Only high priority URLs dispatched for deep analysis
 
-4. **Link Analysis Investigation Stage**:
+4. **URL Investigation Stage**:
    - Each high priority URL analyzed in parallel using browser automation
    - MCP tools perform web reconnaissance, screenshot capture, domain analysis
    - Investigation logs captured for analyst review
 
-5. **Link Analysis Completion Stage** (`analyst_node`):
+5. **URL Investigation Completion Stage** (`analyst_node`):
    - Analyst LLM synthesizes investigation findings
    - Status updated based on analysis outcome:
      - `COMPLETED`: Successful analysis with findings
@@ -262,10 +262,10 @@ AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ### LangGraph Platform
 
 The system is configured for LangGraph Platform deployment with `langgraph.json`:
-- **static_analysis**: Static analysis graph endpoint
-- **preprocessing**: Preprocessing graph endpoint  
+- **file_analysis**: File analysis graph endpoint
+- **pdf_extraction**: PDF extraction graph endpoint  
 - **orchestrator**: Main orchestrator graph endpoint
-- **link_analysis**: Link analysis graph endpoint
+- **url_investigation**: URL investigation graph endpoint
 
 ### LLM Configuration
 
@@ -276,20 +276,20 @@ The system is configured for LangGraph Platform deployment with `langgraph.json`
 #### LLM Specialization by Task Type:
 
 **Tool-Using Models** (Function Calling Optimized):
-- `static_analysis_investigator_llm`: PDF parser tool binding for deep analysis
-- `link_analysis_investigator_llm`: Browser automation and MCP tool binding
+- `file_analysis_investigator_llm`: PDF parser tool binding for deep analysis
+- `url_investigation_investigator_llm`: Browser automation and MCP tool binding
 
 **Structured Output Models** (Pydantic Schema Generation):
 - All triage, analysis, and verdict models use structured output for consistent data formats
 - Graph merger models for intelligent evidence consolidation
 
 **Natural Language Generation**:
-- `finalizer_llm`: Human-readable markdown report generation
+- `report_generator_llm`: Human-readable markdown report generation
 - Report synthesis models for executive summaries
 
 **Analysis vs. Synthesis Models**:
 - **Analysis Models**: Process raw data (triage, investigation)
-- **Synthesis Models**: High-level reasoning and decision making (reviewer, analyst, finalizer)
+- **Synthesis Models**: High-level reasoning and decision making (reviewer, analyst, report generator)
 
 ## Testing
 
@@ -302,9 +302,9 @@ Sample PDFs in `tests/` directory:
 
 ### Notebook Development
 
-- `notebooks/development/static_analysis.ipynb`: Static analysis development
-- `notebooks/development/preprocessing.ipynb`: Preprocessing development  
-- `notebooks/development/link_analysis_agent.ipynb`: NEW - Link analysis development
+- `notebooks/development/static_analysis.ipynb`: File analysis development
+- `notebooks/development/preprocessing.ipynb`: PDF extraction development  
+- `notebooks/development/link_analysis_agent.ipynb`: NEW - URL investigation development
 - Step-by-step agent execution and debugging capabilities
 - Prototype new features before integration
 
@@ -314,33 +314,33 @@ Sample PDFs in `tests/` directory:
 src/
 └── pdf_hunter/              # Main package directory
     ├── agents/
-    │   ├── preprocessing/       # Preprocessing agent
+    │   ├── pdf_extraction/      # PDF extraction agent
     │   │   ├── graph.py         # LangGraph workflow definition
     │   │   ├── nodes.py         # Individual workflow nodes
     │   │   └── schemas.py       # State and data models
-    │   ├── static_analysis/     # Static analysis agent
+    │   ├── file_analysis/       # File analysis agent
     │   │   ├── graph.py         # LangGraph workflow definition
     │   │   ├── nodes.py         # Individual workflow nodes
     │   │   ├── schemas.py       # State and data models
     │   │   ├── prompts.py       # LLM prompts for each node
     │   │   └── tools.py         # LangChain tool implementations
-    │   ├── visual_analysis/     # Visual analysis agent
+    │   ├── image_analysis/      # Image analysis agent
     │   │   ├── graph.py         # LangGraph workflow definition
     │   │   ├── nodes.py         # Individual workflow nodes
     │   │   ├── prompts.py       # Enhanced VDA prompts
     │   │   └── schemas.py       # State and data models
-    │   ├── link_analysis/       # NEW - Link analysis agent
-    │   │   ├── graph.py         # Link investigator graph
-    │   │   ├── nodes.py         # Link analysis nodes
-    │   │   ├── prompts.py       # Link analysis prompts
-    │   │   ├── schemas.py       # Link analysis schemas
+    │   ├── url_investigation/   # NEW - URL investigation agent
+    │   │   ├── graph.py         # URL investigator graph
+    │   │   ├── nodes.py         # URL investigation nodes
+    │   │   ├── prompts.py       # URL investigation prompts
+    │   │   ├── schemas.py       # URL investigation schemas
     │   │   ├── sync_runner.py   # Synchronous execution wrapper
     │   │   └── tools.py         # MCP tools for browser automation
-    │   └── finalizer/           # NEW - Report generation agent
-    │       ├── graph.py         # Finalizer workflow
+    │   └── report_generator/    # NEW - Report generation agent
+    │       ├── graph.py         # Report generator workflow
     │       ├── nodes.py         # Report generation nodes
     │       ├── prompts.py       # Final report prompts
-    │       └── schemas.py       # Finalizer schemas
+    │       └── schemas.py       # Report generator schemas
     ├── orchestrator/            # Master coordination
     │   ├── graph.py             # Complete 5-agent orchestration
     │   ├── nodes.py             # Orchestrator nodes
@@ -362,9 +362,9 @@ src/
 
 notebooks/                   # Jupyter development environment
 ├── development/             # Main development notebooks
-│   ├── preprocessing.ipynb  # Preprocessing agent development
-│   ├── static_analysis.ipynb # Static analysis agent development
-│   └── link_analysis_agent.ipynb # NEW - Link analysis development
+│   ├── preprocessing.ipynb  # PDF extraction agent development
+│   ├── static_analysis.ipynb # File analysis agent development
+│   └── link_analysis_agent.ipynb # NEW - URL investigation development
 ├── examples/                # Example usage
 └── experiments/             # Experimental features
 
@@ -377,14 +377,14 @@ tests/                       # PDF samples and test data
 
 output/                      # Generated analysis reports (session-based organization)
 ├── {sha1}_{timestamp}/  # Session-specific directory for each PDF analysis
-│   ├── preprocessing/       # Preprocessing agent outputs
+│   ├── pdf_extraction/      # PDF extraction agent outputs
 │   │   └── extracted_images/
-│   ├── static_analysis/     # Static analysis outputs and state files
-│   │   └── static_analysis_final_state_session_{sha1}_{timestamp}.json
-│   ├── visual_analysis/     # Visual analysis outputs (when run standalone)
-│   ├── link_analysis/       # Link analysis investigation artifacts
+│   ├── file_analysis/       # File analysis outputs and state files
+│   │   └── file_analysis_final_state_session_{sha1}_{timestamp}.json
+│   ├── image_analysis/      # Image analysis outputs (when run standalone)
+│   ├── url_investigation/   # URL investigation artifacts
 │   │   └── task_url_XXX/    # Task-specific browser screenshots and analysis
-│   └── finalizer/           # Final reports and state files
+│   └── report_generator/    # Final reports and state files
 │       ├── final_report_session_{sha1}_{timestamp}.md
 │       └── final_state_session_{sha1}_{timestamp}.json
 └── mcp_outputs/             # Legacy MCP output directory (for standalone usage)
@@ -433,7 +433,7 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **Clear package name**: Users import `pdf_hunter` modules instead of generic `src`
 - **Reproducibility**: Works without setting `PYTHONPATH` after `uv sync`
 - **Editable installs**: `uv pip install -e .` for development
-- **Module execution**: Run with `python -m pdf_hunter.agents.static_analysis.graph`
+- **Module execution**: Run with `python -m pdf_hunter.agents.file_analysis.graph`
 
 ### Import Patterns
 

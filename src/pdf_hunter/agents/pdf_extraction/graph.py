@@ -1,10 +1,10 @@
 from langgraph.graph import StateGraph, START, END
 
-from .schemas import PreprocessingState, PreprocessingInputState, PreprocessingOutputState
+from .schemas import PDFExtractionState, PDFExtractionInputState, PDFExtractionOutputState
 from .nodes import setup_session, extract_pdf_images, scan_qr_codes, find_embedded_urls
 
 
-preprocessing_builder = StateGraph(PreprocessingState, input_schema=PreprocessingInputState, output_schema=PreprocessingOutputState)
+preprocessing_builder = StateGraph(PDFExtractionState, input_schema=PDFExtractionInputState, output_schema=PDFExtractionOutputState)
 
 preprocessing_builder.add_node("setup_session", setup_session)
 preprocessing_builder.add_node("extract_pdf_images", extract_pdf_images)

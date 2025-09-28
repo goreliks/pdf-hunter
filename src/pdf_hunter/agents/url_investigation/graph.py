@@ -6,12 +6,12 @@ from datetime import datetime
 from pathlib import Path
 from langgraph.graph import StateGraph, START, END
 
-from .schemas import LinkAnalysisState, LinkAnalysisInputState, LinkAnalysisOutputState, LinkInvestigatorState, LinkInvestigatorOutputState
-from ..visual_analysis.schemas import PrioritizedURL
+from .schemas import URLInvestigationState, URLInvestigationInputState, URLInvestigationOutputState, URLInvestigatorState, URLInvestigatorOutputState
+from ..image_analysis.schemas import PrioritizedURL
 from .nodes import investigate_url, execute_browser_tools, analyze_url_content, should_continue, route_url_analysis, filter_high_priority_urls, save_url_analysis_state
 
 
-link_investigator_state = StateGraph(LinkInvestigatorState, output_schema=LinkInvestigatorOutputState)
+link_investigator_state = StateGraph(URLInvestigatorState, output_schema=URLInvestigatorOutputState)
 
 # Add the nodes to the graph
 link_investigator_state.add_node("investigate_url", investigate_url)
@@ -42,7 +42,7 @@ async def conduct_link_analysis(state: dict):
     }
 
 
-pipeline = StateGraph(LinkAnalysisState, input_schema=LinkAnalysisInputState, output_schema=LinkAnalysisOutputState)
+pipeline = StateGraph(URLInvestigationState, input_schema=URLInvestigationInputState, output_schema=URLInvestigationOutputState)
 
 pipeline.add_node("filter_high_priority_urls", filter_high_priority_urls)
 pipeline.add_node("conduct_link_analysis", conduct_link_analysis)

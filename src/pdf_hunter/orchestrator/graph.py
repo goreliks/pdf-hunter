@@ -1,11 +1,11 @@
 from langgraph.graph import StateGraph, START, END
 
 from .schemas import OrchestratorState, OrchestratorInputState, OrchestratorOutputState
-from ..agents.preprocessing.graph import preprocessing_graph
-from ..agents.visual_analysis.graph import visual_analysis_graph
-from ..agents.static_analysis.graph import static_analysis_graph
-from ..agents.link_analysis.graph import link_analysis_graph
-from ..agents.finalizer.graph import finalizer_graph
+from ..agents.pdf_extraction.graph import preprocessing_graph
+from ..agents.image_analysis.graph import visual_analysis_graph
+from ..agents.file_analysis.graph import static_analysis_graph
+from ..agents.url_investigation.graph import link_analysis_graph
+from ..agents.report_generator.graph import finalizer_graph
 from ..shared.utils.serializer import serialize_state_safely
 
 
@@ -44,7 +44,7 @@ if __name__ == "__main__":
             "file_path": file_path,
             "output_directory": "output",  # Base directory, session-specific will be created
             "number_of_pages_to_process": number_of_pages_to_process,
-            "additional_context": "None"
+            "additional_context": "Check /AcroForm"
         }
         
         print("--- STARTING PDF HUNTER ORCHESTRATOR ---")

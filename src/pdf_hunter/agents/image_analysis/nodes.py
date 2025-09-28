@@ -6,7 +6,7 @@ from typing import List
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from .schemas import VisualAnalysisState, PageAnalysisResult, VisualAnalysisReport
+from .schemas import ImageAnalysisState, PageAnalysisResult, ImageAnalysisReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from .prompts import VISUAL_ANALYSIS_SYSTEM_PROMPT, VISUAL_ANALYSIS_USER_PROMPT
 from pdf_hunter.config import visual_analysis_llm
@@ -55,7 +55,7 @@ def _create_structured_forensic_briefing(page_result: PageAnalysisResult) -> str
     return "\n".join(briefing)
 
 
-def analyze_pdf_images(state: VisualAnalysisState):
+def analyze_pdf_images(state: ImageAnalysisState):
     """
     Visual Deception Analyst (VDA) analyzes pages with a focus on visually
     deceptive content, phishing, and presentation concerns.
@@ -125,7 +125,7 @@ def analyze_pdf_images(state: VisualAnalysisState):
         return {"errors": [error_msg]}
 
 
-def compile_image_findings(state: VisualAnalysisState):
+def compile_image_findings(state: ImageAnalysisState):
     """
     Aggregates all page-level analyses into a final, conclusive report using
     robust, programmatic logic.
@@ -136,7 +136,7 @@ def compile_image_findings(state: VisualAnalysisState):
     if not page_analyses:
         print("[INFO] No page analyses were performed. Generating empty report.")
         # Correctly instantiate the report with keywords to prevent TypeError.
-        visual_analysis_report = VisualAnalysisReport(
+        visual_analysis_report = ImageAnalysisReport(
             overall_verdict="Benign",
             overall_confidence=1.0,
             document_flow_summary="No pages were analyzed.",
@@ -182,7 +182,7 @@ def compile_image_findings(state: VisualAnalysisState):
     )
 
     # Construct the final report object.
-    visual_analysis_report = VisualAnalysisReport(
+    visual_analysis_report = ImageAnalysisReport(
         overall_verdict=most_severe_verdict,
         overall_confidence=overall_confidence,
         document_flow_summary=document_flow_summary,
@@ -198,10 +198,10 @@ def compile_image_findings(state: VisualAnalysisState):
         # Save the final report to a JSON file for record-keeping.
         session_output_directory = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown")
-        visual_analysis_directory = os.path.join(session_output_directory, "visual_analysis")
-        os.makedirs(visual_analysis_directory, exist_ok=True)
-        json_filename = f"visual_analysis_state_session_{session_id}.json"
-        json_path = os.path.join(visual_analysis_directory, json_filename)
+        image_analysis_directory = os.path.join(session_output_directory, "image_analysis")
+        os.makedirs(image_analysis_directory, exist_ok=True)
+        json_filename = f"image_analysis_state_session_{session_id}.json"
+        json_path = os.path.join(image_analysis_directory, json_filename)
         dump_state_to_file(visual_analysis_report, json_path)
     except Exception as e:
         state["errors"] = state.get("errors", []) + [f"Error saving visual analysis report to JSON: {e}"]
