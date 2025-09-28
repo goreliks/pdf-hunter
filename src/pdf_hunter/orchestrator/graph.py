@@ -1,27 +1,27 @@
 from langgraph.graph import StateGraph, START, END
 
 from .schemas import OrchestratorState, OrchestratorInputState, OrchestratorOutputState
-from ..agents.preprocessing.graph import preprocessing_graph
-from ..agents.visual_analysis.graph import visual_analysis_graph
-from ..agents.static_analysis.graph import static_analysis_graph
-from ..agents.link_analysis.graph import link_analysis_graph
-from ..agents.finalizer.graph import finalizer_graph
+from ..agents.pdf_extraction.graph import preprocessing_graph
+from ..agents.image_analysis.graph import visual_analysis_graph
+from ..agents.file_analysis.graph import static_analysis_graph
+from ..agents.url_investigation.graph import link_analysis_graph
+from ..agents.report_generator.graph import report_generator_graph
 from ..shared.utils.serializer import serialize_state_safely
 
 
 orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState, output_schema=OrchestratorOutputState)
 
-orchestrator_builder.add_node("preprocessing", preprocessing_graph)
-orchestrator_builder.add_node("static_analysis", static_analysis_graph)
-orchestrator_builder.add_node("visual_analysis", visual_analysis_graph)
-orchestrator_builder.add_node("link_analysis", link_analysis_graph)
-orchestrator_builder.add_node("finalizer", finalizer_graph)
-orchestrator_builder.add_edge(START, "preprocessing")
-orchestrator_builder.add_edge("preprocessing", "static_analysis")
-orchestrator_builder.add_edge("preprocessing", "visual_analysis")
-orchestrator_builder.add_edge("visual_analysis", "link_analysis")
-orchestrator_builder.add_edge(["static_analysis", "link_analysis"], "finalizer")
-orchestrator_builder.add_edge("finalizer", END)
+orchestrator_builder.add_node("pdf_extraction", preprocessing_graph)
+orchestrator_builder.add_node("file_analysis", static_analysis_graph)
+orchestrator_builder.add_node("image_analysis", visual_analysis_graph)
+orchestrator_builder.add_node("url_investigation", link_analysis_graph)
+orchestrator_builder.add_node("report_generator", report_generator_graph)
+orchestrator_builder.add_edge(START, "pdf_extraction")
+orchestrator_builder.add_edge("pdf_extraction", "file_analysis")
+orchestrator_builder.add_edge("pdf_extraction", "image_analysis")
+orchestrator_builder.add_edge("image_analysis", "url_investigation")
+orchestrator_builder.add_edge(["file_analysis", "url_investigation"], "report_generator")
+orchestrator_builder.add_edge("report_generator", END)
 
 orchestrator_graph = orchestrator_builder.compile()
 
@@ -33,9 +33,9 @@ if __name__ == "__main__":
     import asyncio
 
     async def main():
-        file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
-        # file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
-        file_path = "/Users/gorelik/Courses/pdf-hunter/tests/hello_qr_and_link.pdf"
+        file_path = "/Users/agorelik/src/pdf-hunter/tests/test_mal_one.pdf"
+        # file_path = "/Users/agorelik/src/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
+        file_path = "/Users/agorelik/src/pdf-hunter/tests/hello_qr_and_link.pdf"
         output_directory = "output/orchestrator_results"
         # number_of_pages_to_process = 1
         number_of_pages_to_process = 4
@@ -44,7 +44,7 @@ if __name__ == "__main__":
             "file_path": file_path,
             "output_directory": "output",  # Base directory, session-specific will be created
             "number_of_pages_to_process": number_of_pages_to_process,
-            "additional_context": "None"
+            "additional_context": "Check /AcroForm"
         }
         
         print("--- STARTING PDF HUNTER ORCHESTRATOR ---")
@@ -71,11 +71,11 @@ if __name__ == "__main__":
 
         pretty_print_state(final_state)
 
-        visual_analysis_report = final_state.get("visual_analysis_report")
-        if visual_analysis_report:
-            print("\n--- Visual Analysis Verdict ---")
-            print(f"Verdict: {visual_analysis_report.overall_verdict}")
-            print(f"Confidence: {visual_analysis_report.overall_confidence}")
+        image_analysis_report = final_state.get("image_analysis_report")
+        if image_analysis_report:
+            print("\n--- Image Analysis Verdict ---")
+            print(f"Verdict: {image_analysis_report.overall_verdict}")
+            print(f"Confidence: {image_analysis_report.overall_confidence}")
 
         # Save final state to JSON file
         if final_state:

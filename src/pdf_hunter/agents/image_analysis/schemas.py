@@ -4,7 +4,7 @@ from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, Annotated, NotRequired
 
-from ..preprocessing.schemas import ExtractedImage, ExtractedURL
+from ..pdf_extraction.schemas import ExtractedImage, ExtractedURL
 
 
 class DeceptionTactic(BaseModel):
@@ -67,8 +67,8 @@ class PageAnalysisResult(BaseModel):
     
 
 
-class VisualAnalysisReport(BaseModel):
-    """The complete and final output of the visual analysis agent, created by aggregating all page-level results."""
+class ImageAnalysisReport(BaseModel):
+    """The complete and final output of the image analysis agent, created by aggregating all page-level results."""
     overall_verdict: Literal["Benign", "Suspicious", "Highly Deceptive"]
     overall_confidence: float
     executive_summary: str
@@ -83,9 +83,9 @@ class VisualAnalysisReport(BaseModel):
     all_priority_urls: List[PrioritizedURL]
 
 
-class VisualAnalysisState(TypedDict):
+class ImageAnalysisState(TypedDict):
     """
-    State for the Visual Analysis agent.
+    State for the Image Analysis agent.
     """
     output_directory: str  # Added for session management
     session_id: str        # Added for session management
@@ -93,12 +93,12 @@ class VisualAnalysisState(TypedDict):
     extracted_urls: List[ExtractedURL]
     number_of_pages_to_process: int
     page_analyses: List[PageAnalysisResult]
-    visual_analysis_report: NotRequired[VisualAnalysisReport]
+    visual_analysis_report: NotRequired[ImageAnalysisReport]
     errors: Annotated[List[str], operator.add]
     prioritized_urls: List[PrioritizedURL]
 
 
-class VisualAnalysisInputState(TypedDict):
+class ImageAnalysisInputState(TypedDict):
     output_directory: str  # Added for session management
     session_id: str        # Added for session management
     extracted_images: List[ExtractedImage]
@@ -106,10 +106,10 @@ class VisualAnalysisInputState(TypedDict):
     number_of_pages_to_process: int
 
 
-class VisualAnalysisOutputState(TypedDict):
+class ImageAnalysisOutputState(TypedDict):
     output_directory: str  # Added to pass session directory to other agents
     session_id: str        # Added to pass session ID to other agents
     page_analyses: List[PageAnalysisResult]
-    visual_analysis_report: VisualAnalysisReport
+    visual_analysis_report: ImageAnalysisReport
     errors: Annotated[List[str], operator.add]
     prioritized_urls: List[PrioritizedURL]

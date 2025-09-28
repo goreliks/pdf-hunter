@@ -5,7 +5,7 @@ import pathlib
 import os
 from datetime import datetime
 
-from .schemas import PreprocessingState, PDFHashData, ExtractedImage, ExtractedURL
+from .schemas import PDFExtractionState, PDFHashData, ExtractedImage, ExtractedURL
 
 
 from pdf_hunter.shared.utils.hashing import calculate_file_hashes
@@ -15,12 +15,12 @@ from pdf_hunter.shared.utils.file_operations import ensure_output_directory
 from pdf_hunter.shared.utils.qr_extraction import process_pdf_for_qr_codes
 
 
-def initialization_node(state: PreprocessingState):
+def setup_session(state: PDFExtractionState):
     """
-    Initializes the preprocessing by validating paths, calculating hashes,
+    Initializes the PDF extraction by validating paths, calculating hashes,
     generating session_id, and creating session-specific directory structure.
     """
-    print("--- Preprocessing Node: Initializing Analysis ---")
+    print("--- PDF Extraction: Setting Up Session ---")
     try:
         file_path = state['file_path']
         base_output_directory = state.get('output_directory', 'output')
@@ -36,11 +36,11 @@ def initialization_node(state: PreprocessingState):
 
         # 3. Create session-specific output directory
         session_output_directory = os.path.join(base_output_directory, session_id)
-        preprocessing_directory = os.path.join(session_output_directory, "preprocessing")
+        pdf_extraction_directory = os.path.join(session_output_directory, "pdf_extraction")
 
         # 4. Ensure directories exist
         ensure_output_directory(pathlib.Path(session_output_directory))
-        ensure_output_directory(pathlib.Path(preprocessing_directory))
+        ensure_output_directory(pathlib.Path(pdf_extraction_directory))
 
         # 5. Get total page count
         page_count = get_pdf_page_count(file_path)
@@ -67,16 +67,16 @@ def initialization_node(state: PreprocessingState):
         return {"errors": [error_msg]}
 
 
-def image_extraction_node(state: PreprocessingState):
+def extract_pdf_images(state: PDFExtractionState):
     """
     Extracts images from the specified pages of the PDF, calculates their
     perceptual hash (phash), and saves them to the preprocessing subdirectory.
     """
-    print("--- Preprocessing Node: Extracting Images ---")
+    print("--- PDF Extraction: Extracting PDF Images ---")
     try:
         file_path = state['file_path']
         session_output_dir = state['output_directory']
-        preprocessing_dir = pathlib.Path(os.path.join(session_output_dir, "preprocessing"))
+        pdf_extraction_dir = pathlib.Path(os.path.join(session_output_dir, "pdf_extraction"))
         pages_to_process = state.get('pages_to_process')
 
         # If specific pages aren't defined, default to the first page.
@@ -100,10 +100,10 @@ def image_extraction_node(state: PreprocessingState):
             # 3. Calculate perceptual hash
             phash = calculate_image_phash(pil_image)
 
-            # 4. Save the image file to preprocessing subdirectory
+            # 4. Save the image file to pdf_extraction subdirectory
             saved_path = save_image(
                 image=pil_image,
-                output_dir=preprocessing_dir,
+                output_dir=pdf_extraction_dir,
                 page_number=img_data['page_number'],
                 image_format="PNG",
                 phash=phash
@@ -129,12 +129,12 @@ def image_extraction_node(state: PreprocessingState):
         return {"errors": [error_msg]}
 
 
-def url_extraction_node(state: PreprocessingState):
+def find_embedded_urls(state: PDFExtractionState):
     """
     Extracts URLs from the specified pages of the PDF from both
     annotations and raw text.
     """
-    print("--- Preprocessing Node: Extracting URLs ---")
+    print("--- PDF Extraction: Finding Embedded URLs ---")
     try:
         file_path = state['file_path']
         pages_to_process = state.get('pages_to_process')
@@ -163,11 +163,11 @@ def url_extraction_node(state: PreprocessingState):
         return {"errors": [error_msg]}
     
 
-def qr_extraction_node(state: PreprocessingState):
+def scan_qr_codes(state: PDFExtractionState):
     """
     Extracts QR codes from the specified pages of the PDF.
     """
-    print("--- Preprocessing Node: Extracting QR Codes ---")
+    print("--- PDF Extraction: Scanning QR Codes ---")
     try:
         file_path = state['file_path']
         pages_to_process = state.get('pages_to_process')

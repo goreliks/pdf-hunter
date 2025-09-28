@@ -3,12 +3,12 @@ from typing_extensions import TypedDict, NotRequired, Annotated
 import operator
 
 
-from ..agents.preprocessing.schemas import ExtractedImage, ExtractedURL
-from ..agents.visual_analysis.schemas import VisualAnalysisReport
-from ..agents.preprocessing.schemas import PDFHashData
-from ..agents.static_analysis.schemas import EvidenceGraph, FinalReport
-from ..agents.link_analysis.schemas import URLAnalysisResult
-from ..agents.finalizer.schemas import FinalVerdict
+from ..agents.pdf_extraction.schemas import ExtractedImage, ExtractedURL
+from ..agents.image_analysis.schemas import ImageAnalysisReport
+from ..agents.pdf_extraction.schemas import PDFHashData
+from ..agents.file_analysis.schemas import EvidenceGraph, FinalReport
+from ..agents.url_investigation.schemas import URLAnalysisResult
+from ..agents.report_generator.schemas import FinalVerdict
 
 class OrchestratorState(TypedDict):
     """
@@ -31,7 +31,7 @@ class OrchestratorState(TypedDict):
     extracted_urls: List[ExtractedURL]
 
     # --- Results from Visual Analysis Agent ---
-    visual_analysis_report: NotRequired[VisualAnalysisReport]
+    visual_analysis_report: NotRequired[ImageAnalysisReport]
 
     # --- Results from Static Analysis Agent ---
     structural_summary: Dict[str, str]

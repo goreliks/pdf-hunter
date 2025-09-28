@@ -6,12 +6,12 @@ from typing import List
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from .schemas import VisualAnalysisState, PageAnalysisResult, VisualAnalysisReport
+from .schemas import ImageAnalysisState, PageAnalysisResult, ImageAnalysisReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
-from .prompts import VISUAL_ANALYSIS_SYSTEM_PROMPT, VISUAL_ANALYSIS_USER_PROMPT
-from pdf_hunter.config import visual_analysis_llm
+from .prompts import IMAGE_ANALYSIS_SYSTEM_PROMPT, IMAGE_ANALYSIS_USER_PROMPT
+from pdf_hunter.config import image_analysis_llm
 
-llm_with_structured_output = visual_analysis_llm.with_structured_output(PageAnalysisResult)
+llm_with_structured_output = image_analysis_llm.with_structured_output(PageAnalysisResult)
 
 
 def _create_structured_forensic_briefing(page_result: PageAnalysisResult) -> str:
@@ -55,11 +55,12 @@ def _create_structured_forensic_briefing(page_result: PageAnalysisResult) -> str
     return "\n".join(briefing)
 
 
-def visual_analysis_node(state: VisualAnalysisState):
+def analyze_pdf_images(state: ImageAnalysisState):
     """
-    Performs a sequential, context-aware visual analysis of each page.
+    Visual Deception Analyst (VDA) analyzes pages with a focus on visually
+    deceptive content, phishing, and presentation concerns.
     """
-    print("--- Visual Analysis Node: Starting Page-by-Page Analysis ---")
+    print("--- Image Analysis: Starting Visual Deception Analysis ---")
     
     try:
         num_pages_to_process = state.get("number_of_pages_to_process", 1)
@@ -89,14 +90,14 @@ def visual_analysis_node(state: VisualAnalysisState):
             }
 
             # Format the user prompt with the context and element map.
-            formatted_user_prompt = VISUAL_ANALYSIS_USER_PROMPT.format(
+            formatted_user_prompt = IMAGE_ANALYSIS_USER_PROMPT.format(
                 element_map_json=json.dumps(element_map, indent=2),
                 previous_pages_context=previous_pages_context
             )
             
             # Construct the full, correct list of messages for the LLM call.
             messages = [
-                SystemMessage(content=VISUAL_ANALYSIS_SYSTEM_PROMPT),
+                SystemMessage(content=IMAGE_ANALYSIS_SYSTEM_PROMPT),
                 HumanMessage(
                     content=[
                         {"type": "text", "text": formatted_user_prompt},
@@ -124,18 +125,18 @@ def visual_analysis_node(state: VisualAnalysisState):
         return {"errors": [error_msg]}
 
 
-def aggregation_node(state: VisualAnalysisState):
+def compile_image_findings(state: ImageAnalysisState):
     """
     Aggregates all page-level analyses into a final, conclusive report using
     robust, programmatic logic.
     """
-    print("--- Visual Analysis Node: Aggregating Final Report ---")
+    print("--- Image Analysis: Aggregating Final Report ---")
     page_analyses = state.get("page_analyses", [])
 
     if not page_analyses:
         print("[INFO] No page analyses were performed. Generating empty report.")
         # Correctly instantiate the report with keywords to prevent TypeError.
-        visual_analysis_report = VisualAnalysisReport(
+        visual_analysis_report = ImageAnalysisReport(
             overall_verdict="Benign",
             overall_confidence=1.0,
             document_flow_summary="No pages were analyzed.",
@@ -181,7 +182,7 @@ def aggregation_node(state: VisualAnalysisState):
     )
 
     # Construct the final report object.
-    visual_analysis_report = VisualAnalysisReport(
+    visual_analysis_report = ImageAnalysisReport(
         overall_verdict=most_severe_verdict,
         overall_confidence=overall_confidence,
         document_flow_summary=document_flow_summary,
@@ -197,10 +198,10 @@ def aggregation_node(state: VisualAnalysisState):
         # Save the final report to a JSON file for record-keeping.
         session_output_directory = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown")
-        visual_analysis_directory = os.path.join(session_output_directory, "visual_analysis")
-        os.makedirs(visual_analysis_directory, exist_ok=True)
-        json_filename = f"visual_analysis_state_session_{session_id}.json"
-        json_path = os.path.join(visual_analysis_directory, json_filename)
+        image_analysis_directory = os.path.join(session_output_directory, "image_analysis")
+        os.makedirs(image_analysis_directory, exist_ok=True)
+        json_filename = f"image_analysis_state_session_{session_id}.json"
+        json_path = os.path.join(image_analysis_directory, json_filename)
         dump_state_to_file(visual_analysis_report, json_path)
     except Exception as e:
         state["errors"] = state.get("errors", []) + [f"Error saving visual analysis report to JSON: {e}"]

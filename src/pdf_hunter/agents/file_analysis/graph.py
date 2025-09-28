@@ -1,8 +1,8 @@
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langgraph.prebuilt import ToolNode
-from .schemas import InvestigatorState, InvestigatorOutputState, StaticAnalysisState, StaticAnalysisInputState, StaticAnalysisOutputState
-from .nodes import investigator_node, triage_router, update_mission_list, dispatch_investigations, reviewer_node, finalizer_node
+from .schemas import InvestigatorState, InvestigatorOutputState, FileAnalysisState, FileAnalysisInputState, FileAnalysisOutputState
+from .nodes import file_analyzer, identify_suspicious_elements, create_analysis_tasks, assign_analysis_tasks, review_analysis_results, summarize_file_analysis
 from .tools import pdf_parser_tools
 from langgraph.prebuilt import tools_condition
 
@@ -10,7 +10,7 @@ from langgraph.prebuilt import tools_condition
 
 investigator_builder = StateGraph(InvestigatorState, output_schema=InvestigatorOutputState)
 
-investigator_builder.add_node("investigation", investigator_node)
+investigator_builder.add_node("investigation", file_analyzer)
 investigator_builder.add_node("tools", ToolNode(pdf_parser_tools))
 
 investigator_builder.add_edge(START, "investigation")
@@ -18,18 +18,14 @@ investigator_builder.add_edge("tools", "investigation")
 
 investigator_builder.add_conditional_edges(
     "investigation",
-    tools_condition,  # This automatically routes to "tools" if tool_calls exist, otherwise continues
-    {
-        "tools": "tools",      # If tools_condition returns "tools"
-        "__end__": END  # If tools_condition returns "__end__" (no tool calls)
-    }
+    tools_condition,
 )
 
 investigator_graph = investigator_builder.compile()
 
 
 # Create a wrapper that ensures outputs are aggregated properly
-def conduct_investigation(state: dict):
+def run_file_analysis(state: dict):
     """
     Wrapper for the investigator subgraph that ensures outputs are collected
     into the completed_investigations list.
@@ -46,23 +42,23 @@ def conduct_investigation(state: dict):
 # Add the wrapper as the node instead of the raw subgraph
 
 
-static_analysis_builder = StateGraph(StaticAnalysisState, input_schema=StaticAnalysisInputState, output_schema=StaticAnalysisOutputState)
+static_analysis_builder = StateGraph(FileAnalysisState, input_schema=FileAnalysisInputState, output_schema=FileAnalysisOutputState)
 
 # Add nodes to static_analysis_builder
-static_analysis_builder.add_node("triage", triage_router)
-static_analysis_builder.add_node("update_mission_list", update_mission_list)
+static_analysis_builder.add_node("identify_suspicious_elements", identify_suspicious_elements)
+static_analysis_builder.add_node("create_analysis_tasks", create_analysis_tasks)
 # static_analysis_builder.add_node("conduct_investigation", investigator_graph)
-static_analysis_builder.add_node("conduct_investigation", conduct_investigation)
+static_analysis_builder.add_node("run_file_analysis", run_file_analysis)
 # static_analysis_builder.add_node("reducer_node", reducer_node)
-static_analysis_builder.add_node("reviewer_node", reviewer_node)
-static_analysis_builder.add_node("finalizer_node", finalizer_node)
+static_analysis_builder.add_node("review_analysis_results", review_analysis_results)
+static_analysis_builder.add_node("summarize_file_analysis", summarize_file_analysis)
 
 # Add edges to static_analysis_builder (not investigator_builder)
-static_analysis_builder.add_edge(START, "triage")
-static_analysis_builder.add_edge("triage", "update_mission_list")
-static_analysis_builder.add_conditional_edges("update_mission_list", dispatch_investigations, ["conduct_investigation", "reviewer_node"])
-static_analysis_builder.add_edge("conduct_investigation", "reviewer_node")
-static_analysis_builder.add_edge("finalizer_node", END)
+static_analysis_builder.add_edge(START, "identify_suspicious_elements")
+static_analysis_builder.add_edge("identify_suspicious_elements", "create_analysis_tasks")
+static_analysis_builder.add_conditional_edges("create_analysis_tasks", assign_analysis_tasks, ["run_file_analysis", "review_analysis_results"])
+static_analysis_builder.add_edge("run_file_analysis", "review_analysis_results")
+static_analysis_builder.add_edge("summarize_file_analysis", END)
 
 static_analysis_graph = static_analysis_builder.compile()
 

@@ -1,10 +1,10 @@
 {
     "dependencies": ["."],
     "graphs": {
-      "static_analysis": "pdf_hunter.agents.static_analysis.graph:static_analysis_graph",
-      "preprocessing": "pdf_hunter.agents.preprocessing.graph:preprocessing_graph",
+      "file_analysis": "pdf_hunter.agents.file_analysis.graph:static_analysis_graph",
+      "pdf_extraction": "pdf_hunter.agents.pdf_extraction.graph:preprocessing_graph",
       "orchestrator": "pdf_hunter.orchestrator.graph:orchestrator_graph",
-      "link_analysis": "pdf_hunter.agents.link_analysis.graph:link_analysis_graph"
+      "url_investigation": "pdf_hunter.agents.url_investigation.graph:link_analysis_graph"
     },
     "env": ".env"
   }

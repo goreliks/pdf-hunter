@@ -3,7 +3,7 @@ from typing import Any, List, Literal, NotRequired, Optional
 from typing_extensions import TypedDict
 from typing_extensions import Annotated, Sequence
 import operator
-from ..visual_analysis.schemas import PrioritizedURL, VisualAnalysisReport
+from ..image_analysis.schemas import PrioritizedURL, ImageAnalysisReport
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
@@ -27,32 +27,32 @@ class URLAnalysisResult(BaseModel):
     analyst_findings: AnalystFindings
 
 # The state for our final two-stage pipeline graph.
-class LinkAnalysisState(TypedDict):
+class URLInvestigationState(TypedDict):
     # Inputs
     output_directory: str
     session_id: str        # Added for session management
-    visual_analysis_report: NotRequired[VisualAnalysisReport]
+    visual_analysis_report: NotRequired[ImageAnalysisReport]
     high_priority_urls: List[PrioritizedURL]
     errors: Annotated[List[str], operator.add]
 
     link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]
 
-class LinkAnalysisInputState(TypedDict):
+class URLInvestigationInputState(TypedDict):
     output_directory: str
     session_id: str        # Added for session management
-    visual_analysis_report: NotRequired[VisualAnalysisReport]
+    visual_analysis_report: NotRequired[ImageAnalysisReport]
 
 
-class LinkAnalysisOutputState(TypedDict):
+class URLInvestigationOutputState(TypedDict):
     output_directory: str  # Added to pass session directory to other agents
     session_id: str        # Added to pass session ID to other agents
     link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]
 
 
-class LinkInvestigatorState(TypedDict):
+class URLInvestigatorState(TypedDict):
     """
-    State for the Link Investigator sub-agent.
+    State for the URL Investigator sub-agent.
     """
     # Inputs
     url_task: PrioritizedURL
@@ -63,10 +63,10 @@ class LinkInvestigatorState(TypedDict):
     investigation_logs: Annotated[Sequence[BaseMessage], operator.add]
 
     # Outputs
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]
     link_analysis_final_report: URLAnalysisResult
 
 
-class LinkInvestigatorOutputState(TypedDict):
+class URLInvestigatorOutputState(TypedDict):
     link_analysis_final_report: URLAnalysisResult
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]
