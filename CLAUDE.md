@@ -132,7 +132,8 @@ The system operates under three core principles:
 
 **Agent 4: URL Investigation** (`src/pdf_hunter/agents/url_investigation/`):
 - **NEW AGENT**: Dedicated deep analysis of URLs identified by image analysis
-- **MCP Integration**: Uses Playwright MCP server for browser automation
+- **MCP Integration**: Uses Playwright MCP server for browser automation with proper syntax enforcement
+- **Browser Tool Syntax**: Uses arrow function format for `browser_evaluate`: `() => document.body.innerText`
 - **URL Status Management**: Filters and updates URL mission status (`IN_PROGRESS`, `NOT_RELEVANT`)
 - **Link Investigator**: Automated web reconnaissance of suspicious URLs
 - **Analyst Node**: Structured analysis of link findings, updates final status (`COMPLETED`/`FAILED`)
@@ -176,7 +177,24 @@ The system operates under three core principles:
 - **Final Report**: Executive summary with verdict and IOCs
 - **Prioritized URLs**: Ranked list of links for deeper investigation with status tracking
 
-#### URL Status Tracking System
+#### Critical Development Patterns
+
+### Browser Tool Syntax Requirements
+URLs flow through browser automation using MCP Playwright integration:
+```python
+# CORRECT browser_evaluate syntax (arrow function)
+{"function": "() => document.body.innerText"}
+{"function": "() => document.title"}
+
+# INCORRECT syntax (will fail)
+{"function": "return document.body.innerText;"}
+{"function": "document.body.innerText"}
+```
+- Prompt explicitly specifies arrow function format to ensure LLM generates correct syntax
+- Browser tools execute sequentially for MCP session safety
+- Multiple tool calls per investigation turn provide comprehensive evidence collection
+
+### URL Status Tracking System
 
 **URLMissionStatus Enum** (`src/pdf_hunter/agents/image_analysis/schemas.py`):
 - `NEW`: URLs initially flagged by visual analysis (default state)

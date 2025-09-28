@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     test_state = {
         "visual_analysis_report": {
-            "high_priority_urls": [
+            "all_priority_urls": [
                 PrioritizedURL(
                     url="https://www.qrcode-monkey.com/",
                     reason="Example URL for testing",

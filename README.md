@@ -305,7 +305,7 @@ PDF Hunter is a **defensive security tool** designed for safe PDF analysis:
 - **🤖 AI-Powered Insights**: 10 specialized LLMs for different analysis tasks
 - **🔄 Parallel Processing**: Concurrent analysis for improved performance
 - **📈 Evidence Graphs**: Structured representation of attack chains
-- **🌐 Web Reconnaissance**: Automated URL investigation with browser automation
+- **🌐 Web Reconnaissance**: Automated URL investigation with MCP Playwright integration
 - **📋 Executive Reports**: Human-readable analysis summaries
 - **🔍 QR Code Detection**: Automated QR code extraction and analysis
 - **💾 State Persistence**: Complete analysis state saving for debugging

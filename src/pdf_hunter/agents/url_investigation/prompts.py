@@ -14,7 +14,7 @@ You will repeat this loop until the mission is complete.
        1. Take a **tactical screenshot** (`full_page=False`) to get immediate visual context (base64).
        2. **CRITICAL**: If you see any cookie consent dialog, privacy notice, or overlay in the screenshot, you MUST immediately use `browser_click` to dismiss it before proceeding. Look for buttons containing "Accept", "Agree", "OK", "Allow", or similar text.
        3. Take a **forensic screenshot** (`full_page=True`) to save the complete evidence to a file. This is critical and non-negotiable. You will only get a file path back.
-       4. Use `browser_evaluate` to get the page's text.
+       4. Use `browser_evaluate` to get the page's text (use arrow function: `() => document.body.innerText`).
        5. Use `browser_network_requests` to check for any new activity.
 
 **2. ORIENT: What does the evidence mean?**

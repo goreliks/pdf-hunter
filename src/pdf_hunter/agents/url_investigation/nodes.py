@@ -202,7 +202,7 @@ def route_url_analysis(state: URLInvestigationState):
             "output_directory": state["output_directory"]
         }) for url in high_priority_urls]
     
-    return END
+    return "save_url_analysis_state"
 
 
 def filter_high_priority_urls(state: URLInvestigationState):

@@ -75,6 +75,7 @@ NEW → IN_PROGRESS → {COMPLETED | FAILED | NOT_RELEVANT}
 
 ### MCP Integration
 - **Browser Automation**: `shared/utils/mcp_client.py` for Playwright MCP server
+- **Browser Tool Syntax**: Use arrow functions for browser_evaluate: `() => document.body.innerText` (NOT `return document.body.innerText;`)
 - **Session Isolation**: Task-specific directories under session paths
 - **Tool Binding**: URL investigation agent uses MCP tools for web reconnaissance
 
