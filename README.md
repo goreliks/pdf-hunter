@@ -76,13 +76,25 @@ graph TD
 
 ### Environment Configuration
 
-Create a `.env` file with the following variables:
+Create a `.env` file with the required variables for your chosen AI provider:
 
+**For OpenAI (Default):**
 ```bash
-# Required: OpenAI API key for LLM operations (default configuration)
+# Required: OpenAI API key for LLM operations
 OPENAI_API_KEY="your_openai_api_key_here"
+```
 
-# Optional: For advanced features
+**For Azure OpenAI (Enterprise):**
+```bash
+# Required: Azure OpenAI configuration
+AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+AZURE_OPENAI_API_KEY="your_azure_openai_api_key_here"
+AZURE_OPENAI_DEPLOYMENT_NAME="your_deployment_name_here"
+AZURE_OPENAI_API_VERSION="2024-12-01-preview"  # Optional
+```
+
+**Optional: Advanced features**
+```bash
 ANTHROPIC_API_KEY="your_anthropic_api_key_here"
 LANGSMITH_API_KEY="your_langsmith_api_key_here"
 LANGSMITH_TRACING_V2=true
@@ -99,12 +111,18 @@ PDF Hunter supports multiple AI model providers:
 - Requires OpenAI API key
 - Best reliability and performance
 
+**☁️ Azure OpenAI (Enterprise)**
+- Uses `gpt-4o` via Azure deployment
+- Requires Azure OpenAI resource and configuration
+- Enterprise features, data residency, enhanced security
+- Ideal for corporate deployments
+
 **🏠 Ollama (Local Alternative)**
 - Uses Qwen2.5:7b and Qwen2.5-VL:7b locally
 - No API keys required
 - Edit `src/pdf_hunter/config.py` to enable
 
-To switch between providers, uncomment the desired configuration in `src/pdf_hunter/config.py`.
+To switch between providers, update the LLM initializations in `src/pdf_hunter/config.py` to use the desired configuration dictionary (e.g., `openai_config`, `azure_openai_config`).
 
 ## 🎮 Usage
 
@@ -179,8 +197,8 @@ Configure in `src/pdf_hunter/config.py`:
 
 ```python
 # Example: Switch to Ollama for local inference
-model = "qwen2.5vl:7b"
-model_provider = "ollama"
+# Uncomment Ollama configuration and update LLM initializations:
+# static_analysis_triage_llm = init_chat_model(**ollama_config)
 ```
 
 ### Platform Configuration
