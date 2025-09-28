@@ -127,15 +127,18 @@ The system operates under three core principles:
 - **Page-Level Analysis**: Examines visual presentation vs. technical elements
 - **Cross-Page Context**: Maintains coherence analysis across document pages
 - **URL Prioritization**: Ranks URLs for deeper investigation based on visual context
-- **Output**: Deception tactics, benign signals, prioritized URLs for link analysis
+- **Status Tracking**: URLs generated with `NEW` status for downstream processing
+- **Output**: Deception tactics, benign signals, prioritized URLs with status tracking for link analysis
 
 **Agent 4: Link Analysis** (`src/pdf_hunter/agents/link_analysis/`):
 - **NEW AGENT**: Dedicated deep analysis of URLs identified by visual analysis
 - **MCP Integration**: Uses Playwright MCP server for browser automation
+- **URL Status Management**: Filters and updates URL mission status (`IN_PROGRESS`, `NOT_RELEVANT`)
 - **Link Investigator**: Automated web reconnaissance of suspicious URLs
-- **Analyst Node**: Structured analysis of link findings
+- **Analyst Node**: Structured analysis of link findings, updates final status (`COMPLETED`/`FAILED`)
+- **Loop Prevention**: Status tracking prevents duplicate analysis of completed URLs
 - **State Persistence**: Automatic state saving for debugging and recovery
-- **Output**: URL reputation, content analysis, threat indicators, persistent state files
+- **Output**: URL reputation, content analysis, threat indicators, persistent state files with status
 
 **Agent 5: Finalizer** (`src/pdf_hunter/agents/finalizer/`):
 - **NEW AGENT**: Comprehensive report generation and final verdict
@@ -171,7 +174,22 @@ The system operates under three core principles:
 - **Visual Analysis Report**: Deception tactics and authenticity signals
 - **Link Analysis Report**: URL reconnaissance and threat assessment
 - **Final Report**: Executive summary with verdict and IOCs
-- **Prioritized URLs**: Ranked list of links for deeper investigation
+- **Prioritized URLs**: Ranked list of links for deeper investigation with status tracking
+
+#### URL Status Tracking System
+
+**URLMissionStatus Enum** (`src/pdf_hunter/agents/visual_analysis/schemas.py`):
+- `NEW`: URLs initially flagged by visual analysis (default state)
+- `IN_PROGRESS`: URLs currently being analyzed by link analysis agent
+- `COMPLETED`: URLs successfully analyzed with findings
+- `FAILED`: URLs that could not be analyzed due to errors
+- `NOT_RELEVANT`: Low-priority URLs not selected for analysis
+
+**Status Workflow**:
+1. **Visual Analysis**: Generates `PrioritizedURL` objects with `NEW` status
+2. **Link Analysis Filter**: Updates status to `IN_PROGRESS` (priority ≤ 5) or `NOT_RELEVANT` (priority > 5)
+3. **Link Analysis Completion**: Analyst node updates to `COMPLETED` or `FAILED` based on analysis outcome
+4. **State Persistence**: Status tracked in session files for loop prevention and debugging
 
 ### Complete Agent Workflow
 
@@ -182,6 +200,45 @@ The system operates under three core principles:
 5. **Finalization**: Comprehensive report synthesis, final verdict, file output
 
 The orchestrator coordinates all five agents in a sophisticated pipeline with parallel processing where appropriate.
+
+### URL Status Tracking Workflow
+
+**Detailed URL Lifecycle Management:**
+
+1. **Preprocessing Stage**:
+   - URLs extracted from PDF annotations and text
+   - QR codes detected and decoded to URLs
+   - All URLs stored as `ExtractedURL` objects (no status tracking at this stage)
+
+2. **Visual Analysis Stage**:
+   - LLM analyzes visual context and generates `PrioritizedURL` objects
+   - Each URL assigned priority (1=highest, 5=lowest) and contextual reasoning
+   - All URLs initialized with `mission_status = NEW`
+   - URLs aggregated into `visual_analysis_report.all_priority_urls`
+
+3. **Link Analysis Filter Stage** (`filter_high_priority_urls`):
+   - Processes URLs from visual analysis report
+   - **High Priority URLs** (priority ≤ 5): Status updated to `IN_PROGRESS`
+   - **Low Priority URLs** (priority > 5): Status updated to `NOT_RELEVANT`
+   - Only high priority URLs dispatched for deep analysis
+
+4. **Link Analysis Investigation Stage**:
+   - Each high priority URL analyzed in parallel using browser automation
+   - MCP tools perform web reconnaissance, screenshot capture, domain analysis
+   - Investigation logs captured for analyst review
+
+5. **Link Analysis Completion Stage** (`analyst_node`):
+   - Analyst LLM synthesizes investigation findings
+   - Status updated based on analysis outcome:
+     - `COMPLETED`: Successful analysis with findings
+     - `FAILED`: Analysis failed due to technical errors or inaccessible URLs
+   - Final URL status persisted in `URLAnalysisResult`
+
+**Loop Prevention Benefits:**
+- Status tracking enables future enhancements for iterative analysis
+- Completed URLs can be skipped in subsequent runs  
+- Failed URLs can be retried with different strategies
+- Analysis progress visible in debugging and state files
 
 ## Configuration
 

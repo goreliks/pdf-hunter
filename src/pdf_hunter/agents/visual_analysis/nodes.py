@@ -144,7 +144,7 @@ def aggregation_node(state: VisualAnalysisState):
             all_detailed_findings=[],
             all_deception_tactics=[],
             all_benign_signals=[],
-            high_priority_urls=[]
+            all_priority_urls=[]
         )
         return {"visual_analysis_report": visual_analysis_report}
 
@@ -171,14 +171,13 @@ def aggregation_node(state: VisualAnalysisState):
     all_tactics = [tactic for p in page_analyses for tactic in p.deception_tactics]
     all_signals = [signal for p in page_analyses for signal in p.benign_signals]
     all_priority_urls = [url for p in page_analyses for url in p.prioritized_urls]
-    high_priority_urls = [url for url in all_priority_urls if url.priority <= 5]
 
     # Generate the Executive Summary.
     summary = (
         f"Visual analysis of {len(page_analyses)} page(s) resulted in an overall verdict of '{most_severe_verdict}'.\n"
         f"The analysis produced {len(all_detailed_findings)} specific forensic findings, "
         f"which were summarized into {len(all_tactics)} deception tactics and {len(all_signals)} benign signals.\n"
-        f"Flagged {len(high_priority_urls)} high-priority URLs for further investigation."
+        f"Flagged {len(all_priority_urls)} URLs for further investigation."
     )
 
     # Construct the final report object.
@@ -191,7 +190,7 @@ def aggregation_node(state: VisualAnalysisState):
         all_detailed_findings=all_detailed_findings,
         all_deception_tactics=all_tactics,
         all_benign_signals=all_signals,
-        high_priority_urls=high_priority_urls
+        all_priority_urls=all_priority_urls
     )
 
     try:
