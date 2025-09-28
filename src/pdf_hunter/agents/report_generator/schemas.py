@@ -11,8 +11,8 @@ class FinalVerdict(BaseModel):
     reasoning: str = Field(..., description="A concise synthesis explaining the most critical evidence and logic that led to the final verdict.")
 
 
-class FinalizerState(TypedDict):
-    """The state for the Finalizer agent's internal graph."""
+class ReportGeneratorState(TypedDict):
+    """The state for the Report Generator agent's internal graph."""
     # This state will be merged with the main OrchestratorState
     final_report: NotRequired[str]
     final_verdict: NotRequired[FinalVerdict]

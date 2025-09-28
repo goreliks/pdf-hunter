@@ -8,7 +8,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from .schemas import ImageAnalysisState, PageAnalysisResult, ImageAnalysisReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
-from .prompts import VISUAL_ANALYSIS_SYSTEM_PROMPT, VISUAL_ANALYSIS_USER_PROMPT
+from .prompts import IMAGE_ANALYSIS_SYSTEM_PROMPT, IMAGE_ANALYSIS_USER_PROMPT
 from pdf_hunter.config import image_analysis_llm
 
 llm_with_structured_output = image_analysis_llm.with_structured_output(PageAnalysisResult)
@@ -90,14 +90,14 @@ def analyze_pdf_images(state: ImageAnalysisState):
             }
 
             # Format the user prompt with the context and element map.
-            formatted_user_prompt = VISUAL_ANALYSIS_USER_PROMPT.format(
+            formatted_user_prompt = IMAGE_ANALYSIS_USER_PROMPT.format(
                 element_map_json=json.dumps(element_map, indent=2),
                 previous_pages_context=previous_pages_context
             )
             
             # Construct the full, correct list of messages for the LLM call.
             messages = [
-                SystemMessage(content=VISUAL_ANALYSIS_SYSTEM_PROMPT),
+                SystemMessage(content=IMAGE_ANALYSIS_SYSTEM_PROMPT),
                 HumanMessage(
                     content=[
                         {"type": "text", "text": formatted_user_prompt},

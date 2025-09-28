@@ -302,9 +302,9 @@ Sample PDFs in `tests/` directory:
 
 ### Notebook Development
 
-- `notebooks/development/static_analysis.ipynb`: File analysis development
+- `notebooks/development/static_analysis.ipynb`: File analysis agent development
 - `notebooks/development/preprocessing.ipynb`: PDF extraction development  
-- `notebooks/development/link_analysis_agent.ipynb`: NEW - URL investigation development
+- `notebooks/development/link_analysis_agent.ipynb`: URL investigation development
 - Step-by-step agent execution and debugging capabilities
 - Prototype new features before integration
 
@@ -364,7 +364,7 @@ notebooks/                   # Jupyter development environment
 ├── development/             # Main development notebooks
 │   ├── preprocessing.ipynb  # PDF extraction agent development
 │   ├── static_analysis.ipynb # File analysis agent development
-│   └── link_analysis_agent.ipynb # NEW - URL investigation development
+│   └── link_analysis_agent.ipynb # URL investigation development
 ├── examples/                # Example usage
 └── experiments/             # Experimental features
 

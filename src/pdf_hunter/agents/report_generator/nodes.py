@@ -5,7 +5,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from pdf_hunter.config import report_generator_llm, final_verdict_llm
 from pdf_hunter.orchestrator.schemas import OrchestratorState
 from pdf_hunter.shared.utils.serializer import serialize_state_safely, dump_state_to_file
-from .prompts import FINALIZER_SYSTEM_PROMPT, FINALIZER_USER_PROMPT, FINAL_VERDICT_SYSTEM_PROMPT, FINAL_VERDICT_USER_PROMPT
+from .prompts import REPORT_GENERATOR_SYSTEM_PROMPT, REPORT_GENERATOR_USER_PROMPT, REPORT_GENERATOR_VERDICT_SYSTEM_PROMPT, REPORT_GENERATOR_VERDICT_USER_PROMPT
 from .schemas import FinalVerdict
 
 
@@ -20,8 +20,8 @@ def determine_threat_verdict(state: OrchestratorState) -> dict:
     # This node now ONLY uses the raw state, as it runs before the report is generated.
     # This fixes the KeyError and aligns with our desired logical flow.
     messages = [
-        SystemMessage(content=FINAL_VERDICT_SYSTEM_PROMPT),
-        HumanMessage(content=FINAL_VERDICT_USER_PROMPT.format(
+        SystemMessage(content=REPORT_GENERATOR_VERDICT_SYSTEM_PROMPT),
+        HumanMessage(content=REPORT_GENERATOR_VERDICT_USER_PROMPT.format(
             serialized_state=json.dumps(serialized_state, indent=2)
             # The markdown_report is correctly removed from the input
         )),
@@ -46,8 +46,8 @@ def generate_final_report(state: OrchestratorState) -> dict:
     serialized_state = serialize_state_safely(state)
 
     messages = [
-        SystemMessage(content=FINALIZER_SYSTEM_PROMPT),
-        HumanMessage(content=FINALIZER_USER_PROMPT.format(serialized_state=json.dumps(serialized_state, indent=2))),
+        SystemMessage(content=REPORT_GENERATOR_SYSTEM_PROMPT),
+        HumanMessage(content=REPORT_GENERATOR_USER_PROMPT.format(serialized_state=json.dumps(serialized_state, indent=2))),
     ]
 
     response = report_generator_llm.invoke(messages)

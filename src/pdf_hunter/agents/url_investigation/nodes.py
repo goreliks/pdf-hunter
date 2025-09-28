@@ -13,7 +13,7 @@ from langgraph.graph import END
 
 from pdf_hunter.config import url_investigation_investigator_llm, url_investigation_analyst_llm
 from .schemas import URLInvestigationState, URLInvestigatorState, URLAnalysisResult, AnalystFindings
-from .prompts import WFI_INVESTIGATOR_SYSTEM_PROMPT , WFI_ANALYST_SYSTEM_PROMPT, WFI_ANALYST_USER_PROMPT
+from .prompts import URL_INVESTIGATION_INVESTIGATOR_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_USER_PROMPT
 
 
 
@@ -65,7 +65,7 @@ async def investigate_url(state: URLInvestigatorState):
         
         **IMPORTANT:** This URL was extracted from a PDF document, not discovered on a website. The PDF may have used social engineering tactics (like fake verification prompts) to trick users into visiting this URL. Your investigation should focus on where this URL leads and whether it's part of a larger attack chain.
         """
-        initial_messages = [ SystemMessage(content=WFI_INVESTIGATOR_SYSTEM_PROMPT), HumanMessage(content=initial_prompt) ]
+        initial_messages = [ SystemMessage(content=URL_INVESTIGATION_INVESTIGATOR_SYSTEM_PROMPT), HumanMessage(content=initial_prompt) ]
         # Get the LLM response asynchronously - proper async pattern
         llm_response = await model_with_tools.ainvoke(initial_messages)
         # Return both the initial messages AND the LLM response
@@ -152,13 +152,13 @@ async def analyze_url_content(state: URLInvestigatorState) -> dict:
     print("\n--- [Analyst] Starting synthesis of all evidence ---")
 
     analyst_llm = url_investigation_analyst_llm.with_structured_output(AnalystFindings)
-    analyst_prompt = WFI_ANALYST_USER_PROMPT.format(
+    analyst_prompt = URL_INVESTIGATION_ANALYST_USER_PROMPT.format(
         current_datetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         initial_briefing_json=url_task.model_dump_json(indent=2),
         investigation_log_json=json.dumps([msg.model_dump() for msg in investigation_log], indent=2)
     )
     analyst_findings = await analyst_llm.ainvoke([
-        SystemMessage(content=WFI_ANALYST_SYSTEM_PROMPT),
+        SystemMessage(content=URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT),
         HumanMessage(content=analyst_prompt)
     ])
 

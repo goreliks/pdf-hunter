@@ -5,7 +5,7 @@ from ..agents.pdf_extraction.graph import preprocessing_graph
 from ..agents.image_analysis.graph import visual_analysis_graph
 from ..agents.file_analysis.graph import static_analysis_graph
 from ..agents.url_investigation.graph import link_analysis_graph
-from ..agents.report_generator.graph import finalizer_graph
+from ..agents.report_generator.graph import report_generator_graph
 from ..shared.utils.serializer import serialize_state_safely
 
 
@@ -15,7 +15,7 @@ orchestrator_builder.add_node("pdf_extraction", preprocessing_graph)
 orchestrator_builder.add_node("file_analysis", static_analysis_graph)
 orchestrator_builder.add_node("image_analysis", visual_analysis_graph)
 orchestrator_builder.add_node("url_investigation", link_analysis_graph)
-orchestrator_builder.add_node("report_generator", finalizer_graph)
+orchestrator_builder.add_node("report_generator", report_generator_graph)
 orchestrator_builder.add_edge(START, "pdf_extraction")
 orchestrator_builder.add_edge("pdf_extraction", "file_analysis")
 orchestrator_builder.add_edge("pdf_extraction", "image_analysis")
