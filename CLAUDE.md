@@ -471,6 +471,14 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 
 ## Recent Architecture Improvements
 
+### Error Collection Standardization (September 2025)
+- **Consistent Error Fields**: Standardized all agent schemas to use `errors: Annotated[List[str], operator.add]`
+- **Orchestrator Error Aggregation**: Maintains `errors: Annotated[List[list], operator.add]` for collecting agent error groups
+- **Removed NotRequired**: Eliminated inconsistent `NotRequired` usage from error fields across all agents
+- **Import Path Fixes**: Resolved Pydantic enum serialization warnings by using consistent import paths
+- **Enhanced Debugging**: Grouped error collection provides better agent traceability for complex multi-agent workflows
+- **State Validation**: All agents now guarantee error field presence for reliable error propagation
+
 ### Model Configuration Overhaul (September 2025)
 - **Simplified Providers**: Moved from complex multi-provider setup to clean OpenAI default + Ollama option
 - **Dependency Cleanup**: Removed all Hugging Face transformers, torch, and accelerate dependencies

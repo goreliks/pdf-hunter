@@ -4,11 +4,11 @@ import asyncio
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from typing import Literal
-
+from pdf_hunter.agents.visual_analysis.schemas import URLMissionStatus
 from .tools import domain_whois
-from ..visual_analysis.schemas import URLMissionStatus
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
-from langgraph.constants import Send, END
+from langgraph.constants import Send
+from langgraph.graph import END
 
 
 from pdf_hunter.config import link_analysis_investigator_llm, link_analysis_analyst_llm

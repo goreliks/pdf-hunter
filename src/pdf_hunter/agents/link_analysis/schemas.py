@@ -47,7 +47,7 @@ class LinkAnalysisOutputState(TypedDict):
     output_directory: str  # Added to pass session directory to other agents
     session_id: str        # Added to pass session ID to other agents
     link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]
 
 
 class LinkInvestigatorState(TypedDict):
@@ -63,10 +63,10 @@ class LinkInvestigatorState(TypedDict):
     investigation_logs: Annotated[Sequence[BaseMessage], operator.add]
 
     # Outputs
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]
     link_analysis_final_report: URLAnalysisResult
 
 
 class LinkInvestigatorOutputState(TypedDict):
     link_analysis_final_report: URLAnalysisResult
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]

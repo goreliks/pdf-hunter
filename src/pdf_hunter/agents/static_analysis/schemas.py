@@ -200,7 +200,7 @@ class TriageState(TypedDict):
 class InvestigatorOutputState(TypedDict):
     mission: InvestigationMission
     mission_report: NotRequired[MissionReport]
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]
     messages: Annotated[list[AnyMessage], add_messages]
 
 
@@ -211,7 +211,7 @@ class InvestigatorState(TypedDict):
     file_path: str
     mission: InvestigationMission
     mission_report: NotRequired[MissionReport]
-    errors: NotRequired[Annotated[List[str], operator.add]]
+    errors: Annotated[List[str], operator.add]
     structural_summary: Dict[str, str]
     messages: Annotated[list[AnyMessage], add_messages]
 
