@@ -1,3 +1,4 @@
+from enum import Enum
 import operator
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
@@ -19,6 +20,14 @@ class BenignSignal(BaseModel):
     description: str = Field(..., description="Detailed description of the signal.")
     confidence: float = Field(..., description="Confidence in assessment (0.0-1.0).")
 
+class URLMissionStatus(str, Enum):
+    """Status enum for URL analysis missions."""
+    NEW = "new"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    NOT_RELEVANT = "not_relevant"
+
 class PrioritizedURL(BaseModel):
     """A URL marked for deeper analysis by downstream agents."""
     url: str = Field(..., description="The URL requiring analysis.")
@@ -27,6 +36,7 @@ class PrioritizedURL(BaseModel):
     page_number: int = Field(..., description="The page number (0-indexed) where this URL was most prominently found.")
     source_context: Optional[str] = Field(None, description="Context about the source document (e.g., 'PDF document with verification prompt')")
     extraction_method: Optional[str] = Field(None, description="How the URL was extracted (e.g., 'qr_code', 'annotation', 'text')")
+    mission_status: URLMissionStatus = Field(default=URLMissionStatus.NEW, description="Current status of the analysis mission for this URL.")
 
 
 class DetailedFinding(BaseModel):
@@ -70,7 +80,7 @@ class VisualAnalysisReport(BaseModel):
     all_detailed_findings: List[DetailedFinding]
     all_deception_tactics: List[DeceptionTactic]
     all_benign_signals: List[BenignSignal]
-    high_priority_urls: List[PrioritizedURL]
+    all_priority_urls: List[PrioritizedURL]
 
 
 class VisualAnalysisState(TypedDict):
@@ -85,6 +95,7 @@ class VisualAnalysisState(TypedDict):
     page_analyses: List[PageAnalysisResult]
     visual_analysis_report: NotRequired[VisualAnalysisReport]
     errors: Annotated[List[str], operator.add]
+    prioritized_urls: List[PrioritizedURL]
 
 
 class VisualAnalysisInputState(TypedDict):
@@ -101,3 +112,4 @@ class VisualAnalysisOutputState(TypedDict):
     page_analyses: List[PageAnalysisResult]
     visual_analysis_report: VisualAnalysisReport
     errors: Annotated[List[str], operator.add]
+    prioritized_urls: List[PrioritizedURL]

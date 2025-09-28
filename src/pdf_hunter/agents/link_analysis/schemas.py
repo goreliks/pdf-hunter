@@ -17,6 +17,7 @@ class AnalystFindings(BaseModel):
     detected_threats: List[str] = Field(default_factory=list)
     domain_whois_record: Optional[str] = Field(None, description="The summary of the WHOIS record for the final root domain, extracted from the investigation log.")
     screenshot_paths: List[str] = Field(default_factory=list, description="A list of all screenshot file paths mentioned in the investigation log.")
+    mission_status: Literal["completed", "failed"] = Field(..., description="The status of the analysis mission for this URL.")
 
 # The final, assembled forensic report.
 class URLAnalysisResult(BaseModel):
@@ -31,7 +32,7 @@ class LinkAnalysisState(TypedDict):
     output_directory: str
     session_id: str        # Added for session management
     visual_analysis_report: NotRequired[VisualAnalysisReport]
-
+    high_priority_urls: List[PrioritizedURL]
     errors: Annotated[List[str], operator.add]
 
     link_analysis_final_reports: Annotated[List[URLAnalysisResult], operator.add]

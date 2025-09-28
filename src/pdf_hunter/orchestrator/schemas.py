@@ -53,7 +53,7 @@ class OrchestratorState(TypedDict):
 
 class OrchestratorInputState(TypedDict):
     file_path: str
-    output_directory: NotRequired[Optional[str]]  # Optional, defaults to 'output'
+    output_directory: NotRequired[Optional[str]]
     number_of_pages_to_process: int
     additional_context: NotRequired[Optional[str]]
 

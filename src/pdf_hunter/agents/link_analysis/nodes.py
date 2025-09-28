@@ -4,7 +4,9 @@ import asyncio
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from typing import Literal
+
 from .tools import domain_whois
+from ..visual_analysis.schemas import URLMissionStatus
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from langgraph.constants import Send, END
 
@@ -160,6 +162,11 @@ async def analyst_node(state: LinkInvestigatorState) -> dict:
         HumanMessage(content=analyst_prompt)
     ])
 
+    url_task.mission_status = (
+        URLMissionStatus.COMPLETED if analyst_findings.mission_status == "completed"
+        else URLMissionStatus.FAILED
+    )
+
     link_analysis_final_report = URLAnalysisResult(
         initial_url=url_task,
         full_investigation_log=[msg.model_dump() for msg in investigation_log],
@@ -188,19 +195,12 @@ def dispatch_link_analysis(state: LinkAnalysisState):
     Dispatch the link analysis tasks based on high priority URLs from visual analysis.
     Uses Send to parallelize URL analysis across multiple instances.
     """
-    if "visual_analysis_report" in state and state["visual_analysis_report"]:
-        visual_report = state["visual_analysis_report"]
-        # Handle both dict and object formats
-        if isinstance(visual_report, dict):
-            high_priority_urls = visual_report.get("high_priority_urls", [])
-        else:
-            high_priority_urls = visual_report.high_priority_urls
-            
-        if high_priority_urls:
-            return [Send("conduct_link_analysis", {
-                "url_task": url,
-                "output_directory": state["output_directory"]
-            }) for url in high_priority_urls]
+    high_priority_urls = state.get("high_priority_urls", [])
+    if high_priority_urls:
+        return [Send("conduct_link_analysis", {
+            "url_task": url,
+            "output_directory": state["output_directory"]
+        }) for url in high_priority_urls]
     
     return END
 
@@ -211,6 +211,7 @@ def filter_high_priority_urls(state: LinkAnalysisState):
     """
     # Create link analysis investigations directory
     session_output_dir = state.get("output_directory")
+    high_priority_urls = []
     if session_output_dir:
         link_analysis_dir = os.path.join(session_output_dir, "link_analysis", "investigations")
         os.makedirs(link_analysis_dir, exist_ok=True)
@@ -219,14 +220,18 @@ def filter_high_priority_urls(state: LinkAnalysisState):
         visual_report = state["visual_analysis_report"]
         # Handle both dict and object formats
         if isinstance(visual_report, dict):
-            high_priority_urls = visual_report.get("high_priority_urls", [])
+            all_priority_urls = visual_report.get("all_priority_urls", [])
         else:
-            high_priority_urls = visual_report.high_priority_urls
-        
-        if high_priority_urls:
-            high_priority_urls = [url for url in high_priority_urls if url.priority <= 5]
-            return {"high_priority_urls": high_priority_urls}
-    return {"high_priority_urls": []}
+            all_priority_urls = visual_report.all_priority_urls
+
+        if all_priority_urls:
+            for url in all_priority_urls:
+                if url.priority <= 5:
+                    url.mission_status = URLMissionStatus.IN_PROGRESS
+                    high_priority_urls.append(url)
+                else:
+                    url.mission_status = URLMissionStatus.NOT_RELEVANT
+    return {"high_priority_urls": high_priority_urls}
 
 
 def save_link_analysis_state(state: LinkAnalysisState):
