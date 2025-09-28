@@ -46,13 +46,23 @@ The system supports multiple AI model providers configured in `src/pdf_hunter/co
 - **Advantages**: Most reliable, supports vision tasks, excellent reasoning
 - **Usage**: Recommended for production use
 
+**Azure OpenAI (Enterprise)**
+- **Model**: GPT-4o (via Azure deployment)
+- **Setup**: Requires Azure OpenAI resource and environment variables in `.env`:
+  - `AZURE_OPENAI_ENDPOINT` - Your Azure endpoint URL
+  - `AZURE_OPENAI_API_KEY` - Your Azure API key
+  - `AZURE_OPENAI_DEPLOYMENT_NAME` - Your model deployment name
+  - `AZURE_OPENAI_API_VERSION` - API version (optional)
+- **Advantages**: Enterprise features, data residency, enhanced security
+- **Usage**: For enterprise deployments requiring data governance
+
 **Ollama (Local Inference)**
 - **Models**: Qwen2.5:7b (text), Qwen2.5-VL:7b (vision)
 - **Setup**: Install Ollama and uncomment Ollama configuration in config.py
 - **Advantages**: Local inference, no API costs, dual-model optimization
 - **Usage**: For development, privacy-sensitive environments, or cost optimization
 
-To switch providers, edit the active configuration in `src/pdf_hunter/config.py`.
+To switch providers, update the LLM initializations in `src/pdf_hunter/config.py` to use the desired configuration dictionary (e.g., `openai_config`, `azure_openai_config`).
 
 ### Running the System
 
@@ -177,10 +187,19 @@ The orchestrator coordinates all five agents in a sophisticated pipeline with pa
 
 ### Environment Variables
 
-Create `.env` file with:
+Create `.env` file with your chosen AI provider configuration:
 
+**For OpenAI:**
 ```bash
 OPENAI_API_KEY=your_key_here
+```
+
+**For Azure OpenAI:**
+```bash
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your_azure_key_here
+AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment_name
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
 ### LangGraph Platform
