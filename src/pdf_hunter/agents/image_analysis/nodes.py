@@ -9,9 +9,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from .schemas import ImageAnalysisState, PageAnalysisResult, ImageAnalysisReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from .prompts import VISUAL_ANALYSIS_SYSTEM_PROMPT, VISUAL_ANALYSIS_USER_PROMPT
-from pdf_hunter.config import visual_analysis_llm
+from pdf_hunter.config import image_analysis_llm
 
-llm_with_structured_output = visual_analysis_llm.with_structured_output(PageAnalysisResult)
+llm_with_structured_output = image_analysis_llm.with_structured_output(PageAnalysisResult)
 
 
 def _create_structured_forensic_briefing(page_result: PageAnalysisResult) -> str:

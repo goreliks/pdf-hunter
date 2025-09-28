@@ -71,50 +71,50 @@ azure_openai_config = {
 # LLMs - Each agent and task has its own dedicated LLM instance
 # Each model is optimized for specific analysis tasks and output formats
 
-# === PREPROCESSING AGENT ===
+# === PDF EXTRACTION AGENT ===
 # No LLM needed - handles image extraction and text parsing only
 
-# === STATIC ANALYSIS AGENT ===
+# === FILE ANALYSIS AGENT ===
 # Triage: Maliciousness assessment based on static indicators 
 # Output: Structured TriageResult with confidence scores and analysis guidance
-static_analysis_triage_llm = init_chat_model(**azure_openai_config)
+file_analysis_triage_llm = init_chat_model(**azure_openai_config)
 
 # Investigator: Deep dive into static file forensics using structured queries
 # Output: Structured InvestigationResult with detailed technical findings
-static_analysis_investigator_llm = init_chat_model(**azure_openai_config)
+file_analysis_investigator_llm = init_chat_model(**azure_openai_config)
 
 # Graph Merger: Merge overlapping findings into coherent analyses
 # Output: Structured MergedFindings with unified threat assessments
-static_analysis_graph_merger_llm = init_chat_model(**azure_openai_config)
+file_analysis_graph_merger_llm = init_chat_model(**azure_openai_config)
 
 # Reviewer: Strategic analysis and mission coordination decisions
 # Output: Structured ReviewerReport with investigation routing decisions
-static_analysis_reviewer_llm = init_chat_model(**azure_openai_config)
+file_analysis_reviewer_llm = init_chat_model(**azure_openai_config)
 
 # Finalizer: Final threat assessment and autopsy report generation
 # Output: Structured FinalReport with comprehensive analysis summary
-static_analysis_finalizer_llm = init_chat_model(**azure_openai_config)
+file_analysis_finalizer_llm = init_chat_model(**azure_openai_config)
 
-# === VISUAL ANALYSIS AGENT ===
+# === IMAGE ANALYSIS AGENT ===
 # Visual deception analysis of PDF page images with cross-page context
 # Output: Structured PageAnalysisResult with visual forensic findings and URL prioritization
 # Note: Processes base64 image data for visual threat detection
-visual_analysis_llm = init_chat_model(**azure_openai_config)
+image_analysis_llm = init_chat_model(**azure_openai_config)
 
-# === LINK ANALYSIS AGENT ===
+# === URL INVESTIGATION AGENT ===
 # Investigator: Web reconnaissance using browser automation tools (with MCP tool binding)
 # Output: Investigation logs and browser interaction results
 # Note: Uses tools for web browsing, screenshots, and dynamic URL analysis
-link_analysis_investigator_llm = init_chat_model(**azure_openai_config)
+url_investigation_investigator_llm = init_chat_model(**azure_openai_config)
 
 # Analyst: Synthesis of link investigation findings and threat assessment
 # Output: Structured AnalystFindings with URL reputation and threat indicators
-link_analysis_analyst_llm = init_chat_model(**azure_openai_config)
+url_investigation_analyst_llm = init_chat_model(**azure_openai_config)
 
-# === FINALIZER AGENT ===
+# === REPORT GENERATOR AGENT ===
 # Reporter: Comprehensive markdown report generation from all agent findings
 # Output: Natural language markdown report for human consumption
-finalizer_llm = init_chat_model(**azure_openai_config)
+report_generator_llm = init_chat_model(**azure_openai_config)
 
 # Final Verdict: Authoritative malicious/benign classification decision
 # Output: Structured FinalVerdict with confidence scores and reasoning

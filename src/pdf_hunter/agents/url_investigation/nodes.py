@@ -11,7 +11,7 @@ from langgraph.constants import Send
 from langgraph.graph import END
 
 
-from pdf_hunter.config import link_analysis_investigator_llm, link_analysis_analyst_llm
+from pdf_hunter.config import url_investigation_investigator_llm, url_investigation_analyst_llm
 from .schemas import URLInvestigationState, URLInvestigatorState, URLAnalysisResult, AnalystFindings
 from .prompts import WFI_INVESTIGATOR_SYSTEM_PROMPT , WFI_ANALYST_SYSTEM_PROMPT, WFI_ANALYST_USER_PROMPT
 
@@ -42,7 +42,7 @@ async def investigate_url(state: URLInvestigatorState):
     session = await get_mcp_session(task_id, session_output_dir)
     mcp_tools = await load_mcp_tools(session)
     all_tools = mcp_tools + [domain_whois]
-    model_with_tools = link_analysis_investigator_llm.bind_tools(all_tools)
+    model_with_tools = url_investigation_investigator_llm.bind_tools(all_tools)
 
     messages = state.get("investigation_logs", [])
     if not messages:
@@ -151,7 +151,7 @@ async def analyze_url_content(state: URLInvestigatorState) -> dict:
 
     print("\n--- [Analyst] Starting synthesis of all evidence ---")
 
-    analyst_llm = link_analysis_analyst_llm.with_structured_output(AnalystFindings)
+    analyst_llm = url_investigation_analyst_llm.with_structured_output(AnalystFindings)
     analyst_prompt = WFI_ANALYST_USER_PROMPT.format(
         current_datetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         initial_briefing_json=url_task.model_dump_json(indent=2),

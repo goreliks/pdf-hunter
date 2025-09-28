@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage
-from pdf_hunter.config import finalizer_llm, final_verdict_llm
+from pdf_hunter.config import report_generator_llm, final_verdict_llm
 from pdf_hunter.orchestrator.schemas import OrchestratorState
 from pdf_hunter.shared.utils.serializer import serialize_state_safely, dump_state_to_file
 from .prompts import FINALIZER_SYSTEM_PROMPT, FINALIZER_USER_PROMPT, FINAL_VERDICT_SYSTEM_PROMPT, FINAL_VERDICT_USER_PROMPT
@@ -50,7 +50,7 @@ def generate_final_report(state: OrchestratorState) -> dict:
         HumanMessage(content=FINALIZER_USER_PROMPT.format(serialized_state=json.dumps(serialized_state, indent=2))),
     ]
 
-    response = finalizer_llm.invoke(messages)
+    response = report_generator_llm.invoke(messages)
     final_report = response.content
 
     return {"final_report": final_report}

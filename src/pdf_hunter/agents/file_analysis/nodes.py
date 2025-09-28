@@ -13,17 +13,17 @@ from typing import List, Literal
 from .prompts import graph_merger_system_prompt, graph_merger_user_prompt
 from .prompts import reviewer_system_prompt, reviewer_user_prompt
 from .prompts import finalizer_system_prompt, finalizer_user_prompt
-from pdf_hunter.config import static_analysis_triage_llm, static_analysis_investigator_llm, static_analysis_graph_merger_llm, static_analysis_reviewer_llm, static_analysis_finalizer_llm
+from pdf_hunter.config import file_analysis_triage_llm, file_analysis_investigator_llm, file_analysis_graph_merger_llm, file_analysis_reviewer_llm, file_analysis_finalizer_llm
 from .schemas import TriageReport,MissionReport, ReviewerReport,FinalReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 
 
-llm_router = static_analysis_triage_llm.with_structured_output(TriageReport)
-llm_investigator = static_analysis_investigator_llm.with_structured_output(MissionReport)
-llm_investigator_with_tools = static_analysis_investigator_llm.bind_tools(pdf_parser_tools)
-llm_graph_merger = static_analysis_graph_merger_llm.with_structured_output(MergedEvidenceGraph)
-llm_reviewer = static_analysis_reviewer_llm.with_structured_output(ReviewerReport)
-llm_finalizer = static_analysis_finalizer_llm.with_structured_output(FinalReport)
+llm_router = file_analysis_triage_llm.with_structured_output(TriageReport)
+llm_investigator = file_analysis_investigator_llm.with_structured_output(MissionReport)
+llm_investigator_with_tools = file_analysis_investigator_llm.bind_tools(pdf_parser_tools)
+llm_graph_merger = file_analysis_graph_merger_llm.with_structured_output(MergedEvidenceGraph)
+llm_reviewer = file_analysis_reviewer_llm.with_structured_output(ReviewerReport)
+llm_finalizer = file_analysis_finalizer_llm.with_structured_output(FinalReport)
 
 
 def identify_suspicious_elements(state: FileAnalysisState):
