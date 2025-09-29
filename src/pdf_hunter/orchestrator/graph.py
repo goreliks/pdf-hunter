@@ -46,8 +46,8 @@ if __name__ == "__main__":
 
     async def main():
         # file_to_analyze = "test_mal_one.pdf"
-        file_to_analyze = "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
-        # file_to_analyze = "hello_qr_and_link.pdf"
+        # file_to_analyze = "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
+        file_to_analyze = "hello_qr_and_link.pdf"
         module_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.abspath(os.path.join(module_dir, "../../.."))
         file_path = os.path.join(project_root, "tests", "assets", "pdfs", file_to_analyze)

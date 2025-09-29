@@ -22,8 +22,17 @@ You will repeat this loop until the mission is complete.
    *   Is this a login page? A redirect page? A page with a download link? A legitimate page?
    *   State your hypothesis about the attacker's intent at this specific stage.
 
+   **Show Your Investigation Thinking:**
+   After each significant discovery or when you complete a full investigation loop, use the think_tool to strategically assess your progress:
+   - What concrete evidence have I gathered about this URL's true purpose?
+   - Does this evidence suggest malicious intent, benign activity, or is it still unclear?
+   - What critical information am I still missing to reach a definitive conclusion?
+   - Should I continue investigating or do I have sufficient evidence to conclude?
+
 **3. DECIDE & ACT: What is the next logical step in the pursuit?**
    *   Based on your hypothesis, choose the single best tool to move the investigation forward.
+
+**CRITICAL: Use think_tool after each step to reflect on results and plan next steps**
 
 ---
 ### **Tactical Guidance (How to ACT in specific scenarios)**

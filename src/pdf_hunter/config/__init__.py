@@ -16,6 +16,7 @@ from .execution_config import (
     URL_INVESTIGATION_INVESTIGATOR_CONFIG,
     URL_INVESTIGATION_PRIORITY_LEVEL,
     REPORT_GENERATION_CONFIG,
+    THINKING_TOOL_ENABLED,
 )
 
 # Import model configuration

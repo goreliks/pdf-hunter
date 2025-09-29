@@ -72,22 +72,34 @@ PDF Hunter uses a modular configuration system with centralized management:
 
 **Configuration Package** (`src/pdf_hunter/config/`):
 - **`models_config.py`**: LLM instances, provider settings, and model configurations
-- **`execution_config.py`**: Recursion limits, runtime parameters, and execution settings
+- **`execution_config.py`**: Recursion limits, runtime parameters, strategic reflection settings, and execution settings
 - **`__init__.py`**: Centralized imports enabling clean `from pdf_hunter.config import ...`
 
 **Recursion Limit Management**:
 - **Orchestrator**: 30 steps (multi-agent coordination workflow)
-- **Tool-using Agents**: 15-25 steps (for agent-tool interaction loops)
+- **File Analysis**: 25 steps (main agent) / 25 steps (investigator subgraph) for enhanced tool loops
+- **Tool-using Agents**: 25 steps (for agent-tool interaction loops with strategic reflection)
 - **Linear Agents**: 10-15 steps (simple sequential workflows)
-- **Prevents infinite loops** while allowing sufficient iterations for complex analysis
+- **Prevents infinite loops** while allowing sufficient iterations for complex analysis and strategic thinking
+
+**Think Tool Integration**:
+- **Strategic Reflection**: All investigative agents use the `think_tool` for systematic decision-making
+- **Configuration**: Controlled via `THINKING_TOOL_ENABLED = True` flag in execution config
+- **Usage Pattern**: Agents use think_tool after significant discoveries and at key decision points
+- **Purpose**: Enhances investigation quality through deliberate pause-and-reflect patterns
 
 **Usage Examples**:
 ```python
-# Import execution configs and models together
-from pdf_hunter.config import FILE_ANALYSIS_CONFIG, file_analysis_triage_llm
+# Import execution configs, strategic reflection settings, and models together
+from pdf_hunter.config import FILE_ANALYSIS_CONFIG, THINKING_TOOL_ENABLED, file_analysis_triage_llm
 
 # Apply configuration to graphs
 agent_graph = agent_graph.with_config(FILE_ANALYSIS_CONFIG)
+
+# Conditional tool integration based on configuration
+if THINKING_TOOL_ENABLED:
+    from pdf_hunter.shared.tools.think_tool import think_tool
+    tools.append(think_tool)
 ```
 
 ### Running the System
@@ -141,9 +153,11 @@ The system operates under three core principles:
 
 **Agent 2: File Analysis** (`src/pdf_hunter/agents/file_analysis/`):
 - **Triage Node**: Multi-tool PDF scanning (pdfid, pdf-parser, peepdf)
-- **Investigator Subgraph**: Parallel mission-based investigations
+- **Investigator Subgraph**: Parallel mission-based investigations with strategic reflection
+- **Think Tool Integration**: Uses strategic reflection tool for enhanced decision-making during investigations
 - **Reviewer Node**: Evidence graph merging and strategic analysis
 - **Threat Detection**: OpenAction, JavaScript, AcroForm, EmbeddedFile analysis
+- **Improved Logging**: Tool usage now visible at INFO level for better investigation transparency
 - **State Persistence**: Automatic final state saving for debugging and analysis tracking
 - **Output**: Evidence graph, mission reports, structural analysis, persistent state files
 
@@ -160,8 +174,9 @@ The system operates under three core principles:
 - **NEW AGENT**: Dedicated deep analysis of URLs identified by image analysis
 - **MCP Integration**: Uses Playwright MCP server for browser automation with proper syntax enforcement
 - **Browser Tool Syntax**: Uses arrow function format for `browser_evaluate`: `() => document.body.innerText`
+- **Strategic Reflection**: Integrated think_tool for systematic investigation planning and assessment
 - **URL Status Management**: Filters and updates URL mission status (`IN_PROGRESS`, `NOT_RELEVANT`)
-- **Link Investigator**: Automated web reconnaissance of suspicious URLs
+- **Link Investigator**: Automated web reconnaissance of suspicious URLs with enhanced logging
 - **Analyst Node**: Structured analysis of link findings, updates final status (`COMPLETED`/`FAILED`)
 - **Loop Prevention**: Status tracking prevents duplicate analysis of completed URLs
 - **State Persistence**: Automatic state saving for debugging and recovery
@@ -194,6 +209,14 @@ The system operates under three core principles:
 - `dump_state_to_file()`: Direct file writing with automatic serialization
 - Essential for debugging and state persistence across all agents
 
+**Strategic Reflection Tool** (`src/pdf_hunter/shared/tools/think_tool.py`):
+- **Purpose**: Systematic strategic reflection during investigation workflows
+- **Implementation**: LangChain tool with `@tool(parse_docstring=True)` decorator
+- **Configuration**: Controlled via `THINKING_TOOL_ENABLED` flag in execution config
+- **Usage Pattern**: Agents invoke after significant discoveries, before major decisions, and at investigation transitions
+- **Integration**: Automatically added to tool manifests when enabled
+- **Benefits**: Enhances investigation quality through deliberate pause-and-reflect methodology
+
 ### Key Data Structures
 
 - **Investigation Mission**: Focused threat-specific analysis tasks
@@ -202,6 +225,20 @@ The system operates under three core principles:
 - **Link Analysis Report**: URL reconnaissance and threat assessment
 - **Final Report**: Executive summary with verdict and IOCs
 - **Prioritized URLs**: Ranked list of links for deeper investigation with status tracking
+
+### Enhanced Investigation Patterns
+
+**Strategic Reflection Integration**:
+- **Think Tool Usage**: All investigative agents use `think_tool` for systematic decision-making
+- **Reflection Triggers**: After significant discoveries, before major decisions, at investigation transitions
+- **Quality Enhancement**: Deliberate pause-and-reflect patterns improve investigation thoroughness
+- **Configuration**: Controlled via `THINKING_TOOL_ENABLED` flag for optional deployment
+
+**Improved Investigation Transparency**:
+- **Enhanced Logging**: Tool execution logging elevated to INFO level for better visibility
+- **Tool Name Tracking**: All tool invocations now visible in standard logs without debug mode
+- **Investigation Flow**: Clear visibility into agent decision-making and tool selection patterns
+- **Strategic Reflection Tracking**: Easy identification of when agents use think_tool for reflection
 
 #### Critical Development Patterns
 
@@ -574,6 +611,20 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **Configuration Centralization**: All model settings managed in `src/pdf_hunter/config/models_config.py`
 - **Flexible Switching**: Easy provider switching via configuration comments
 
+### Strategic Reflection Integration (September 2025)
+- **Think Tool Implementation**: Added systematic strategic reflection tool for investigation enhancement
+- **Configuration Control**: `THINKING_TOOL_ENABLED` flag in execution config for optional deployment
+- **Agent Integration**: Automatic tool integration into file analysis and URL investigation agents
+- **Investigation Quality**: Deliberate pause-and-reflect methodology for enhanced decision-making
+- **Usage Pattern**: Strategic reflection after significant discoveries and at key decision points
+
+### Investigation Transparency Improvements (September 2025)
+- **Enhanced Tool Logging**: Elevated tool execution logging from DEBUG to INFO level
+- **Tool Name Visibility**: All tool calls now visible in standard logs without debug mode
+- **Strategic Reflection Tracking**: Clear visibility of think_tool usage for quality assessment
+- **Investigation Flow Transparency**: Tool selection patterns and decision points traceable
+- **Recursion Limit Adjustments**: Increased file analysis limits to 25 steps for enhanced tool loops
+
 ### Performance Optimizations
 - **Cleaner Dependencies**: Reduced package size by removing unused ML dependencies
 - **Local Inference Option**: Ollama support enables offline/private deployments
@@ -596,9 +647,19 @@ The project uses a centralized logging system implemented in `src/pdf_hunter/sha
 
 - **Hierarchical Loggers**: Named loggers matching Python module hierarchy
 - **Configurable Levels**: Supports DEBUG, INFO, WARNING, ERROR, CRITICAL
+- **Enhanced Tool Visibility**: Tool execution logging elevated to INFO level for better investigation tracking
 - **Consistent Formatting**: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
 - **File Logging**: Optional log file output with session-based naming
 - **Console Output**: Standard output to console with proper formatting
+
+### Tool Execution Transparency
+
+Recent improvements provide better visibility into agent tool usage:
+
+- **Tool Names at INFO Level**: All tool calls now logged at INFO level, visible in standard logs
+- **Strategic Reflection Tracking**: think_tool usage clearly visible for investigation quality assessment
+- **Investigation Flow Visibility**: Tool selection patterns and decision points traceable in logs
+- **No Debug Mode Required**: Tool visibility available in production INFO-level logging
 
 ### Using the Logging System
 

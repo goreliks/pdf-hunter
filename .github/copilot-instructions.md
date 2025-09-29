@@ -22,6 +22,13 @@ class AgentState(TypedDict):
     # Agent-specific fields...
 ```
 
+### Strategic Reflection Tool Integration
+- **Think Tool**: Systematic strategic reflection during investigation workflows
+- **Configuration**: Controlled via `THINKING_TOOL_ENABLED` flag in `config/execution_config.py`
+- **Usage Pattern**: Agents use think_tool after significant discoveries and at key decision points
+- **Purpose**: Enhances investigation quality through deliberate pause-and-reflect methodology
+- **Implementation**: LangChain tool with automatic integration into agent tool manifests
+
 ## Key Commands & Workflows
 
 ### Development Commands
@@ -56,10 +63,16 @@ jupyter lab notebooks/development/
 
 ### Agent Specialization Patterns
 - **PDF Extraction**: Pure utility (no LLM) - image extraction, URL/QR detection
-- **File Analysis**: Multi-tool scanning + mission-based parallel investigations
+- **File Analysis**: Multi-tool scanning + mission-based parallel investigations with strategic reflection
 - **Image Analysis**: VDA (Visual Deception Analyst) persona for UI/UX security analysis
-- **URL Investigation**: Browser automation via MCP Playwright integration
+- **URL Investigation**: Browser automation via MCP Playwright integration with strategic reflection
 - **Report Generator**: Executive report synthesis and final verdict generation
+
+### Enhanced Investigation Features
+- **Strategic Reflection**: All investigative agents integrate think_tool for systematic decision-making
+- **Improved Logging**: Tool execution elevated to INFO level for better investigation transparency
+- **Enhanced Recursion Limits**: Increased to 25 steps for tool-using agents to accommodate strategic thinking
+- **Configuration Control**: Think tool usage controlled via `THINKING_TOOL_ENABLED` flag
 
 ## Critical Development Patterns
 

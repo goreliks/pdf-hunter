@@ -27,16 +27,19 @@ PDF_EXTRACTION_CONFIG = {
 }
 
 # -- FILE ANALYSIS AGENT CONFIGURATION --
+THINKING_TOOL_ENABLED = True  # Enable the "Think" tool in file analysis agent
+
+
 # Static analysis with tool-using investigator subgraphs
 FILE_ANALYSIS_CONFIG = {
     "run_name": "File Analysis Agent", 
-    "recursion_limit": 20  # Multiple investigation missions possible
+    "recursion_limit": 25  # Multiple investigation missions possible
 }
 
 # Investigator subgraph within file analysis (tool loops)
 FILE_ANALYSIS_INVESTIGATOR_CONFIG = {
     "run_name": "PDF Investigation Tools",
-    "recursion_limit": 15  # investigation → tools → investigation loops
+    "recursion_limit": 25  # investigation → tools → investigation loops
 }
 
 # -- IMAGE ANALYSIS AGENT CONFIGURATION --

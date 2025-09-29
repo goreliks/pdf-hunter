@@ -11,6 +11,7 @@ from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from langgraph.constants import Send
 from langgraph.graph import END
 from pdf_hunter.shared.utils.logging_config import get_logger
+from pdf_hunter.config import THINKING_TOOL_ENABLED
 
 
 from pdf_hunter.config import url_investigation_investigator_llm, url_investigation_analyst_llm
@@ -72,6 +73,10 @@ async def investigate_url(state: URLInvestigatorState):
     logger.debug("Loading MCP tools")
     mcp_tools = await load_mcp_tools_async(session)
     all_tools = mcp_tools + [domain_whois]
+    if THINKING_TOOL_ENABLED:
+        from pdf_hunter.shared.tools import think_tool
+        all_tools.append(think_tool)
+        logger.debug("Thinking tool enabled and added to toolset")
     logger.debug(f"Loaded {len(all_tools)} tools for investigation")
     model_with_tools = url_investigation_investigator_llm.bind_tools(all_tools)
 
@@ -130,7 +135,7 @@ async def execute_browser_tools(state: URLInvestigatorState):
     session_output_dir = state["output_directory"]
     
     logger.info(f"Executing browser tool calls for URL: {url_task.url}")
-    logger.debug(f"Found {len(tool_calls)} tool call(s) to execute")
+    logger.info(f"Found {len(tool_calls)} tool call(s) to execute")
 
     # Generate the same task ID as used in investigate_url for session consistency
     task_id = f"url_{abs(hash(url_task.url))}"
@@ -151,6 +156,10 @@ async def execute_browser_tools(state: URLInvestigatorState):
         logger.debug("Loading MCP tools for execution")
         mcp_tools = await load_mcp_tools_async(session)
         tools = mcp_tools + [domain_whois]
+        if THINKING_TOOL_ENABLED:
+            from pdf_hunter.shared.tools.think_tool import think_tool
+            tools.append(think_tool)
+            logger.debug("Thinking tool enabled and added to execution toolset")
         logger.debug(f"Loaded {len(tools)} tools for execution")
         tool_by_name = {tool.name: tool for tool in tools}
 
@@ -165,13 +174,17 @@ async def execute_browser_tools(state: URLInvestigatorState):
                 
                 if tool_name == "domain_whois":
                     # Use async invoke to prevent blocking
-                    logger.debug(f"Running domain_whois with args: {tool_call['args']}")
+                    logger.info(f"Running domain_whois with args: {tool_call['args']}")
+                    observation = await asyncio.to_thread(tool.invoke, tool_call["args"])
+                elif tool_name == "think_tool":
+                    # Use async invoke to prevent blocking
+                    logger.info(f"Running think_tool with reflection: {tool_call['args']}")
                     observation = await asyncio.to_thread(tool.invoke, tool_call["args"])
                 else:
-                    logger.debug(f"Running MCP tool {tool_name} with args: {tool_call['args']}")
+                    logger.info(f"Running MCP tool {tool_name} with args: {tool_call['args']}")
                     observation = await tool.ainvoke(tool_call["args"])
                     
-                logger.debug(f"Tool {tool_name} executed successfully")
+                logger.info(f"Tool {tool_name} executed successfully")
                 observations.append(observation)
                 
             except ToolException as e:
@@ -195,10 +208,10 @@ async def execute_browser_tools(state: URLInvestigatorState):
             for observation, tool_call in zip(observations, tool_calls)
         ]
         
-        logger.debug(f"Created {len(tool_outputs)} tool messages")
+        logger.info(f"Created {len(tool_outputs)} tool messages")
         return tool_outputs
     
-    logger.debug("Executing all tools")
+    logger.info("Executing all tools")
     messages = await execute_tools()
     logger.info(f"Completed execution of {len(messages)} tools")
 
