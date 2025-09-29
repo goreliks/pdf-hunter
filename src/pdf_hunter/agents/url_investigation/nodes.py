@@ -43,7 +43,7 @@ async def investigate_url(state: URLInvestigatorState):
     # Create task-specific investigation directory under url investigation
     url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
     task_investigation_dir = os.path.join(url_investigation_dir, task_id)
-    os.makedirs(task_investigation_dir, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, task_investigation_dir, exist_ok=True)
     logger.debug(f"Created investigation directory: {task_investigation_dir}")
 
     # Get the task-specific MCP session and load tools fresh each time

@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from .nodes import generate_final_report, determine_threat_verdict, save_analysis_results
+from pdf_hunter.config import REPORT_GENERATION_CONFIG
 
 # The finalizer's state is the same as the Orchestrator's, so no need to redefine
 from ...orchestrator.schemas import OrchestratorState
@@ -17,6 +18,7 @@ report_generator_builder.add_edge("generate_final_report", "save_analysis_result
 report_generator_builder.add_edge("save_analysis_results", END)
 
 report_generator_graph = report_generator_builder.compile()
+report_generator_graph = report_generator_graph.with_config(REPORT_GENERATION_CONFIG)
 
 if __name__ == "__main__":
     test_json_path = "/Users/gorelik/Courses/pdf-hunter/output/orchestrator_results/analysis_report_session_7b59304e_20250926_103934.json"

@@ -139,4 +139,4 @@ def save_analysis_results(state: OrchestratorState) -> dict:
         confidence = 0
     logger.info(f"Analysis complete - Final verdict: {verdict} (confidence: {confidence})")
     
-    return {}
+    return state

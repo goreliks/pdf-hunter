@@ -8,6 +8,7 @@ from ..agents.url_investigation.graph import link_analysis_graph
 from ..agents.report_generator.graph import report_generator_graph
 from ..shared.utils.serializer import serialize_state_safely
 from ..shared.utils.logging_config import configure_logging, get_logger
+from pdf_hunter.config import ORCHESTRATOR_CONFIG
 
 # Configure logging for the orchestrator
 configure_logging()
@@ -16,19 +17,20 @@ logger = get_logger(__name__)
 
 orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState, output_schema=OrchestratorOutputState)
 
-orchestrator_builder.add_node("pdf_extraction", preprocessing_graph)
-orchestrator_builder.add_node("file_analysis", static_analysis_graph)
-orchestrator_builder.add_node("image_analysis", visual_analysis_graph)
-orchestrator_builder.add_node("url_investigation", link_analysis_graph)
-orchestrator_builder.add_node("report_generator", report_generator_graph)
-orchestrator_builder.add_edge(START, "pdf_extraction")
-orchestrator_builder.add_edge("pdf_extraction", "file_analysis")
-orchestrator_builder.add_edge("pdf_extraction", "image_analysis")
-orchestrator_builder.add_edge("image_analysis", "url_investigation")
-orchestrator_builder.add_edge(["file_analysis", "url_investigation"], "report_generator")
-orchestrator_builder.add_edge("report_generator", END)
+orchestrator_builder.add_node("PDF Extraction", preprocessing_graph)
+orchestrator_builder.add_node("File Analysis", static_analysis_graph)
+orchestrator_builder.add_node("Image Analysis", visual_analysis_graph)
+orchestrator_builder.add_node("URL Investigation", link_analysis_graph)
+orchestrator_builder.add_node("Report Generator", report_generator_graph)
+orchestrator_builder.add_edge(START, "PDF Extraction")
+orchestrator_builder.add_edge("PDF Extraction", "File Analysis")
+orchestrator_builder.add_edge("PDF Extraction", "Image Analysis")
+orchestrator_builder.add_edge("Image Analysis", "URL Investigation")
+orchestrator_builder.add_edge(["File Analysis", "URL Investigation"], "Report Generator")
+orchestrator_builder.add_edge("Report Generator", END)
 
 orchestrator_graph = orchestrator_builder.compile()
+orchestrator_graph = orchestrator_graph.with_config(ORCHESTRATOR_CONFIG)
 
 
 if __name__ == "__main__":
@@ -48,7 +50,7 @@ if __name__ == "__main__":
         # file_to_analyze = "hello_qr_and_link.pdf"
         module_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.abspath(os.path.join(module_dir, "../../.."))
-        file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_mal_one.pdf")
+        file_path = os.path.join(project_root, "tests", "assets", "pdfs", file_to_analyze)
         
         # number_of_pages_to_process = 1
         number_of_pages_to_process = 4

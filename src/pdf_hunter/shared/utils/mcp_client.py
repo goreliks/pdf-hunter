@@ -5,17 +5,17 @@ from contextlib import asynccontextmanager
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 def get_mcp_config(task_id: str = None, base_output_dir: str = None):
-    """Get MCP configuration with task-specific output directory under link_analysis."""
+    """Get MCP configuration with task-specific output directory under url_investigation."""
     # Default to current directory if no base directory provided
     if base_output_dir is None:
         base_output_dir = "./output"
 
-    # Create link_analysis subdirectory under session directory
-    link_analysis_dir = os.path.join(base_output_dir, "link_analysis")
+    # Create url_investigation subdirectory under session directory
+    url_investigation_dir = os.path.join(base_output_dir, "url_investigation")
     if task_id:
-        task_output_dir = os.path.join(link_analysis_dir, f"task_{task_id}")
+        task_output_dir = os.path.join(url_investigation_dir, f"task_{task_id}")
     else:
-        task_output_dir = link_analysis_dir
+        task_output_dir = url_investigation_dir
         
     return {
         "playwright": {

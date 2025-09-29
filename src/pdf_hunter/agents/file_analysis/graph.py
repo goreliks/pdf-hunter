@@ -6,6 +6,7 @@ from .nodes import file_analyzer, identify_suspicious_elements, create_analysis_
 from .tools import pdf_parser_tools
 from langgraph.prebuilt import tools_condition
 from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+from pdf_hunter.config import FILE_ANALYSIS_CONFIG, FILE_ANALYSIS_INVESTIGATOR_CONFIG
 
 # Configure logging for this module
 configure_logging()
@@ -27,6 +28,7 @@ investigator_builder.add_conditional_edges(
 )
 
 investigator_graph = investigator_builder.compile()
+investigator_graph = investigator_graph.with_config(FILE_ANALYSIS_INVESTIGATOR_CONFIG)
 
 
 # Create a wrapper that ensures outputs are aggregated properly
@@ -76,6 +78,7 @@ static_analysis_builder.add_edge("run_file_analysis", "review_analysis_results")
 static_analysis_builder.add_edge("summarize_file_analysis", END)
 
 static_analysis_graph = static_analysis_builder.compile()
+static_analysis_graph = static_analysis_graph.with_config(FILE_ANALYSIS_CONFIG)
 
 if __name__ == "__main__":
     import json

@@ -3,6 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from .schemas import PDFExtractionState, PDFExtractionInputState, PDFExtractionOutputState
 from .nodes import setup_session, extract_pdf_images, scan_qr_codes, find_embedded_urls
 from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+from pdf_hunter.config import PDF_EXTRACTION_CONFIG
 
 # Configure logging for this module
 configure_logging()
@@ -27,6 +28,7 @@ preprocessing_builder.add_edge("find_embedded_urls", END)
 preprocessing_builder.add_edge("scan_qr_codes", END)
 
 preprocessing_graph = preprocessing_builder.compile()
+preprocessing_graph = preprocessing_graph.with_config(PDF_EXTRACTION_CONFIG)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from .schemas import ImageAnalysisState
 from .nodes import analyze_pdf_images, compile_image_findings
 from pdf_hunter.shared.utils.logging_config import configure_logging
+from pdf_hunter.config import IMAGE_ANALYSIS_CONFIG
 
 # Configure logging for this module
 configure_logging()
@@ -20,6 +21,7 @@ visual_analysis_builder.add_edge("analyze_pdf_images", "compile_image_findings")
 visual_analysis_builder.add_edge("compile_image_findings", END)
 
 visual_analysis_graph = visual_analysis_builder.compile()
+visual_analysis_graph = visual_analysis_graph.with_config(IMAGE_ANALYSIS_CONFIG)
 
 
 if __name__ == "__main__":
