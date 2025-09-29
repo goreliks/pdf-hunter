@@ -88,10 +88,13 @@ if __name__ == "__main__":
     configure_logging(level=logging.INFO, log_to_file=True)
     logger = get_logger(__name__)
     
-    file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
-    output_directory="output"
-    additional_context="None"
-    session_id="123"
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
+    file_path = os.path.join(project_root, "tests", "assets", "pdfs", "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf")
+    
+    output_directory = "output/file_analysis_results"
+    additional_context = "None"
+    session_id = "123"
 
     logger.info(f"Running file analysis on: {file_path}")
     logger.info(f"Session ID: {session_id}")

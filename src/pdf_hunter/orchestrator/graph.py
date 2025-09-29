@@ -43,10 +43,13 @@ if __name__ == "__main__":
     logger = get_logger(__name__)
 
     async def main():
-        file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
-        # file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
-        # file_path = "/Users/gorelik/Courses/pdf-hunter/tests/hello_qr_and_link.pdf"
-        output_directory = "output/orchestrator_results"
+        file_to_analyze = "test_mal_one.pdf"
+        # file_to_analyze = "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
+        # file_to_analyze = "hello_qr_and_link.pdf"
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(module_dir, "../../.."))
+        file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_mal_one.pdf")
+        
         # number_of_pages_to_process = 1
         number_of_pages_to_process = 4
 

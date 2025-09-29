@@ -32,13 +32,17 @@ preprocessing_graph = preprocessing_builder.compile()
 if __name__ == "__main__":
     import pprint
     import logging
+    import os
 
     # Configure more detailed logging for standalone execution
     configure_logging(level=logging.INFO, log_to_file=True)
     logger = get_logger(__name__)
 
-    file_path = "/Users/gorelik/Courses/pdf-hunter/tests/hello_qr_and_link.pdf"
-    output_directory = "output/preprocessing_results"
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
+    file_path = os.path.join(project_root, "tests", "assets", "pdfs", "hello_qr_and_link.pdf")
+    
+    output_directory = "output/pdf_extraction_results"
 
     initial_state = {
         "file_path": file_path,

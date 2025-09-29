@@ -166,7 +166,26 @@ Launch Jupyter for interactive development:
 jupyter lab notebooks/development/
 ```
 
-## 📁 Output Organization
+## 📁 File Organization
+
+### Test Assets
+
+PDF Hunter organizes test files in a structured directory hierarchy:
+
+```
+tests/
+├── assets/                  # Organized test assets
+│   ├── pdfs/                # PDF test files
+│   │   ├── hello_qr.pdf     # QR code test samples
+│   │   ├── hello_qr_and_link.pdf
+│   │   ├── test_mal_one.pdf # Malicious PDF sample
+│   │   └── *.pdf            # Additional test PDFs
+│   └── images/              # Test images
+│       └── qrmonkey.jpg     # QR code test image
+└── agents/                  # Agent-specific tests
+```
+
+### Output Organization
 
 PDF Hunter creates session-based output directories:
 
@@ -278,6 +297,25 @@ uv run python -m pdf_hunter.agents.pdf_extraction.graph
 - **LangGraph**: Multi-agent workflow orchestration
 - **Pydantic**: Type-safe data models and validation
 - **MCP**: Browser automation via Model Context Protocol
+
+### Cross-Platform Compatibility
+
+PDF Hunter uses platform-independent path handling to ensure compatibility across operating systems:
+
+```python
+import os
+
+# Get the module's directory
+module_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Navigate up to the project root
+project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
+
+# Construct path to test file
+file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_file.pdf")
+```
+
+This approach ensures the code works consistently on Windows, Linux, and macOS environments.
 
 ### Key Dependencies
 

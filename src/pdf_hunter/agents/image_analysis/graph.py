@@ -25,15 +25,19 @@ visual_analysis_graph = visual_analysis_builder.compile()
 if __name__ == "__main__":
     import pprint
     import logging
+    import os
     from ..pdf_extraction.graph import preprocessing_graph
-    from pdf_hunter.shared.utils.logging_config import configure_logging
+    from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
 
     # Configure logging with more verbose output for standalone execution
     configure_logging(level=logging.INFO, log_to_file=True)
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
-    file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
-    output_directory = "output/visual_analysis_results"
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
+    file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_mal_one.pdf")
+
+    output_directory = "output/image_analysis_results"
     pages_to_process = 1
 
     logger.info(f"Running Preprocessing on: {file_path}")

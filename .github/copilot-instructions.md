@@ -92,9 +92,26 @@ output/{session_id}/
 ## Testing & Debugging
 
 ### Test Assets
-- `tests/hello_qr_and_link.pdf`: QR code detection testing
-- `tests/test_mal_one.pdf`: Malicious PDF sample
+- Test files are organized in subdirectories:
+  - `tests/assets/pdfs/hello_qr_and_link.pdf`: QR code detection testing
+  - `tests/assets/pdfs/test_mal_one.pdf`: Malicious PDF sample
+  - `tests/assets/images/qrmonkey.jpg`: QR code image testing
 - `notebooks/development/*.ipynb`: Agent-specific development environments
+
+### Cross-Platform Path Handling
+When referencing test files in modules:
+```python
+import os
+
+# Get the module's directory
+module_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Navigate to project root (adjust the number of "../" based on module depth)
+project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
+
+# Construct path to test file
+file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_file.pdf")
+```
 
 ### State Persistence
 - All agents automatically save final state using `dump_state_to_file()`

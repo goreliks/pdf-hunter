@@ -46,6 +46,7 @@ nosetests.xml
 coverage.xml
 *.cover
 
+
 # Linting & Type Checking
 .ruff_cache/
 .mypy_cache/
@@ -62,10 +63,8 @@ coverage.xml
 .langgraph_api/
 
 # Project specific
-output/*.json
-!output/*.example.json
-# Keep the archive directory for reference but don't track its contents
-archive/
+output/
+logs/
 
 # Mac specific
 .DS_Store

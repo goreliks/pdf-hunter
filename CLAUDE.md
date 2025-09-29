@@ -313,10 +313,15 @@ The system is configured for LangGraph Platform deployment with `langgraph.json`
 
 ### Test Files
 
-Sample PDFs in `tests/` directory:
-- `hello_qr.pdf` / `hello_qr_and_link.pdf`: QR code test cases
-- `test_mal_one.pdf`: Malicious PDF sample
-- Various threat pattern samples for regression testing
+Sample files are organized in subdirectories under `tests/assets/`:
+- `tests/assets/pdfs/`: Contains PDF test files
+  - `hello_qr.pdf` / `hello_qr_and_link.pdf`: QR code test cases
+  - `test_mal_one.pdf`: Malicious PDF sample
+  - Various threat pattern samples for regression testing
+- `tests/assets/images/`: Contains test images
+  - `qrmonkey.jpg`: QR code test image
+
+All agent modules use cross-platform path handling to reference these test files, ensuring compatibility across Windows, Linux, and macOS systems.
 
 ### Notebook Development
 
@@ -386,12 +391,16 @@ notebooks/                   # Jupyter development environment
 ├── examples/                # Example usage
 └── experiments/             # Experimental features
 
-tests/                       # PDF samples and test data
-├── agents/                  # Agent-specific tests
-├── hello_qr.pdf            # QR code test samples
-├── hello_qr_and_link.pdf   
-├── test_mal_one.pdf        # Malicious PDF sample
-└── *.pdf                   # Additional test files
+tests/                       # Test assets and code
+├── agents/                  # Agent-specific test code
+├── assets/                  # Organized test assets
+│   ├── pdfs/                # PDF test files
+│   │   ├── hello_qr.pdf     # QR code test samples
+│   │   ├── hello_qr_and_link.pdf
+│   │   ├── test_mal_one.pdf # Malicious PDF sample
+│   │   └── *.pdf            # Additional test PDFs
+│   └── images/              # Test images
+│       └── qrmonkey.jpg     # QR code test image
 
 output/                      # Generated analysis reports (session-based organization)
 ├── {sha1}_{timestamp}/  # Session-specific directory for each PDF analysis
@@ -413,6 +422,28 @@ output/                      # Generated analysis reports (session-based organiz
 ```
 
 ## Development Patterns
+
+### Cross-Platform Path Handling
+
+All agent modules use platform-independent path construction to ensure compatibility across Windows, Linux, and macOS:
+
+```python
+import os
+
+# Get the module's directory
+module_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Navigate up to the project root
+project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
+
+# Construct path to test file using os.path.join
+file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_file.pdf")
+```
+
+This approach ensures that:
+- Paths work correctly on Windows (backslash), Linux/macOS (forward slash)
+- Files are referenced relative to the module location, not absolute paths
+- The code is portable across different development environments
 
 ### Adding New Threat Types
 
