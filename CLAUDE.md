@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PDF Hunter is a multi-agent AI framework for automated PDF threat hunting built using Python 3.11+ and LangGraph. The system uses AI-powered agents orchestrated via LangGraph to analyze potentially malicious PDFs and generate comprehensive security reports. The framework employs a sophisticated multi-agent orchestration pattern with specialized agents for PDF extraction, file analysis, image analysis, URL investigation, and report generation.
 
+The framework is fully asynchronous, utilizing Python's async/await pattern for non-blocking I/O operations to ensure compatibility with LangGraph Studio and other event loop-based environments.
+
 ## Development Setup
 
 ### Installation
@@ -38,7 +40,7 @@ The project uses:
 
 ### Model Configuration
 
-The system supports multiple AI model providers configured in `src/pdf_hunter/config.py`:
+The system supports multiple AI model providers configured in `src/pdf_hunter/config/models_config.py`:
 
 **OpenAI (Default)**
 - **Model**: GPT-4o 
@@ -58,11 +60,35 @@ The system supports multiple AI model providers configured in `src/pdf_hunter/co
 
 **Ollama (Local Inference)**
 - **Models**: Qwen2.5:7b (text), Qwen2.5-VL:7b (vision)
-- **Setup**: Install Ollama and uncomment Ollama configuration in config.py
+- **Setup**: Install Ollama and uncomment Ollama configuration in config/models_config.py
 - **Advantages**: Local inference, no API costs, dual-model optimization
 - **Usage**: For development, privacy-sensitive environments, or cost optimization
 
-To switch providers, update the LLM initializations in `src/pdf_hunter/config.py` to use the desired configuration dictionary (e.g., `openai_config`, `azure_openai_config`).
+To switch providers, update the LLM initializations in `src/pdf_hunter/config/models_config.py` to use the desired configuration dictionary (e.g., `openai_config`, `azure_openai_config`).
+
+### Configuration Architecture
+
+PDF Hunter uses a modular configuration system with centralized management:
+
+**Configuration Package** (`src/pdf_hunter/config/`):
+- **`models_config.py`**: LLM instances, provider settings, and model configurations
+- **`execution_config.py`**: Recursion limits, runtime parameters, and execution settings
+- **`__init__.py`**: Centralized imports enabling clean `from pdf_hunter.config import ...`
+
+**Recursion Limit Management**:
+- **Orchestrator**: 30 steps (multi-agent coordination workflow)
+- **Tool-using Agents**: 15-25 steps (for agent-tool interaction loops)
+- **Linear Agents**: 10-15 steps (simple sequential workflows)
+- **Prevents infinite loops** while allowing sufficient iterations for complex analysis
+
+**Usage Examples**:
+```python
+# Import execution configs and models together
+from pdf_hunter.config import FILE_ANALYSIS_CONFIG, file_analysis_triage_llm
+
+# Apply configuration to graphs
+agent_graph = agent_graph.with_config(FILE_ANALYSIS_CONFIG)
+```
 
 ### Running the System
 
@@ -287,7 +313,7 @@ The system is configured for LangGraph Platform deployment with `langgraph.json`
 
 ### LLM Configuration
 
-- **Default Model**: GPT-4o (configured in `src/pdf_hunter/config.py`)
+- **Default Model**: GPT-4o (configured in `src/pdf_hunter/config/models_config.py`)
 - **Temperature**: 0.0 for consistent, deterministic analysis
 - **Agent-Specific Models**: Each agent and task has dedicated LLM instances for optimal performance
 
@@ -381,7 +407,10 @@ src/
     │       ├── qr_extraction.py # NEW - QR code detection and extraction
     │       ├── mcp_client.py    # NEW - MCP client for browser automation
     │       └── serializer.py    # NEW - Safe state serialization
-    └── config.py                # Global configuration
+    └── config/                  # Configuration package
+        ├── __init__.py          # Centralized imports
+        ├── execution_config.py  # Recursion limits & runtime settings
+        └── models_config.py     # LLM instances & provider settings
 
 notebooks/                   # Jupyter development environment
 ├── development/             # Main development notebooks
@@ -520,6 +549,16 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 
 ## Recent Architecture Improvements
 
+### Async/Await Implementation (September 2025)
+- **Non-blocking Architecture**: Converted all node functions to async to prevent blocking errors in LangGraph Studio
+- **Consistent Async Pattern**: All LLM calls now use await llm.ainvoke() instead of llm.invoke()
+- **Async File Operations**: Using asyncio.to_thread to wrap synchronous file I/O operations
+- **Asynchronous Subprocess Execution**: Subprocess calls wrapped with asyncio.to_thread to avoid blocking
+- **MCP Integration**: Improved MCP client with async patterns for better browser automation
+- **I/O Safety**: All file creation, reading, and writing operations now follow non-blocking patterns
+- **State Persistence**: Updated serializer utility for async file operations
+- **Enhanced Compatibility**: Full LangGraph Studio compatibility for complex agent workflows
+
 ### Error Collection Standardization (September 2025)
 - **Consistent Error Fields**: Standardized all agent schemas to use `errors: Annotated[List[str], operator.add]`
 - **Orchestrator Error Aggregation**: Maintains `errors: Annotated[List[list], operator.add]` for collecting agent error groups
@@ -532,7 +571,7 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **Simplified Providers**: Moved from complex multi-provider setup to clean OpenAI default + Ollama option
 - **Dependency Cleanup**: Removed all Hugging Face transformers, torch, and accelerate dependencies
 - **Dual-Model Support**: Added support for specialized text/vision models when using Ollama
-- **Configuration Centralization**: All model settings managed in `src/pdf_hunter/config.py`
+- **Configuration Centralization**: All model settings managed in `src/pdf_hunter/config/models_config.py`
 - **Flexible Switching**: Easy provider switching via configuration comments
 
 ### Performance Optimizations

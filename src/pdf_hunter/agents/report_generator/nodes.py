@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import asyncio
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage
 from pdf_hunter.config import report_generator_llm, final_verdict_llm
@@ -14,7 +15,7 @@ from .schemas import FinalVerdict
 logger = get_logger(__name__)
 
 
-def determine_threat_verdict(state: OrchestratorState) -> dict:
+async def determine_threat_verdict(state: OrchestratorState) -> dict:
     """
     Determine the overall security verdict based on all agent analyses.
     """
@@ -43,13 +44,13 @@ def determine_threat_verdict(state: OrchestratorState) -> dict:
     # Use a separate, structured-output LLM for the final verdict
     logger.debug("Invoking final verdict LLM")
     llm_with_verdict = final_verdict_llm.with_structured_output(FinalVerdict)
-    response = llm_with_verdict.invoke(messages)
+    response = await llm_with_verdict.ainvoke(messages)
     logger.info(f"Final verdict determined: {response.verdict} (confidence: {response.confidence})")
 
     return {"final_verdict": response}
 
 
-def generate_final_report(state: OrchestratorState) -> dict:
+async def generate_final_report(state: OrchestratorState) -> dict:
     """
     Generate a comprehensive final report summarizing all findings.
     Node to create a comprehensive Markdown report based on the full investigation state,
@@ -68,7 +69,7 @@ def generate_final_report(state: OrchestratorState) -> dict:
     ]
 
     logger.debug("Invoking report generator LLM")
-    response = report_generator_llm.invoke(messages)
+    response = await report_generator_llm.ainvoke(messages)
     final_report = response.content
     
     # Log a snippet of the report for debugging
@@ -80,7 +81,7 @@ def generate_final_report(state: OrchestratorState) -> dict:
     return {"final_report": final_report}
 
 
-def save_analysis_results(state: OrchestratorState) -> dict:
+async def save_analysis_results(state: OrchestratorState) -> dict:
     """
     Write the final report and state to files.
     """
@@ -94,7 +95,7 @@ def save_analysis_results(state: OrchestratorState) -> dict:
 
     # Create report generator subdirectory
     report_generator_directory = os.path.join(session_output_directory, "report_generator")
-    os.makedirs(report_generator_directory, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, report_generator_directory, exist_ok=True)
     logger.debug(f"Created report directory: {report_generator_directory}")
 
     # --- Save the complete state to a JSON file for debugging and records ---
@@ -103,7 +104,7 @@ def save_analysis_results(state: OrchestratorState) -> dict:
     
     logger.debug(f"Saving complete state to: {json_path}")
     try:
-        dump_state_to_file(state, json_path)
+        await dump_state_to_file(state, json_path)
         logger.info(f"Complete state saved to: {json_path}")
     except Exception as e:
         error_msg = f"Error saving final state to JSON: {e}"
@@ -121,8 +122,13 @@ def save_analysis_results(state: OrchestratorState) -> dict:
     final_md_report = state.get("final_report", "# PDF Hunter Report\n\nError: Final report could not be generated.")
 
     try:
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(final_md_report)
+        # Define a regular function to handle file writing
+        def write_file(path, content):
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(content)
+        
+        # Execute the function in a separate thread
+        await asyncio.to_thread(write_file, report_path, final_md_report)
         logger.info(f"Final report written to: {report_path}")
     except Exception as e:
         error_msg = f"Error writing final report to Markdown: {e}"

@@ -120,9 +120,9 @@ PDF Hunter supports multiple AI model providers:
 **🏠 Ollama (Local Alternative)**
 - Uses Qwen2.5:7b and Qwen2.5-VL:7b locally
 - No API keys required
-- Edit `src/pdf_hunter/config.py` to enable
+- Edit `src/pdf_hunter/config/models_config.py` to enable
 
-To switch between providers, update the LLM initializations in `src/pdf_hunter/config.py` to use the desired configuration dictionary (e.g., `openai_config`, `azure_openai_config`).
+To switch between providers, update the LLM initializations in `src/pdf_hunter/config/models_config.py` to use the desired configuration dictionary (e.g., `openai_config`, `azure_openai_config`).
 
 ## 🎮 Usage
 
@@ -156,7 +156,7 @@ Deploy all graphs as APIs:
 langgraph up
 ```
 
-This starts a web server with endpoints for each agent graph.
+This starts a web server with endpoints for each agent graph. PDF Hunter is fully compatible with LangGraph Studio thanks to its non-blocking async architecture that ensures all I/O operations run properly in the event-loop-based environment.
 
 ### Development Environment
 
@@ -231,9 +231,12 @@ configure_logging()
 
 # Debug level with file output for troubleshooting
 configure_logging(level=logging.DEBUG, log_to_file=True)
+
+# Session-specific logging
+configure_logging(log_to_file=True, session_id=session_id)
 ```
 
-Log files are stored in a `logs/` directory with naming pattern `pdf_hunter_{session_id}_{timestamp}.log`.
+Log files are stored in a `logs/` directory with naming pattern `pdf_hunter_{timestamp}.log`. When using async operations, always use the logger instead of print statements to avoid interfering with event loops.
 
 ### LLM Configuration
 
@@ -244,7 +247,7 @@ PDF Hunter uses 10 specialized LLM instances optimized for different tasks:
 - **Analysis Models**: Raw data processing (triage, investigation)
 - **Synthesis Models**: High-level reasoning (review, finalization)
 
-Configure in `src/pdf_hunter/config.py`:
+Configure in `src/pdf_hunter/config/models_config.py`:
 
 ```python
 # Example: Switch to Ollama for local inference
@@ -297,6 +300,34 @@ uv run python -m pdf_hunter.agents.pdf_extraction.graph
 - **LangGraph**: Multi-agent workflow orchestration
 - **Pydantic**: Type-safe data models and validation
 - **MCP**: Browser automation via Model Context Protocol
+- **Async Programming**: Non-blocking I/O for LangGraph Studio compatibility
+
+### Async Programming Pattern
+
+PDF Hunter uses async/await patterns to ensure compatibility with LangGraph Studio:
+
+```python
+# All agent node functions must be async
+async def analyze_file(state):
+    # Use await for LLM calls
+    result = await llm.ainvoke({"messages": messages})
+    
+    # Wrap file I/O operations in asyncio.to_thread
+    await asyncio.to_thread(os.makedirs, path, exist_ok=True)
+    
+    # Wrap subprocess calls
+    result = await asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True)
+    
+    return {"result": result}
+```
+
+Key async patterns:
+- All agent node functions are async (`async def function_name`)
+- LLM invocations use `await llm.ainvoke()` instead of `llm.invoke()`
+- File operations wrapped in `asyncio.to_thread(os.makedirs, path, exist_ok=True)`
+- Subprocess calls wrapped in `asyncio.to_thread(subprocess.run, ...)`
+- State serialization uses async file operations
+- MCP integration follows async patterns
 
 ### Cross-Platform Compatibility
 
@@ -379,6 +410,7 @@ PDF Hunter is a **defensive security tool** designed for safe PDF analysis:
 - **📋 Executive Reports**: Human-readable analysis summaries
 - **🔍 QR Code Detection**: Automated QR code extraction and analysis
 - **💾 State Persistence**: Complete analysis state saving for debugging
+- **⚡ LangGraph Studio**: Full compatibility with non-blocking async architecture
 
 ### Threat Detection
 

@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 from .schemas import FileAnalysisState, MissionStatus, InvestigatorState
 from pdf_hunter.shared.analyzers.wrappers import run_pdfid, run_pdf_parser_full_statistical_analysis, run_peepdf
 from .prompts import file_analysis_triage_system_prompt, file_analysis_triage_user_prompt, file_analysis_investigator_system_prompt, file_analysis_investigator_user_prompt
@@ -30,19 +31,19 @@ llm_reviewer = file_analysis_reviewer_llm.with_structured_output(ReviewerReport)
 llm_finalizer = file_analysis_finalizer_llm.with_structured_output(FinalReport)
 
 
-def identify_suspicious_elements(state: FileAnalysisState):
+async def identify_suspicious_elements(state: FileAnalysisState):
     logger.info("Identifying Suspicious Elements")
     file_path = state['file_path']
     logger.debug(f"Analyzing file: {file_path}")
 
     logger.debug("Running pdfid analysis")
-    pdfid_output = run_pdfid(file_path)
+    pdfid_output = await run_pdfid(file_path)
     
     logger.debug("Running pdf-parser statistical analysis")
-    pdf_parser_output = run_pdf_parser_full_statistical_analysis(file_path)
+    pdf_parser_output = await run_pdf_parser_full_statistical_analysis(file_path)
     
     logger.debug("Running peepdf analysis")
-    peepdf_output = run_peepdf(file_path)
+    peepdf_output = await run_peepdf(file_path)
     
     state['structural_summary'] = {"pdfid": pdfid_output, "pdf_parser": pdf_parser_output, "peepdf": peepdf_output}
     structural_summary = state['structural_summary']
@@ -62,7 +63,7 @@ def identify_suspicious_elements(state: FileAnalysisState):
     ]
 
     logger.debug("Invoking triage LLM")
-    result = llm_router.invoke(messages)
+    result = await llm_router.ainvoke(messages)
     logger.debug(f"Triage completed with decision: {result.triage_classification_decision}")
 
     updates = {
@@ -87,7 +88,7 @@ def identify_suspicious_elements(state: FileAnalysisState):
     return updates
 
 
-def create_analysis_tasks(state: FileAnalysisState):
+async def create_analysis_tasks(state: FileAnalysisState):
     logger.info("Creating analysis tasks")
     updated_missions = []
     task_count = 0
@@ -103,7 +104,7 @@ def create_analysis_tasks(state: FileAnalysisState):
     return {"mission_list": updated_missions}
 
 
-def assign_analysis_tasks(state: FileAnalysisState): 
+async def assign_analysis_tasks(state: FileAnalysisState): 
     """
     Dispatches all missions currently in 'NEW' status to the investigator pool.
     Updates the status of dispatched missions to 'IN_PROGRESS'.
@@ -137,7 +138,7 @@ def assign_analysis_tasks(state: FileAnalysisState):
     ]
 
 
-def file_analyzer(state: InvestigatorState):
+async def file_analyzer(state: InvestigatorState):
     """
     Investigator node that runs one step of the investigation.
     """
@@ -172,7 +173,7 @@ def file_analyzer(state: InvestigatorState):
     # --- LLM with Tools Call ---
     logger.debug("Invoking investigator LLM with tools")
     llm_with_tools = llm_investigator_with_tools
-    result = llm_with_tools.invoke(messages)
+    result = await llm_with_tools.ainvoke(messages)
     
     # --- State and Routing Logic ---
     if not result.tool_calls:
@@ -191,7 +192,7 @@ def file_analyzer(state: InvestigatorState):
         ]
 
         logger.debug("Invoking LLM for final mission report")
-        mission_report_obj = llm_investigator.invoke(report_generation_prompt)
+        mission_report_obj = await llm_investigator.ainvoke(report_generation_prompt)
         validated_report = MissionReport.model_validate(mission_report_obj)
         
         logger.info(f"Mission report findings: {validated_report.summary_of_findings}")
@@ -218,7 +219,7 @@ def file_analyzer(state: InvestigatorState):
         return {"messages": [result]}
     
 
-def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[EvidenceGraph]) -> EvidenceGraph:
+async def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[EvidenceGraph]) -> EvidenceGraph:
     """Use LLM to intelligently merge evidence graphs, handling duplicates and conflicts"""
 
     logger.info("Merging evidence graphs")
@@ -232,7 +233,7 @@ def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[Evi
         new_subgraphs_json=new_subgraphs_json
     )
 
-    result = llm_graph_merger.invoke([
+    result = await llm_graph_merger.ainvoke([
         SystemMessage(content=file_analysis_graph_merger_system_prompt),
         HumanMessage(content=user_prompt)
     ])
@@ -241,7 +242,7 @@ def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[Evi
     return result.master_graph
 
 
-def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summarize_file_analysis", "create_analysis_tasks"]]:
+async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summarize_file_analysis", "create_analysis_tasks"]]:
     """
     Acts as the "Chief Pathologist." This node now performs two roles:
     1. PROCESSES the raw results from the completed investigations (Reducer's job).
@@ -321,7 +322,7 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
         investigation_transcripts=investigation_transcripts_text
     )
     
-    result = llm_reviewer.invoke([
+    result = await llm_reviewer.ainvoke([
         SystemMessage(content=file_analysis_reviewer_system_prompt),
         HumanMessage(content=user_prompt)
     ])
@@ -355,7 +356,7 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
 
 from langchain_core.messages.utils import get_buffer_string
 
-def summarize_file_analysis(state: FileAnalysisState):
+async def summarize_file_analysis(state: FileAnalysisState):
     logger.info("Generating final analysis summary")
 
     master_graph_json = state['master_evidence_graph'].model_dump_json(indent=2)
@@ -380,7 +381,7 @@ def summarize_file_analysis(state: FileAnalysisState):
         completed_investigations=completed_investigations_text
     )
 
-    static_analysis_final_report = llm_finalizer.invoke([
+    static_analysis_final_report = await llm_finalizer.ainvoke([
         SystemMessage(content=file_analysis_finalizer_system_prompt),
         HumanMessage(content=user_prompt)
     ])
@@ -390,10 +391,10 @@ def summarize_file_analysis(state: FileAnalysisState):
         session_output_directory = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown_session")
         finalizer_directory = os.path.join(session_output_directory, "file_analysis")
-        os.makedirs(finalizer_directory, exist_ok=True)
+        await asyncio.to_thread(os.makedirs, finalizer_directory, exist_ok=True)
         json_filename = f"file_analysis_final_state_session_{session_id}.json"
         json_path = os.path.join(finalizer_directory, json_filename)
-        dump_state_to_file(state, json_path)
+        await dump_state_to_file(state, json_path)
     except Exception as e:
         error_msg = f"Error saving final state to JSON: {e}"
         logger.error(error_msg, exc_info=True)
