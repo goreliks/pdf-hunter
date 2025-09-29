@@ -1,4 +1,5 @@
 import os
+import logging
 from .schemas import FileAnalysisState, MissionStatus, InvestigatorState
 from pdf_hunter.shared.analyzers.wrappers import run_pdfid, run_pdf_parser_full_statistical_analysis, run_peepdf
 from .prompts import file_analysis_triage_system_prompt, file_analysis_triage_user_prompt, file_analysis_investigator_system_prompt, file_analysis_investigator_user_prompt
@@ -8,6 +9,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.constants import Send
 from langchain_core.messages.utils import get_buffer_string
 from .tools import pdf_parser_tools_manifest, pdf_parser_tools
+from pdf_hunter.shared.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 from .schemas import EvidenceGraph, MergedEvidenceGraph
 from typing import List, Literal
 from .prompts import file_analysis_graph_merger_system_prompt, file_analysis_graph_merger_user_prompt
@@ -27,15 +31,23 @@ llm_finalizer = file_analysis_finalizer_llm.with_structured_output(FinalReport)
 
 
 def identify_suspicious_elements(state: FileAnalysisState):
-    print("--- File Analysis: Identifying Suspicious Elements ---")
+    logger.info("Identifying Suspicious Elements")
     file_path = state['file_path']
+    logger.debug(f"Analyzing file: {file_path}")
 
+    logger.debug("Running pdfid analysis")
     pdfid_output = run_pdfid(file_path)
+    
+    logger.debug("Running pdf-parser statistical analysis")
     pdf_parser_output = run_pdf_parser_full_statistical_analysis(file_path)
+    
+    logger.debug("Running peepdf analysis")
     peepdf_output = run_peepdf(file_path)
+    
     state['structural_summary'] = {"pdfid": pdfid_output, "pdf_parser": pdf_parser_output, "peepdf": peepdf_output}
     structural_summary = state['structural_summary']
     additional_context = state.get('additional_context', "None")
+    logger.debug("Static analysis tools completed")
 
     system_prompt = file_analysis_triage_system_prompt
     user_prompt = file_analysis_triage_user_prompt.format(
@@ -43,12 +55,15 @@ def identify_suspicious_elements(state: FileAnalysisState):
         structural_summary=json.dumps(structural_summary)
     )
 
+    logger.debug("Preparing LLM triage analysis")
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_prompt),
     ]
 
+    logger.debug("Invoking triage LLM")
     result = llm_router.invoke(messages)
+    logger.debug(f"Triage completed with decision: {result.triage_classification_decision}")
 
     updates = {
         "structural_summary": structural_summary,
@@ -58,21 +73,33 @@ def identify_suspicious_elements(state: FileAnalysisState):
     }
 
     if result.triage_classification_decision == "innocent":
-        print("Triage Decision: PDF is Innocent. Ending investigation.")
+        logger.info("Triage Decision: PDF is Innocent. Ending investigation.")
     elif result.triage_classification_decision == "suspicious":
-        print(f"Triage Decision: PDF is Suspicious. Found {len(result.mission_list)} mission(s).")
+        logger.info(f"Triage Decision: PDF is Suspicious. Found {len(result.mission_list)} mission(s).")
+        if logger.isEnabledFor(logging.DEBUG):
+            for idx, mission in enumerate(result.mission_list):
+                logger.debug(f"Mission {idx+1}: {mission.objective} (Priority: {mission.priority})")
     else:
-        updates["errors"] = ["Invalid triage classification decision from LLM"]
+        error_msg = "Invalid triage classification decision from LLM"
+        logger.error(error_msg)
+        updates["errors"] = [error_msg]
 
     return updates
 
 
 def create_analysis_tasks(state: FileAnalysisState):
+    logger.info("Creating analysis tasks")
     updated_missions = []
+    task_count = 0
+    
     for mission in state['mission_list']:
         if mission.status == MissionStatus.NEW:
             mission.status = MissionStatus.IN_PROGRESS
+            task_count += 1
+            logger.debug(f"Queuing mission for threat type: {mission.threat_type}")
         updated_missions.append(mission)
+    
+    logger.info(f"Updated {task_count} missions to IN_PROGRESS status")
     return {"mission_list": updated_missions}
 
 
@@ -82,15 +109,20 @@ def assign_analysis_tasks(state: FileAnalysisState):
     Updates the status of dispatched missions to 'IN_PROGRESS'.
     """
     
-    print("\n--- File Analysis: Checking for New Analysis Tasks ---")
+    logger.info("Checking for new analysis tasks")
     
     missions_to_dispatch = [
         m for m in state['mission_list'] 
         if m.status == MissionStatus.IN_PROGRESS 
         and m.mission_id not in state.get('completed_investigations', {})
     ]
+    
     if not missions_to_dispatch:
+        logger.info("No pending analysis tasks found, proceeding to review results")
         return "review_analysis_results"
+    
+    logger.info(f"Dispatching {len(missions_to_dispatch)} analysis missions")
+    
     return [
         Send(
             "run_file_analysis",
@@ -109,13 +141,18 @@ def file_analyzer(state: InvestigatorState):
     """
     Investigator node that runs one step of the investigation.
     """
+    mission = state['mission']
+    mission_id = mission.mission_id if mission else "unknown"
+    
     # Dynamically build the prompt based on whether this is the first turn or not.
     if len(state['messages']) == 0:
         # First turn: Provide the full mission briefing.
-        mission = state['mission']
+        logger.info(f"Starting new investigation for mission {mission_id}")
+        logger.debug(f"Mission threat type: {mission.threat_type}")
+        
         user_prompt = file_analysis_investigator_user_prompt.format(
             file_path=state['file_path'],
-            mission_id=mission.mission_id,
+            mission_id=mission_id,
             threat_type=mission.threat_type,
             entry_point_description=mission.entry_point_description,
             reasoning=mission.reasoning,
@@ -126,44 +163,65 @@ def file_analyzer(state: InvestigatorState):
             SystemMessage(content=file_analysis_investigator_system_prompt),
             HumanMessage(content=user_prompt),
         ]
+        logger.debug("Created initial investigator prompt")
     else:
         # Subsequent turns: The history is already in the state.
         messages = state['messages']
+        logger.debug(f"Continuing investigation for mission {mission_id}, turn {len(messages)}")
 
     # --- LLM with Tools Call ---
+    logger.debug("Invoking investigator LLM with tools")
     llm_with_tools = llm_investigator_with_tools
     result = llm_with_tools.invoke(messages)
     
     # --- State and Routing Logic ---
     if not result.tool_calls:
         # The agent has decided the mission is over and did not call a tool.
-        print(f"Analysis task {state['mission'].mission_id} complete. Generating final report.")
+        logger.info(f"Analysis task {mission_id} complete. Generating final report.")
         
         # Add the agent's last thought to the history before asking for the report
         final_messages = messages + [result]
         
         # Create a new prompt to force the final structured output
+        logger.debug("Creating report generation prompt")
         report_generation_prompt = [
             SystemMessage(content=file_analysis_investigator_system_prompt),
             *final_messages, 
             HumanMessage(content="Your investigation is complete. Based on your findings in the conversation above, provide your final MissionReport in the required JSON format.")
         ]
 
+        logger.debug("Invoking LLM for final mission report")
         mission_report_obj = llm_investigator.invoke(report_generation_prompt)
         validated_report = MissionReport.model_validate(mission_report_obj)
+        
+        logger.info(f"Mission report findings: {validated_report.summary_of_findings}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Evidence points: {len(validated_report.mission_subgraph.nodes)}")
+            logger.debug(f"Final status: {validated_report.final_status}")
 
         return {
             "mission": state['mission'],  # Include the mission in the return
-            "mission_report": validated_report,
+            "investigation_report": validated_report,
             "messages": final_messages
         }
     else:
-        # The agent wants to use a tool - just add the message to state
+        # The agent wants to use a tool
+        logger.debug("Investigator wants to use tools")
+        
+        # Handle different formats of tool_calls based on LangGraph versions
+        if hasattr(result, 'tool_calls') and result.tool_calls:
+            if hasattr(result.tool_calls[0], 'name'):
+                logger.debug(f"Tool name: {result.tool_calls[0].name}")
+            elif isinstance(result.tool_calls[0], dict) and 'name' in result.tool_calls[0]:
+                logger.debug(f"Tool name: {result.tool_calls[0]['name']}")
+        
         return {"messages": [result]}
     
 
 def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[EvidenceGraph]) -> EvidenceGraph:
     """Use LLM to intelligently merge evidence graphs, handling duplicates and conflicts"""
+
+    logger.info("Merging evidence graphs")
     
     # Prepare the data for the LLM
     current_master_json = current_master.model_dump_json(indent=2)
@@ -179,7 +237,7 @@ def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: List[Evi
         HumanMessage(content=user_prompt)
     ])
     
-    print(f"Graph Merge Summary: {result.merge_summary}")
+    logger.info(f"Graph Merge Summary: {result.merge_summary}")
     return result.master_graph
 
 
@@ -189,7 +247,7 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
     1. PROCESSES the raw results from the completed investigations (Reducer's job).
     2. ANALYZES the processed results to decide the next strategic step (Reviewer's job).
     """
-    print("\n--- File Analysis: Processing and Reviewing Results ---")
+    logger.info("Processing and reviewing analysis results")
 
     # --- Part 1: PROCESS raw investigation results (The Reducer's Logic) ---
     
@@ -207,7 +265,7 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
         if inv['mission'].mission_id not in mission_reports
     ]
     
-    print(f"Reviewer: Processing {len(newly_completed_investigations)} new investigation packet(s).")
+    logger.info(f"Processing {len(newly_completed_investigations)} new investigation packet(s)")
 
     new_subgraphs = []
     investigation_transcripts = []
@@ -239,14 +297,14 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
 
 
     if new_subgraphs:
-        print(f"Reviewer: Merging {len(new_subgraphs)} investigation graphs intelligently...")
+        logger.info(f"Merging {len(new_subgraphs)} investigation graphs intelligently")
         master_graph = merge_evidence_graphs(current_master_graph, new_subgraphs)
     else:
         master_graph = current_master_graph
 
     
     # --- Part 2: ANALYZE the complete picture (The Reviewer's Logic) ---
-    print("Reviewer: Starting Strategic Review...")
+    logger.info("Starting strategic review of analysis results")
     
     # We use the data we just finished processing for the strategic analysis
     current_mission_list = list(mission_map.values())
@@ -268,7 +326,7 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
         HumanMessage(content=user_prompt)
     ])
 
-    print(f"Reviewer Strategic Summary: {result.strategic_summary}")
+    logger.info(f"Strategic review summary: {result.strategic_summary}")
 
     # --- Part 3: Prepare State Updates and Return Routing Command ---
     
@@ -283,13 +341,13 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
     }
     
     if result.is_investigation_complete:
-        print("Reviewer Decision: Investigation is complete. Proceeding to finalizer.")
+        logger.info("Investigation is complete. Proceeding to finalizer")
         goto = "summarize_file_analysis"
     else:
         if result.new_missions:
-            print(f"Reviewer Decision: Investigation continues. Adding {len(result.new_missions)} new mission(s).")
+            logger.info(f"Investigation continues with {len(result.new_missions)} new mission(s)")
         else:
-            print("Reviewer Decision: Investigation continues, but no new missions were generated. Looping to re-evaluate.")
+            logger.info("Investigation continues, but no new missions generated. Looping to re-evaluate")
         goto = "create_analysis_tasks"
         
     return Command(goto=goto, update=updates)
@@ -298,7 +356,7 @@ def review_analysis_results(state: FileAnalysisState) -> Command[Literal["summar
 from langchain_core.messages.utils import get_buffer_string
 
 def summarize_file_analysis(state: FileAnalysisState):
-    print("\n--- File Analysis: Generating Final Analysis Summary ---")
+    logger.info("Generating final analysis summary")
 
     master_graph_json = state['master_evidence_graph'].model_dump_json(indent=2)
     mission_reports_json = json.dumps({mid: r.model_dump() for mid, r in state['mission_reports'].items()}, indent=2)
@@ -337,8 +395,10 @@ def summarize_file_analysis(state: FileAnalysisState):
         json_path = os.path.join(finalizer_directory, json_filename)
         dump_state_to_file(state, json_path)
     except Exception as e:
-        state["errors"] = state.get("errors", []) + [f"Error saving final state to JSON: {e}"]
+        error_msg = f"Error saving final state to JSON: {e}"
+        logger.error(error_msg, exc_info=True)
+        state["errors"] = state.get("errors", []) + [error_msg]
     
-    print(f"--- Final Report Generated ---\nFinal Verdict: {static_analysis_final_report.final_verdict}")
+    logger.info(f"Final report generated with verdict: {static_analysis_final_report.final_verdict}")
     
     return {"static_analysis_final_report": static_analysis_final_report}

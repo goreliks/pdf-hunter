@@ -520,6 +520,54 @@ This is a **defensive security tool** for PDF threat analysis. The codebase hand
 - Browser automation in isolated environments via MCP
 - Secure state serialization excluding sensitive session data
 
+## Logging System
+
+The project uses a centralized logging system implemented in `src/pdf_hunter/shared/utils/logging_config.py`:
+
+- **Hierarchical Loggers**: Named loggers matching Python module hierarchy
+- **Configurable Levels**: Supports DEBUG, INFO, WARNING, ERROR, CRITICAL
+- **Consistent Formatting**: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
+- **File Logging**: Optional log file output with session-based naming
+- **Console Output**: Standard output to console with proper formatting
+
+### Using the Logging System
+
+```python
+# Import logging utilities at the top of each module
+from pdf_hunter.shared.utils.logging_config import get_logger
+
+# Create a module-specific logger
+logger = get_logger(__name__)
+
+# Use appropriate log levels
+logger.debug("Detailed debugging information")
+logger.info("General operational information")
+logger.warning("Warning situations that should be addressed")
+logger.error("Error events that might still allow the application to continue")
+logger.critical("Very serious error events that might cause the application to terminate")
+
+# Conditional verbose logging
+if logger.isEnabledFor(logging.DEBUG):
+    logger.debug(f"Detailed object state: {complex_object}")
+```
+
+### Configuring Logging
+
+The orchestrator automatically configures logging when run. For individual agent testing or custom needs:
+
+```python
+from pdf_hunter.shared.utils.logging_config import configure_logging
+
+# Default configuration (INFO level, console only)
+configure_logging()
+
+# Debug level with file output
+configure_logging(level=logging.DEBUG, log_to_file=True)
+
+# Session-specific logging
+configure_logging(log_to_file=True, session_id=session_id)
+```
+
 ## Important Implementation Reminders
 
 - **Never create files unless absolutely necessary** - always prefer editing existing files
@@ -529,3 +577,4 @@ This is a **defensive security tool** for PDF threat analysis. The codebase hand
 - **Test with sample PDFs** - use files in `tests/` directory for validation
 - **Maintain agent isolation** - each agent should be runnable independently
 - **Follow LangGraph patterns** - use proper state management and edge definitions
+- **Use proper logging** - leverage the logging system instead of print statements

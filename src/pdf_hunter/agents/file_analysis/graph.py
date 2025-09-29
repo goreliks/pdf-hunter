@@ -5,6 +5,11 @@ from .schemas import InvestigatorState, InvestigatorOutputState, FileAnalysisSta
 from .nodes import file_analyzer, identify_suspicious_elements, create_analysis_tasks, assign_analysis_tasks, review_analysis_results, summarize_file_analysis
 from .tools import pdf_parser_tools
 from langgraph.prebuilt import tools_condition
+from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+
+# Configure logging for this module
+configure_logging()
+logger = get_logger(__name__)
 
 
 
@@ -30,11 +35,21 @@ def run_file_analysis(state: dict):
     Wrapper for the investigator subgraph that ensures outputs are collected
     into the completed_investigations list.
     """
+    mission = state.get("mission")
+    if mission:
+        logger.info(f"Starting investigation mission for threat type: {mission.threat_type}")
+        logger.debug(f"Mission ID: {mission.mission_id}")
+    
     # Run the investigator subgraph
+    logger.debug("Invoking investigator subgraph")
     result = investigator_graph.invoke(state)
+    
+    if result.get("investigation_report"):
+        logger.info(f"Investigation completed: {result['investigation_report'].conclusion}")
     
     # The result should contain the fields from InvestigatorOutputState
     # We need to wrap it in a list so it gets aggregated via operator.add
+    logger.debug("Returning mission result for aggregation")
     return {
         "completed_investigations": [result]  # This will be aggregated
     }
@@ -66,16 +81,27 @@ if __name__ == "__main__":
     import json
     import os
     import uuid
+    import logging
     from datetime import datetime
+    
+    # Configure more detailed logging for standalone execution
+    configure_logging(level=logging.INFO, log_to_file=True)
+    logger = get_logger(__name__)
     
     file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
     output_directory="output"
     additional_context="None"
     session_id="123"
 
+    logger.info(f"Running file analysis on: {file_path}")
+    logger.info(f"Session ID: {session_id}")
+
     final_state = None
     for event in static_analysis_graph.stream({"file_path":file_path,"output_directory": output_directory, "additional_context": additional_context, "session_id": session_id}, stream_mode="values"):
-        print(event)
+        if logger.isEnabledFor(logging.DEBUG):
+            # Don't log the full event as it can be very large
+            event_keys = list(event.keys()) if isinstance(event, dict) else "Non-dict event"
+            logger.debug(f"Event received with keys: {event_keys}")
         final_state = event
     
     # Save final state to JSON file
@@ -105,7 +131,8 @@ if __name__ == "__main__":
         serializable_state = make_serializable(final_state)
         
         # Save to JSON file
+        logger.info(f"Saving final state to {json_path}")
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(serializable_state, f, indent=2, ensure_ascii=False)
         
-        print(f"\n--- Final state saved to: {json_path} ---")
+        logger.info(f"Final state saved to: {json_path}")

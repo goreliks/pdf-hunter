@@ -2,6 +2,11 @@ from langgraph.graph import StateGraph, START, END
 
 from .schemas import PDFExtractionState, PDFExtractionInputState, PDFExtractionOutputState
 from .nodes import setup_session, extract_pdf_images, scan_qr_codes, find_embedded_urls
+from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+
+# Configure logging for this module
+configure_logging()
+logger = get_logger(__name__)
 
 
 preprocessing_builder = StateGraph(PDFExtractionState, input_schema=PDFExtractionInputState, output_schema=PDFExtractionOutputState)
@@ -26,6 +31,11 @@ preprocessing_graph = preprocessing_builder.compile()
 
 if __name__ == "__main__":
     import pprint
+    import logging
+
+    # Configure more detailed logging for standalone execution
+    configure_logging(level=logging.INFO, log_to_file=True)
+    logger = get_logger(__name__)
 
     file_path = "/Users/gorelik/Courses/pdf-hunter/tests/hello_qr_and_link.pdf"
     output_directory = "output/preprocessing_results"
@@ -36,24 +46,25 @@ if __name__ == "__main__":
         "number_of_pages_to_process": 1,  # We want to process only the first page (page 0)
     }
 
-    print(f"--- Running PDF Extraction on: {file_path} ---")
+    logger.info(f"Running PDF Extraction on: {file_path}")
 
     final_state = preprocessing_graph.invoke(initial_state)
 
-    print("\n--- PDF Extraction Complete. Final State: ---")
+    logger.info("PDF Extraction Complete")
     
-    pprint.pprint(final_state)
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(f"Final state: {pprint.pformat(final_state)}")
 
-    print("\n--- Verification ---")
+    # Verification
     if final_state.get("errors"):
-        print(f"Completed with {len(final_state['errors'])} error(s).")
+        logger.warning(f"Completed with {len(final_state['errors'])} error(s)")
+        for error in final_state["errors"]:
+            logger.error(f"Error: {error}")
     else:
-        print("Completed successfully.")
-        print(f"PDF Hash Calculated: {'Yes' if final_state.get('pdf_hash') else 'No'}")
-        print(f"Images Extracted: {len(final_state.get('extracted_images', []))}")
-        print(f"URL Findings: {len(final_state.get('extracted_urls', []))}")
-        if final_state.get('extracted_urls'):
-            print("Example URL Finding:")
-            pprint.pprint(final_state['extracted_urls'][0])
-
-    print(f"state: {final_state}")
+        logger.info("Completed successfully")
+        logger.info(f"PDF Hash Calculated: {'Yes' if final_state.get('pdf_hash') else 'No'}")
+        logger.info(f"Images Extracted: {len(final_state.get('extracted_images', []))}")
+        logger.info(f"URL Findings: {len(final_state.get('extracted_urls', []))}")
+        
+        if final_state.get('extracted_urls') and logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Example URL Finding: {pprint.pformat(final_state['extracted_urls'][0])}")
