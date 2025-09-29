@@ -11,6 +11,8 @@ from .schemas import URLInvestigationState, URLInvestigationInputState, URLInves
 from ..image_analysis.schemas import PrioritizedURL
 from .nodes import investigate_url, execute_browser_tools, analyze_url_content, should_continue, route_url_analysis, filter_high_priority_urls, save_url_analysis_state
 from ...shared.utils.logging_config import get_logger
+from pdf_hunter.config import URL_INVESTIGATION_CONFIG, URL_INVESTIGATION_INVESTIGATOR_CONFIG
+
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -31,6 +33,7 @@ link_investigator_state.add_edge("execute_browser_tools", "investigate_url")
 link_investigator_state.add_edge("analyze_url_content", END)
 # Compile the graph and export it for external use
 link_investigator_graph = link_investigator_state.compile()
+link_investigator_graph = link_investigator_graph.with_config(URL_INVESTIGATION_INVESTIGATOR_CONFIG)
 
 
 async def conduct_link_analysis(state: dict):
@@ -71,6 +74,7 @@ pipeline.add_edge("conduct_link_analysis", "save_url_analysis_state")
 pipeline.add_edge("save_url_analysis_state", END)
 
 link_analysis_graph = pipeline.compile()
+link_analysis_graph = link_analysis_graph.with_config(URL_INVESTIGATION_CONFIG)
 
 if __name__ == "__main__":
     from .schemas import PrioritizedURL
@@ -80,7 +84,7 @@ if __name__ == "__main__":
     # Configure more detailed logging when running directly
     configure_logging(level=logging.INFO)
     
-    output_dir = "./outputs/test_link_analysis"
+    output_dir = "./output/test_url_analysis"
     logger.info(f"Setting up test with output directory: {output_dir}")
 
     test_state = {

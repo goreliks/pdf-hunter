@@ -20,6 +20,24 @@ from .prompts import URL_INVESTIGATION_INVESTIGATOR_SYSTEM_PROMPT, URL_INVESTIGA
 # Initialize logger
 logger = get_logger(__name__)
 
+# Helper function to load MCP tools asynchronously
+async def load_mcp_tools_async(session):
+    """
+    Load MCP tools in a non-blocking way by moving the import to a separate thread.
+    
+    Args:
+        session: The MCP session to use
+        
+    Returns:
+        The loaded MCP tools
+    """
+    def _load_tools():
+        from langchain_mcp_adapters.tools import load_mcp_tools
+        return load_mcp_tools
+    
+    load_mcp_tools_fn = await asyncio.to_thread(_load_tools)
+    return await load_mcp_tools_fn(session)
+
 
 
 async def investigate_url(state: URLInvestigatorState):
@@ -43,17 +61,16 @@ async def investigate_url(state: URLInvestigatorState):
     # Create task-specific investigation directory under url investigation
     url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
     task_investigation_dir = os.path.join(url_investigation_dir, task_id)
-    os.makedirs(task_investigation_dir, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, task_investigation_dir, exist_ok=True)
     logger.debug(f"Created investigation directory: {task_investigation_dir}")
 
     # Get the task-specific MCP session and load tools fresh each time
     from ...shared.utils.mcp_client import get_mcp_session
-    from langchain_mcp_adapters.tools import load_mcp_tools
     
     logger.debug(f"Getting MCP session for task: {task_id}")
     session = await get_mcp_session(task_id, session_output_dir)
     logger.debug("Loading MCP tools")
-    mcp_tools = await load_mcp_tools(session)
+    mcp_tools = await load_mcp_tools_async(session)
     all_tools = mcp_tools + [domain_whois]
     logger.debug(f"Loaded {len(all_tools)} tools for investigation")
     model_with_tools = url_investigation_investigator_llm.bind_tools(all_tools)
@@ -121,19 +138,18 @@ async def execute_browser_tools(state: URLInvestigatorState):
     # Create task-specific investigation directory under url investigation
     url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
     task_investigation_dir = os.path.join(url_investigation_dir, task_id)
-    os.makedirs(task_investigation_dir, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, task_investigation_dir, exist_ok=True)
 
     async def execute_tools():
         from langchain_core.tools.base import ToolException
         
         # Get the task-specific MCP session and load tools fresh each time
         from ...shared.utils.mcp_client import get_mcp_session
-        from langchain_mcp_adapters.tools import load_mcp_tools
         
         logger.debug(f"Getting MCP session for tool execution: {task_id}")
         session = await get_mcp_session(task_id, session_output_dir)
         logger.debug("Loading MCP tools for execution")
-        mcp_tools = await load_mcp_tools(session)
+        mcp_tools = await load_mcp_tools_async(session)
         tools = mcp_tools + [domain_whois]
         logger.debug(f"Loaded {len(tools)} tools for execution")
         tool_by_name = {tool.name: tool for tool in tools}
@@ -274,7 +290,7 @@ def route_url_analysis(state: URLInvestigationState):
     return "save_url_analysis_state"
 
 
-def filter_high_priority_urls(state: URLInvestigationState):
+async def filter_high_priority_urls(state: URLInvestigationState):
     """
     Filter and return only high priority URLs from the visual analysis report.
     """
@@ -286,7 +302,7 @@ def filter_high_priority_urls(state: URLInvestigationState):
     
     if session_output_dir:
         url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
-        os.makedirs(url_investigation_dir, exist_ok=True)
+        await asyncio.to_thread(os.makedirs, url_investigation_dir, exist_ok=True)
         logger.debug(f"Created URL investigation directory: {url_investigation_dir}")
 
     if "visual_analysis_report" in state and state["visual_analysis_report"]:
@@ -324,7 +340,7 @@ def filter_high_priority_urls(state: URLInvestigationState):
     return {"high_priority_urls": high_priority_urls}
 
 
-def save_url_analysis_state(state: URLInvestigationState):
+async def save_url_analysis_state(state: URLInvestigationState):
     """
     Saving the final state to disk for debugging and tracking.
     """
@@ -338,7 +354,7 @@ def save_url_analysis_state(state: URLInvestigationState):
 
     # Create url investigation subdirectory
     url_investigation_directory = os.path.join(session_output_dir, "url_investigation")
-    os.makedirs(url_investigation_directory, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, url_investigation_directory, exist_ok=True)
 
     json_filename = f"url_investigation_state_session_{session_id}.json"
     json_path = os.path.join(url_investigation_directory, json_filename)
@@ -346,7 +362,7 @@ def save_url_analysis_state(state: URLInvestigationState):
     logger.debug(f"Saving state to: {json_path}")
 
     try:
-        dump_state_to_file(state, json_path)
+        await dump_state_to_file(state, json_path)
         logger.info(f"URL analysis state saved to: {json_path}")
     except Exception as e:
         error_msg = f"Error writing URL analysis state to JSON: {e}"

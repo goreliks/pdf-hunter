@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import Any, Dict
 
 def serialize_state_safely(state: Dict[str, Any]) -> str:
@@ -36,10 +37,16 @@ def serialize_state_safely(state: Dict[str, Any]) -> str:
     return serializable_data
 
 
-def dump_state_to_file(state: Dict[str, Any], file_path: str):
+async def dump_state_to_file(state: Dict[str, Any], file_path: str):
     """
     Dump the orchestrator state to a JSON file safely.
     """
     serializable_state = serialize_state_safely(state)
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(serializable_state, f, indent=2, ensure_ascii=False)
+    
+    # Define a function to handle file I/O
+    def write_file(path, data):
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            
+    # Use asyncio.to_thread to avoid blocking
+    await asyncio.to_thread(write_file, file_path, serializable_state)

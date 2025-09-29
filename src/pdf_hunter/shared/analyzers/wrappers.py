@@ -1,7 +1,8 @@
 import os
 import sys
 import subprocess
-from typing import List, Dict, Any
+import asyncio
+from typing import Dict, List, Any, Optional
 from pathlib import Path
 from functools import lru_cache
 from importlib.resources import files, as_file
@@ -19,18 +20,22 @@ def get_pdf_parser_path() -> str:
         return str(p)
 
 
-def _run_shell_command(command: List[str]) -> Dict[str, Any]:
+async def _run_shell_command(command: List[str]) -> Dict[str, Any]:
     """A centralized, safe function to run shell commands and return structured output."""
     try:
-        process = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-            encoding='utf-8',
-            errors='ignore' # Ignore errors for weird binary output
-        )
+        # Use asyncio.to_thread to avoid blocking the event loop
+        def run_cmd(cmd):
+            return subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+                encoding='utf-8',
+                errors='ignore' # Ignore errors for weird binary output
+            )
+        
+        process = await asyncio.to_thread(run_cmd, command)
         return {
             "stdout": process.stdout.strip(),
             "stderr": process.stderr.strip(),
@@ -46,7 +51,7 @@ def _run_shell_command(command: List[str]) -> Dict[str, Any]:
 
 
 
-def run_pdfid(pdf_filename: str) -> str:
+async def run_pdfid(pdf_filename: str) -> str:
     """Runs the pdfid.py tool with the correct flags."""
     # Use pathlib for more reliable path handling
     pdfid_path = get_pdfid_path()
@@ -58,39 +63,43 @@ def run_pdfid(pdf_filename: str) -> str:
 
 
     command_parts = [sys.executable, pdfid_path, "-e", "-f", pdf_filename]
-    result = _run_shell_command(command_parts)
+    result = await _run_shell_command(command_parts)
     return result['stdout'] or f"Tool executed with no output. Stderr: {result['stderr']}"
 
 
-def run_pdf_parser_full_statistical_analysis(pdf_filename: str) -> str:
+async def run_pdf_parser_full_statistical_analysis(pdf_filename: str) -> str:
     """Runs the pdf-parser.py tool with -a flag."""
     # Use pathlib for more reliable path handling
     pdf_parser_path = get_pdf_parser_path()
     
     if not os.path.exists(pdf_parser_path):
-        print(f"Warning: pdf-parser.py not found at {pdf_parser_path}.")
+        print(f"Warning: pdf-parser.py not found at {pdf_parser_path}. Using simulation.")
         raise FileNotFoundError(f"pdf-parser.py not found at {pdf_parser_path}")
 
-    command_parts = [sys.executable, pdf_parser_path, "-a", "-O",pdf_filename]
-    result = _run_shell_command(command_parts)
+    command_parts = [sys.executable, pdf_parser_path, "-a", "-O", pdf_filename]
+    result = await _run_shell_command(command_parts)
     return result['stdout'] or f"Tool executed with no output. Stderr: {result['stderr']}"
 
 
-def run_peepdf(pdf_filename: str) -> str:
+async def run_peepdf(pdf_filename: str) -> str:
     """Runs the peepdf.py tool with the correct flags."""
     command_parts = ["peepdf", "-f", pdf_filename]
-    result = _run_shell_command(command_parts)
+    result = await _run_shell_command(command_parts)
     return result['stdout'] or f"Tool executed with no output. Stderr: {result['stderr']}"
 
 
 
 
 if __name__ == "__main__":
-    try:
-        # Calculate path to test PDF file
-        project_root = Path(__file__).resolve().parent.parent.parent.parent
-        test_pdf = str("tests" / "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf")
-        print(f"Testing with PDF: {test_pdf}")
-        print(run_peepdf(test_pdf))
-    except Exception as e:
-        print(f"Error: {e}")
+    import asyncio
+
+    async def main():
+        test_pdf = "test.pdf"
+        if os.path.exists(test_pdf):
+            print(await run_pdfid(test_pdf))
+            print(await run_pdf_parser_full_statistical_analysis(test_pdf))
+            print(await run_peepdf(test_pdf))
+        else:
+            print(f"Test file {test_pdf} not found.")
+    
+    asyncio.run(main())

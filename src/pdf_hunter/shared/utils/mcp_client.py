@@ -2,20 +2,19 @@ import asyncio
 import os
 import uuid
 from contextlib import asynccontextmanager
-from langchain_mcp_adapters.client import MultiServerMCPClient
 
 def get_mcp_config(task_id: str = None, base_output_dir: str = None):
-    """Get MCP configuration with task-specific output directory under link_analysis."""
+    """Get MCP configuration with task-specific output directory under url_investigation."""
     # Default to current directory if no base directory provided
     if base_output_dir is None:
         base_output_dir = "./output"
 
-    # Create link_analysis subdirectory under session directory
-    link_analysis_dir = os.path.join(base_output_dir, "link_analysis")
+    # Create url_investigation subdirectory under session directory
+    url_investigation_dir = os.path.join(base_output_dir, "url_investigation")
     if task_id:
-        task_output_dir = os.path.join(link_analysis_dir, f"task_{task_id}")
+        task_output_dir = os.path.join(url_investigation_dir, f"task_{task_id}")
     else:
-        task_output_dir = link_analysis_dir
+        task_output_dir = url_investigation_dir
         
     return {
         "playwright": {
@@ -31,10 +30,29 @@ _session_lock = None
 
 def get_mcp_client(task_id: str = None, base_output_dir: str = None):
     """Get or initialize MCP client lazily to avoid issues with LangGraph Platform."""
+    # Import inside function to avoid blocking during module import
+    from langchain_mcp_adapters.client import MultiServerMCPClient
+    
     global _clients
     client_key = f"{task_id or 'default'}_{base_output_dir or 'default'}"
     if client_key not in _clients:
         _clients[client_key] = MultiServerMCPClient(get_mcp_config(task_id, base_output_dir))
+    return _clients[client_key]
+
+
+async def get_mcp_client_async(task_id: str = None, base_output_dir: str = None):
+    """Get or initialize MCP client asynchronously to prevent blocking."""
+    def _init_client():
+        # Import inside the function to avoid blocking during module import
+        from langchain_mcp_adapters.client import MultiServerMCPClient
+        config = get_mcp_config(task_id, base_output_dir)
+        return MultiServerMCPClient(config)
+    
+    global _clients
+    client_key = f"{task_id or 'default'}_{base_output_dir or 'default'}"
+    if client_key not in _clients:
+        # Run the potentially blocking client initialization in a thread
+        _clients[client_key] = await asyncio.to_thread(_init_client)
     return _clients[client_key]
 
 class MCPSessionManager:
@@ -56,8 +74,13 @@ class MCPSessionManager:
         """Start the session context."""
         if self._is_active:
             return
-            
-        self.session_context = self.client.session("playwright")
+        
+        # This function runs in a separate thread and returns the session context
+        def _create_session():
+            return self.client.session("playwright")
+        
+        # Use asyncio.to_thread for potentially blocking operations
+        self.session_context = await asyncio.to_thread(_create_session)
         self.session = await self.session_context.__aenter__()
         self._is_active = True
     
@@ -93,7 +116,8 @@ async def get_mcp_session(task_id: str = None, base_output_dir: str = None):
 
     async with _session_lock:
         if session_key not in _session_managers:
-            client = get_mcp_client(task_id, base_output_dir)
+            # Get client asynchronously to prevent blocking
+            client = await get_mcp_client_async(task_id, base_output_dir)
             _session_managers[session_key] = MCPSessionManager(client)
 
         return await _session_managers[session_key].get_session()

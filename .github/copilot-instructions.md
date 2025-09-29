@@ -42,10 +42,10 @@ jupyter lab notebooks/development/
 ```
 
 ### Model Configuration
-- **Default**: GPT-4o via `openai_config` in `config.py`
+- **Default**: GPT-4o via `openai_config` in `config/models_config.py`
 - **Enterprise**: Azure OpenAI via `azure_openai_config`
 - **Local**: Ollama (disabled by default) - dual model setup with text/vision specialization
-- Switch providers by updating LLM initializations in `config.py`
+- Switch providers by updating LLM initializations in `config/models_config.py`
 
 ## Agent Architecture
 
@@ -62,6 +62,15 @@ jupyter lab notebooks/development/
 - **Report Generator**: Executive report synthesis and final verdict generation
 
 ## Critical Development Patterns
+
+### Async Programming Pattern
+- **Node Functions**: All agent node functions must be async (use `async def function_name`)
+- **LLM Invocation**: Always use `await llm.ainvoke()` instead of `llm.invoke()`
+- **File Operations**: Wrap synchronous I/O in `asyncio.to_thread(os.makedirs, path, exist_ok=True)`
+- **State Serialization**: Use `await dump_state_to_file(state, path)` for state persistence
+- **Subprocess**: Wrap subprocess calls in `asyncio.to_thread` to prevent blocking
+- **MCP Integration**: Use async patterns for MCP client and browser automation
+- **Non-Blocking I/O**: Ensure all I/O operations are non-blocking for LangGraph Studio compatibility
 
 ### URL Status Tracking System
 URLs flow through a sophisticated status management system:
@@ -118,11 +127,32 @@ file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_file.pdf
 - JSON files named `*_final_state_session_{session_id}.json`
 - Use `serialize_state_safely()` to handle Pydantic models and complex objects
 
+### Configuration Structure
+- **Execution Config**: `config/execution_config.py` - Recursion limits and runtime parameters
+- **Model Config**: `config/models_config.py` - LLM instances and provider settings
+- **Centralized Imports**: `from pdf_hunter.config import AGENT_CONFIG, agent_llm`
+
+### Recursion Limits & Loop Prevention
+- **Default LangGraph Limit**: 25 super-steps per graph
+- **Orchestrator**: 30 steps (multi-agent coordination)
+- **Tool-using Agents**: 15-25 steps (agent-tool interaction loops)
+- **Linear Agents**: 10-15 steps (sequential workflows)
+- **Configuration**: Centrally managed in `config/execution_config.py`
+
 ### Error Handling Pattern
 ```python
 # Standard error aggregation across all agents
 errors: Annotated[List[str], operator.add]  # Agent level
 errors: Annotated[List[list], operator.add]  # Orchestrator level (nested)
+
+# GraphRecursionError handling for infinite loop prevention
+from langgraph.errors import GraphRecursionError
+
+try:
+    result = agent_graph.invoke(state, config)
+except GraphRecursionError:
+    logger.error("Agent hit recursion limit - potential infinite loop")
+    return {"errors": ["Recursion limit exceeded"]}
 ```
 
 ## Dependencies & Integration Points
@@ -193,7 +223,7 @@ if logger.isEnabledFor(logging.DEBUG):
 ### New Agent Pattern
 1. Create agent directory under `src/pdf_hunter/agents/`
 2. Implement `graph.py`, `nodes.py`, `schemas.py`, `prompts.py`
-3. Add LLM configuration in `config.py`
+3. Add LLM configuration in `config/models_config.py`
 4. Register graph in `langgraph.json`
 5. Update orchestrator workflow if needed
 

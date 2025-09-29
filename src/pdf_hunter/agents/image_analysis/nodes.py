@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import asyncio
 from typing import List
 
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -59,7 +60,7 @@ def _create_structured_forensic_briefing(page_result: PageAnalysisResult) -> str
     return "\n".join(briefing)
 
 
-def analyze_pdf_images(state: ImageAnalysisState):
+async def analyze_pdf_images(state: ImageAnalysisState):
     """
     Visual Deception Analyst (VDA) analyzes pages with a focus on visually
     deceptive content, phishing, and presentation concerns.
@@ -119,7 +120,7 @@ def analyze_pdf_images(state: ImageAnalysisState):
 
             # Invoke the LLM with the correct message structure.
             logger.debug(f"Sending page {page_num} to LLM for analysis")
-            page_result = llm_with_structured_output.invoke(messages)
+            page_result = await llm_with_structured_output.ainvoke(messages)
             page_analyses_results.append(page_result)
             logger.info(f"Page {page_num} Verdict: {page_result.visual_verdict} (Confidence: {page_result.confidence_score:.2f})")
             
@@ -142,7 +143,7 @@ def analyze_pdf_images(state: ImageAnalysisState):
         return {"errors": [error_msg]}
 
 
-def compile_image_findings(state: ImageAnalysisState):
+async def compile_image_findings(state: ImageAnalysisState):
     """
     Aggregates all page-level analyses into a final, conclusive report using
     robust, programmatic logic.
@@ -216,12 +217,12 @@ def compile_image_findings(state: ImageAnalysisState):
         session_output_directory = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown")
         image_analysis_directory = os.path.join(session_output_directory, "image_analysis")
-        os.makedirs(image_analysis_directory, exist_ok=True)
+        await asyncio.to_thread(os.makedirs, image_analysis_directory, exist_ok=True)
         json_filename = f"image_analysis_state_session_{session_id}.json"
         json_path = os.path.join(image_analysis_directory, json_filename)
         
         logger.info(f"Saving image analysis report to {json_path}")
-        dump_state_to_file(visual_analysis_report, json_path)
+        await dump_state_to_file(visual_analysis_report, json_path)
         logger.debug("Image analysis report successfully saved")
     except Exception as e:
         error_msg = f"Error saving visual analysis report to JSON: {e}"
