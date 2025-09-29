@@ -184,6 +184,38 @@ output/
 
 ## 🔧 Configuration
 
+### Logging Configuration
+
+PDF Hunter includes a centralized logging system:
+
+```python
+# In any module:
+from pdf_hunter.shared.utils.logging_config import get_logger
+
+# Create a module-specific logger
+logger = get_logger(__name__)
+
+# Use appropriate log levels
+logger.info("Starting process")
+logger.warning("Potential issue detected")
+logger.error("Error occurred", exc_info=True)
+```
+
+Configure logging levels for more detailed output:
+
+```python
+from pdf_hunter.shared.utils.logging_config import configure_logging
+import logging
+
+# Default configuration (INFO level)
+configure_logging()
+
+# Debug level with file output for troubleshooting
+configure_logging(level=logging.DEBUG, log_to_file=True)
+```
+
+Log files are stored in a `logs/` directory with naming pattern `pdf_hunter_{session_id}_{timestamp}.log`.
+
 ### LLM Configuration
 
 PDF Hunter uses 10 specialized LLM instances optimized for different tasks:

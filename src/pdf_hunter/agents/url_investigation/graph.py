@@ -2,6 +2,7 @@ import asyncio
 import os
 import json
 import uuid
+import logging
 from datetime import datetime
 from pathlib import Path
 from langgraph.graph import StateGraph, START, END
@@ -9,6 +10,10 @@ from langgraph.graph import StateGraph, START, END
 from .schemas import URLInvestigationState, URLInvestigationInputState, URLInvestigationOutputState, URLInvestigatorState, URLInvestigatorOutputState
 from ..image_analysis.schemas import PrioritizedURL
 from .nodes import investigate_url, execute_browser_tools, analyze_url_content, should_continue, route_url_analysis, filter_high_priority_urls, save_url_analysis_state
+from ...shared.utils.logging_config import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 link_investigator_state = StateGraph(URLInvestigatorState, output_schema=URLInvestigatorOutputState)
@@ -33,13 +38,26 @@ async def conduct_link_analysis(state: dict):
     Wrapper for the investigator subgraph that ensures outputs are collected
     into the completed_investigations list.
     """
-    # Run the investigator subgraph
-    result = await link_investigator_graph.ainvoke(state)
-    # The result should contain the fields from InvestigatorOutputState
-    # We need to wrap it in a list so it gets aggregated via operator.add
-    return {
-        "link_analysis_final_reports": [result]  # This will be aggregated
-    }
+    url_task = state.get("url_task")
+    url = url_task.url if url_task else "unknown URL"
+    
+    logger.info(f"Starting link analysis for URL: {url}")
+    
+    try:
+        # Run the investigator subgraph
+        logger.debug("Invoking link investigator graph")
+        result = await link_investigator_graph.ainvoke(state)
+        
+        # The result should contain the fields from InvestigatorOutputState
+        # We need to wrap it in a list so it gets aggregated via operator.add
+        logger.info(f"Link analysis complete for URL: {url}")
+        return {
+            "link_analysis_final_reports": [result]  # This will be aggregated
+        }
+    except Exception as e:
+        logger.error(f"Error during link analysis for URL {url}: {str(e)}", exc_info=True)
+        # Re-raise to allow proper handling by the orchestrator
+        raise
 
 
 pipeline = StateGraph(URLInvestigationState, input_schema=URLInvestigationInputState, output_schema=URLInvestigationOutputState)
@@ -57,8 +75,13 @@ link_analysis_graph = pipeline.compile()
 if __name__ == "__main__":
     from .schemas import PrioritizedURL
     import asyncio
+    from ...shared.utils.logging_config import configure_logging
 
+    # Configure more detailed logging when running directly
+    configure_logging(level=logging.INFO)
+    
     output_dir = "./outputs/test_link_analysis"
+    logger.info(f"Setting up test with output directory: {output_dir}")
 
     test_state = {
         "visual_analysis_report": {
@@ -81,22 +104,30 @@ if __name__ == "__main__":
     }
 
     async def main():
-        print("\n🚀 Running the full Investigator -> Analyst pipeline...")
+        logger.info("Running the full URL Investigator -> Analyst pipeline")
         
         try:
+            logger.debug("Invoking link analysis graph with test state")
             final_state = await link_analysis_graph.ainvoke(test_state)
+            logger.info("Link analysis graph execution complete")
+        except Exception as e:
+            logger.error(f"Error during link analysis: {str(e)}", exc_info=True)
+            raise
         finally:
             # Cleanup all MCP sessions when done
             from ...shared.utils.mcp_client import cleanup_mcp_session
+            logger.debug("Cleaning up MCP sessions")
             await cleanup_mcp_session()  # This will cleanup all sessions
         
-        print("\n\n" + "="*50)
-        print("📊✅ FINAL FORENSIC REPORT ✅📊")
-        print("="*50)
+        logger.info("Generating final forensic report")
         if final_state.get("link_analysis_final_reports"):
-            for report in final_state["link_analysis_final_reports"]:
-                print(report.model_dump_json(indent=2))
+            logger.info(f"Generated {len(final_state['link_analysis_final_reports'])} URL analysis reports")
+            for i, report in enumerate(final_state["link_analysis_final_reports"]):
+                url = report.get("initial_url", {}).get("url", f"Report #{i}")
+                logger.info(f"Report for URL: {url}")
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Report details: {report.model_dump_json(indent=2)}")
         else:
-            print("No final report generated.")
+            logger.warning("No final report generated")
 
     asyncio.run(main())

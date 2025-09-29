@@ -7,6 +7,11 @@ from ..agents.file_analysis.graph import static_analysis_graph
 from ..agents.url_investigation.graph import link_analysis_graph
 from ..agents.report_generator.graph import report_generator_graph
 from ..shared.utils.serializer import serialize_state_safely
+from ..shared.utils.logging_config import configure_logging, get_logger
+
+# Configure logging for the orchestrator
+configure_logging()
+logger = get_logger(__name__)
 
 
 orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState, output_schema=OrchestratorOutputState)
@@ -31,11 +36,16 @@ if __name__ == "__main__":
     import json
     import os
     import asyncio
+    import logging
+
+    # Configure more detailed logging for the orchestrator when run directly
+    configure_logging(level=logging.INFO, log_to_file=True)
+    logger = get_logger(__name__)
 
     async def main():
-        file_path = "/Users/agorelik/src/pdf-hunter/tests/test_mal_one.pdf"
-        # file_path = "/Users/agorelik/src/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
-        file_path = "/Users/agorelik/src/pdf-hunter/tests/hello_qr_and_link.pdf"
+        file_path = "/Users/gorelik/Courses/pdf-hunter/tests/test_mal_one.pdf"
+        # file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
+        # file_path = "/Users/gorelik/Courses/pdf-hunter/tests/hello_qr_and_link.pdf"
         output_directory = "output/orchestrator_results"
         # number_of_pages_to_process = 1
         number_of_pages_to_process = 4
@@ -44,38 +54,40 @@ if __name__ == "__main__":
             "file_path": file_path,
             "output_directory": "output",  # Base directory, session-specific will be created
             "number_of_pages_to_process": number_of_pages_to_process,
-            "additional_context": "Check /AcroForm"
+            "additional_context": None
         }
         
-        print("--- STARTING PDF HUNTER ORCHESTRATOR ---")
+        logger.info("STARTING PDF HUNTER ORCHESTRATOR")
         
         try:
             # Invoke the entire orchestrator with the initial state using async
+            logger.info("Invoking orchestrator graph")
             final_state = await orchestrator_graph.ainvoke(orchestrator_input)
         finally:
             # Cleanup MCP session when done
             from ..shared.utils.mcp_client import cleanup_mcp_session
+            logger.debug("Cleaning up MCP session")
             await cleanup_mcp_session()
 
-        print("\n\n--- PDF HUNTER ORCHESTRATOR COMPLETE ---")
-        print("\n--- Final State of the Hunt: ---")
+        logger.info("PDF HUNTER ORCHESTRATOR COMPLETE")
+        logger.debug("Final State of the Hunt:")
         
-        def pretty_print_state(state):
-            printable_state = {}
-            for key, value in state.items():
-                if hasattr(value, 'model_dump'):
-                    printable_state[key] = value.model_dump()
-                else:
-                    printable_state[key] = value
-            pprint.pprint(printable_state)
-
-        pretty_print_state(final_state)
+        if logger.isEnabledFor(logging.DEBUG):
+            def pretty_print_state(state):
+                printable_state = {}
+                for key, value in state.items():
+                    if hasattr(value, 'model_dump'):
+                        printable_state[key] = value.model_dump()
+                    else:
+                        printable_state[key] = value
+                return printable_state
+            
+            logger.debug(f"State details: {pretty_print_state(final_state)}")
 
         image_analysis_report = final_state.get("image_analysis_report")
         if image_analysis_report:
-            print("\n--- Image Analysis Verdict ---")
-            print(f"Verdict: {image_analysis_report.overall_verdict}")
-            print(f"Confidence: {image_analysis_report.overall_confidence}")
+            logger.info(f"Image Analysis Verdict: {image_analysis_report.overall_verdict}")
+            logger.info(f"Confidence: {image_analysis_report.overall_confidence}")
 
         # Save final state to JSON file
         if final_state:
@@ -86,21 +98,25 @@ if __name__ == "__main__":
 
             # Ensure output directory exists
             if session_output_directory:
+                logger.debug(f"Creating output directory: {session_output_directory}")
                 os.makedirs(session_output_directory, exist_ok=True)
 
                 # Full path for the JSON file
                 json_path = os.path.join(session_output_directory, filename)
+                logger.debug(f"Preparing to save state to {json_path}")
 
                 # Convert final state to JSON-serializable format
+                logger.debug("Serializing state")
                 serializable_state = serialize_state_safely(final_state)
 
                 # Save to JSON file
+                logger.debug("Writing state to file")
                 with open(json_path, 'w', encoding='utf-8') as f:
                     json.dump(serializable_state, f, indent=2, ensure_ascii=False)
 
-                print(f"\n--- Final state saved to: {json_path} ---")
+                logger.info(f"Final state saved to: {json_path}")
             else:
-                print("\n--- Warning: No output directory found in final state ---")
+                logger.warning("No output directory found in final state")
 
     # Run the async main function
     asyncio.run(main())

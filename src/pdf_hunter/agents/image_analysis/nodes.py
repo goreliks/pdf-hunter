@@ -1,6 +1,7 @@
 # src/pdf_hunter/agents/visual_analysis/nodes.py
 
 import json
+import logging
 import os
 from typing import List
 
@@ -8,8 +9,11 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from .schemas import ImageAnalysisState, PageAnalysisResult, ImageAnalysisReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
+from pdf_hunter.shared.utils.logging_config import get_logger
 from .prompts import IMAGE_ANALYSIS_SYSTEM_PROMPT, IMAGE_ANALYSIS_USER_PROMPT
 from pdf_hunter.config import image_analysis_llm
+
+logger = get_logger(__name__)
 
 llm_with_structured_output = image_analysis_llm.with_structured_output(PageAnalysisResult)
 
@@ -60,12 +64,16 @@ def analyze_pdf_images(state: ImageAnalysisState):
     Visual Deception Analyst (VDA) analyzes pages with a focus on visually
     deceptive content, phishing, and presentation concerns.
     """
-    print("--- Image Analysis: Starting Visual Deception Analysis ---")
+    logger.info("Starting Visual Deception Analysis")
     
     try:
         num_pages_to_process = state.get("number_of_pages_to_process", 1)
         all_images = state['extracted_images']
         all_urls = state['extracted_urls']
+
+        logger.debug(f"Number of pages to process: {num_pages_to_process}")
+        logger.debug(f"Total images found: {len(all_images)}")
+        logger.debug(f"Total URLs found: {len(all_urls)}")
 
         images_to_process = sorted(
             [img for img in all_images if img.page_number < num_pages_to_process],
@@ -73,7 +81,7 @@ def analyze_pdf_images(state: ImageAnalysisState):
         )
         
         if not images_to_process:
-            print("[WARNING] No images found for the requested page range.")
+            logger.warning("No images found for the requested page range")
             return {"page_analyses": []}
 
         page_analyses_results: List[PageAnalysisResult] = []
@@ -81,7 +89,7 @@ def analyze_pdf_images(state: ImageAnalysisState):
 
         for image in images_to_process:
             page_num = image.page_number
-            print(f"[*] Analyzing Page {page_num}...")
+            logger.info(f"Analyzing Page {page_num}")
 
             urls_for_this_page = [url for url in all_urls if url.page_number == page_num]
             element_map = {
@@ -110,9 +118,18 @@ def analyze_pdf_images(state: ImageAnalysisState):
             ]
 
             # Invoke the LLM with the correct message structure.
+            logger.debug(f"Sending page {page_num} to LLM for analysis")
             page_result = llm_with_structured_output.invoke(messages)
             page_analyses_results.append(page_result)
-            print(f"--- Page {page_num} Verdict: {page_result.visual_verdict} (Confidence: {page_result.confidence_score:.2f})")
+            logger.info(f"Page {page_num} Verdict: {page_result.visual_verdict} (Confidence: {page_result.confidence_score:.2f})")
+            
+            # Log detailed findings at debug level
+            if logger.isEnabledFor(logging.DEBUG):
+                for finding in page_result.detailed_findings:
+                    logger.debug(f"Finding: {finding.element_type} - {finding.assessment} (Significance: {finding.significance})")
+                
+                if page_result.prioritized_urls:
+                    logger.debug(f"Found {len(page_result.prioritized_urls)} prioritized URLs for further analysis")
 
             # Generate the rich, structured briefing for the next iteration.
             previous_pages_context = _create_structured_forensic_briefing(page_result)
@@ -121,7 +138,7 @@ def analyze_pdf_images(state: ImageAnalysisState):
 
     except Exception as e:
         error_msg = f"An unexpected error occurred during visual analysis: {e}"
-        print(f"[ERROR] {error_msg}")
+        logger.error(error_msg, exc_info=True)  # Include traceback
         return {"errors": [error_msg]}
 
 
@@ -130,11 +147,11 @@ def compile_image_findings(state: ImageAnalysisState):
     Aggregates all page-level analyses into a final, conclusive report using
     robust, programmatic logic.
     """
-    print("--- Image Analysis: Aggregating Final Report ---")
+    logger.info("Aggregating final image analysis report")
     page_analyses = state.get("page_analyses", [])
 
     if not page_analyses:
-        print("[INFO] No page analyses were performed. Generating empty report.")
+        logger.info("No page analyses were performed, generating empty report")
         # Correctly instantiate the report with keywords to prevent TypeError.
         visual_analysis_report = ImageAnalysisReport(
             overall_verdict="Benign",
@@ -202,8 +219,13 @@ def compile_image_findings(state: ImageAnalysisState):
         os.makedirs(image_analysis_directory, exist_ok=True)
         json_filename = f"image_analysis_state_session_{session_id}.json"
         json_path = os.path.join(image_analysis_directory, json_filename)
+        
+        logger.info(f"Saving image analysis report to {json_path}")
         dump_state_to_file(visual_analysis_report, json_path)
+        logger.debug("Image analysis report successfully saved")
     except Exception as e:
-        state["errors"] = state.get("errors", []) + [f"Error saving visual analysis report to JSON: {e}"]
+        error_msg = f"Error saving visual analysis report to JSON: {e}"
+        logger.error(error_msg, exc_info=True)
+        state["errors"] = state.get("errors", []) + [error_msg]
         
     return {"visual_analysis_report": visual_analysis_report}

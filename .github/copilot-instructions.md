@@ -122,14 +122,54 @@ errors: Annotated[List[list], operator.add]  # Orchestrator level (nested)
 - `langgraph.json` defines deployable graphs for platform
 - `pyproject.toml` with hatchling backend and dependency groups
 
+## Logging System
+
+### Logging Configuration
+```python
+# Configure logging at application start
+from pdf_hunter.shared.utils.logging_config import configure_logging
+import logging
+
+# Default configuration (INFO level)
+configure_logging()
+
+# Debug level with file output
+configure_logging(level=logging.DEBUG, log_to_file=True)
+
+# Session-specific logging
+configure_logging(log_to_file=True, session_id=session_id)
+```
+
+### Logger Usage Pattern
+```python
+# Import at module level
+from pdf_hunter.shared.utils.logging_config import get_logger
+
+# Create module-specific logger
+logger = get_logger(__name__)
+
+# Use appropriate log levels
+logger.debug("Detailed debugging information")
+logger.info("General operational information")
+logger.warning("Warning situations")
+logger.error("Error events", exc_info=True)  # Include traceback
+logger.critical("Critical errors")
+
+# Conditional verbose logging
+if logger.isEnabledFor(logging.DEBUG):
+    logger.debug(f"Complex object: {serialize_state_safely(complex_object)}")
+```
+
 ## Common Pitfalls
 
 - **Don't** modify state directly - use LangGraph's additive aggregation patterns
 - **Don't** hardcode file paths - use session-based directory management
-- **Don't** skip state serialization - debugging relies on persistent state files  
+- **Don't** skip state serialization - debugging relies on persistent state files
+- **Don't** use print statements - use the logger instead
 - **Do** use dedicated LLM instances per agent task for optimal performance
 - **Do** follow the URL status lifecycle for URL investigation features
 - **Do** leverage existing shared utilities before creating new ones
+- **Do** use appropriate log levels (debug for details, info for operations)
 
 ## Adding New Features
 
@@ -144,3 +184,35 @@ errors: Annotated[List[list], operator.add]  # Orchestrator level (nested)
 - Extend existing agent schemas with new fields
 - Add specialized LLM instances for new task types
 - Follow established patterns for tool integration and state management
+
+### Adding Logging to New Components
+1. Import logging utilities at the top of your module:
+   ```python
+   from pdf_hunter.shared.utils.logging_config import get_logger
+   ```
+2. Create a module-specific logger:
+   ```python
+   logger = get_logger(__name__)
+   ```
+3. Replace print statements with appropriate log levels:
+   ```python
+   # Instead of: print(f"Extracted {len(results)} items")
+   logger.info(f"Extracted {len(results)} items")
+   ```
+4. Add detailed logs for debugging:
+   ```python
+   logger.debug(f"Processing item: {item.id}")
+   ```
+5. Use conditional logging for expensive operations:
+   ```python
+   if logger.isEnabledFor(logging.DEBUG):
+       logger.debug(f"Complex state: {serialize_state_safely(state)}")
+   ```
+6. Include exception tracebacks in error logs:
+   ```python
+   try:
+       # code that might fail
+   except Exception as e:
+       logger.error(f"Operation failed: {e}", exc_info=True)
+       return {"errors": [f"Error: {e}"]}
+   ```

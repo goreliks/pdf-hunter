@@ -1,4 +1,5 @@
 import cv2
+import logging
 import numpy as np
 from PIL import Image
 from pyzbar import pyzbar
@@ -7,6 +8,9 @@ import fitz  # PyMuPDF
 import io
 from typing import Optional, Dict
 from pydantic import BaseModel, Field
+from pdf_hunter.shared.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def has_qr_code(image_path):
@@ -18,7 +22,7 @@ def has_qr_code(image_path):
         if isinstance(image_path, str):
             image = cv2.imread(image_path)
             if image is None:
-                print(f"Warning: Could not load image from path: {image_path}")
+                logger.warning(f"Could not load image from path: {image_path}")
                 return False
         else:
             image = cv2.cvtColor(np.array(image_path), cv2.COLOR_RGB2BGR)
@@ -27,7 +31,7 @@ def has_qr_code(image_path):
         retval, _ = detector.detect(image)
         return retval
     except Exception as e:
-        print(f"Error checking for QR codes: {e}")
+        logger.error(f"Error checking for QR codes: {e}")
         return False
 
 
@@ -82,11 +86,12 @@ def process_pdf_for_qr_codes(pdf_path, specific_pages=None):
     
     # If specific_pages is provided, use it. Otherwise, process all pages.
     pages_to_process = specific_pages if specific_pages is not None else range(len(doc))
+    logger.debug(f"Processing pages for QR codes: {pages_to_process}")
     
     for page_num in pages_to_process:
         # Validate page number
         if page_num < 0 or page_num >= len(doc):
-            print(f"Warning: Page {page_num} is out of range. Skipping.")
+            logger.warning(f"Page {page_num} is out of range. Skipping.")
             continue
             
         page = doc.load_page(page_num)
@@ -99,7 +104,7 @@ def process_pdf_for_qr_codes(pdf_path, specific_pages=None):
         
         # Check for QR codes
         if has_qr_code(image):
-            print(f"Page {page_num}: QR detected, extracting URLs...")
+            logger.debug(f"Page {page_num}: QR detected, extracting URLs...")
             urls = extract_qr_urls(image)
             
             if urls:
@@ -110,11 +115,11 @@ def process_pdf_for_qr_codes(pdf_path, specific_pages=None):
                         'url_type': 'extracted_from_qr',
                         'is_external': True
                     })
-                print(f"  Found: {urls}")
+                logger.debug(f"Found QR URLs: {urls}")
             else:
-                print(f"  No valid URLs found")
+                logger.debug(f"QR code found but no valid URLs on page {page_num}")
         else:
-            print(f"Page {page_num}: No QR codes")
+            logger.debug(f"Page {page_num}: No QR codes")
     
     doc.close()
     return results
@@ -123,28 +128,33 @@ def process_pdf_for_qr_codes(pdf_path, specific_pages=None):
 def check_single_image(image_path):
     """Check a single image for QR codes"""
     if has_qr_code(image_path):
-        print("QR code detected!")
+        logger.info("QR code detected")
         urls = extract_qr_urls(image_path)
         if urls:
-            print(f"URLs found: {urls}")
+            logger.info(f"URLs found in QR code: {urls}")
             return urls
         else:
-            print("QR code found but no valid URLs")
+            logger.info("QR code found but no valid URLs")
             return []
     else:
-        print("No QR codes detected")
+        logger.info("No QR codes detected")
         return []
 
 # Example usage
 if __name__ == "__main__":
     import os
+    from pdf_hunter.shared.utils.logging_config import configure_logging
     
-    print("QR Extraction Module - Testing imports and basic functionality")
+    # Configure detailed logging when run directly
+    configure_logging(level=logging.INFO, log_to_file=True)
+    
+    logger.info("QR Extraction Module - Testing imports and basic functionality")
 
     test_image_path = "./tests/qrmonkey.jpg"
-    print(f"\nTesting with image: {test_image_path}")
+    logger.info(f"Testing with image: {test_image_path}")
     urls = check_single_image(test_image_path)
     
     # For PDF
+    logger.info("Testing PDF QR code extraction")
     results = process_pdf_for_qr_codes("./tests/hello_qr.pdf", specific_pages=[0, 1])
-    print(f"\nQR URLs extracted from PDF: {results}")
+    logger.info(f"QR URLs extracted from PDF: {results}")
