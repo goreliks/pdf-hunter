@@ -19,9 +19,14 @@ from .prompts import file_analysis_graph_merger_system_prompt, file_analysis_gra
 from .prompts import file_analysis_reviewer_system_prompt, file_analysis_reviewer_user_prompt
 from .prompts import file_analysis_finalizer_system_prompt, file_analysis_finalizer_user_prompt
 from pdf_hunter.config import file_analysis_triage_llm, file_analysis_investigator_llm, file_analysis_graph_merger_llm, file_analysis_reviewer_llm, file_analysis_finalizer_llm
+from pdf_hunter.config import THINKING_TOOL_ENABLED
 from .schemas import TriageReport,MissionReport, ReviewerReport,FinalReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 
+if THINKING_TOOL_ENABLED:
+    from pdf_hunter.shared.tools.think_tool import think_tool
+    pdf_parser_tools_manifest[think_tool.name] = think_tool.description
+    pdf_parser_tools.append(think_tool)
 
 llm_router = file_analysis_triage_llm.with_structured_output(TriageReport)
 llm_investigator = file_analysis_investigator_llm.with_structured_output(MissionReport)
@@ -171,7 +176,7 @@ async def file_analyzer(state: InvestigatorState):
         logger.debug(f"Continuing investigation for mission {mission_id}, turn {len(messages)}")
 
     # --- LLM with Tools Call ---
-    logger.debug("Invoking investigator LLM with tools")
+    logger.info("Invoking investigator LLM with tools")
     llm_with_tools = llm_investigator_with_tools
     result = await llm_with_tools.ainvoke(messages)
     
@@ -207,14 +212,14 @@ async def file_analyzer(state: InvestigatorState):
         }
     else:
         # The agent wants to use a tool
-        logger.debug("Investigator wants to use tools")
+        logger.info("Investigator wants to use tools")
         
         # Handle different formats of tool_calls based on LangGraph versions
         if hasattr(result, 'tool_calls') and result.tool_calls:
             if hasattr(result.tool_calls[0], 'name'):
-                logger.debug(f"Tool name: {result.tool_calls[0].name}")
+                logger.info(f"Tool name: {result.tool_calls[0].name}")
             elif isinstance(result.tool_calls[0], dict) and 'name' in result.tool_calls[0]:
-                logger.debug(f"Tool name: {result.tool_calls[0]['name']}")
+                logger.info(f"Tool name: {result.tool_calls[0]['name']}")
         
         return {"messages": [result]}
     

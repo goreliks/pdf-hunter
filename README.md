@@ -30,10 +30,18 @@ graph TD
 ### Agent Capabilities
 
 - **🔍 PDF Extraction**: Extract metadata, images, URLs, QR codes safely
-- **🧬 File Analysis**: Multi-tool PDF scanning with mission-based investigations  
+- **🧬 File Analysis**: Multi-tool PDF scanning with mission-based investigations and strategic reflection
 - **👁️ Image Analysis**: Visual deception detection and URL prioritization
-- **🌐 URL Investigation**: Automated web reconnaissance of suspicious URLs
+- **🌐 URL Investigation**: Automated web reconnaissance with strategic reflection and enhanced logging
 - **📊 Report Generator**: Comprehensive report generation and final verdict
+
+### Key Features
+
+- **🧠 Strategic Reflection**: Integrated think_tool for systematic investigation decision-making
+- **📊 Enhanced Logging**: Tool execution tracking at INFO level for investigation transparency
+- **🔄 Sophisticated Orchestration**: Parallel agent execution with state aggregation
+- **📁 Session Management**: Organized output with session-specific directory structures
+- **🛡️ Safe Analysis**: No PDF execution, only static and visual analysis techniques
 
 ## 🚀 Quick Start
 
@@ -237,6 +245,23 @@ configure_logging(log_to_file=True, session_id=session_id)
 ```
 
 Log files are stored in a `logs/` directory with naming pattern `pdf_hunter_{timestamp}.log`. When using async operations, always use the logger instead of print statements to avoid interfering with event loops.
+
+### Investigation Enhancement Configuration
+
+PDF Hunter includes an optional strategic reflection system:
+
+```python
+# In src/pdf_hunter/config/execution_config.py
+THINKING_TOOL_ENABLED = True  # Enable strategic reflection tool
+```
+
+When enabled, the think_tool provides:
+- **Strategic Reflection**: Systematic pause-and-reflect during investigations
+- **Decision Quality**: Enhanced investigation thoroughness through deliberate analysis
+- **Investigation Transparency**: Clear reasoning trails in logs for debugging
+- **Configurable**: Can be disabled for streamlined operation when not needed
+
+The think_tool is automatically integrated into file analysis and URL investigation agents when enabled, providing strategic reflection capabilities without requiring code changes.
 
 ### LLM Configuration
 

@@ -10,6 +10,7 @@ import shlex
 from typing import Optional
 import sys
 from importlib.resources import files
+from pdf_hunter.shared.tools import think_tool
 
 
 def _run_command(command: str) -> str:
@@ -841,6 +842,7 @@ pdf_parser_tools = [
     search_file_for_pattern,
     view_full_text_file,
     list_directory_contents,
+    think_tool,
 ]
 
 pdf_parser_tools_manifest = {tool.name: tool.description for tool in pdf_parser_tools}
