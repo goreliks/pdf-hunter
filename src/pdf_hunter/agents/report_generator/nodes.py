@@ -27,9 +27,9 @@ async def determine_threat_verdict(state: OrchestratorState) -> dict:
         
         # Log key state information for debugging
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"PDF extraction results: {len(state.get('pdf_extraction_results', {}).get('extracted_images', []))} images")
-            logger.debug(f"File analysis: {state.get('file_analysis_report', {}).get('triage_classification_decision', 'No data')}")
-            logger.debug(f"URL investigation results: {len(state.get('url_investigation_results', []))} URLs analyzed")
+            logger.debug(f"Extracted images: {len(state.get('extracted_images', []))}")
+            logger.debug(f"Triage decision: {state.get('triage_classification_decision', 'No data')}")
+            logger.debug(f"URL analysis results: {len(state.get('link_analysis_final_reports', []))} URLs analyzed")
 
         # This node now ONLY uses the raw state, as it runs before the report is generated.
         # This fixes the KeyError and aligns with our desired logical flow.
@@ -56,7 +56,7 @@ async def determine_threat_verdict(state: OrchestratorState) -> dict:
         return {"errors": [error_msg]}
 
 
-async def generate_final_report(state: OrchestratorState) -> dict:
+async def generate_final_report(state: OrchestratorState):
     """
     Generate a comprehensive final report summarizing all findings.
     Node to create a comprehensive Markdown report based on the full investigation state,
@@ -93,7 +93,7 @@ async def generate_final_report(state: OrchestratorState) -> dict:
         return {"errors": [error_msg]}
 
 
-async def save_analysis_results(state: OrchestratorState) -> dict:
+async def save_analysis_results(state: OrchestratorState):
     """
     Write the final report and state to files.
     """
