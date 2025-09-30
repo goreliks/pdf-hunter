@@ -58,9 +58,9 @@ async def conduct_link_analysis(state: dict):
             "link_analysis_final_reports": [result]  # This will be aggregated
         }
     except Exception as e:
-        logger.error(f"Error during link analysis for URL {url}: {str(e)}", exc_info=True)
-        # Re-raise to allow proper handling by the orchestrator
-        raise
+        error_msg = f"Error in conduct_link_analysis for URL {url}: {e}"
+        logger.error(error_msg, exc_info=True)
+        return {"errors": [error_msg]}
 
 
 pipeline = StateGraph(URLInvestigationState, input_schema=URLInvestigationInputState, output_schema=URLInvestigationOutputState)
