@@ -37,24 +37,31 @@ async def run_file_analysis(state: dict):
     Wrapper for the investigator subgraph that ensures outputs are collected
     into the completed_investigations list.
     """
-    mission = state.get("mission")
-    if mission:
-        logger.info(f"Starting investigation mission for threat type: {mission.threat_type}")
-        logger.debug(f"Mission ID: {mission.mission_id}")
     
-    # Run the investigator subgraph
-    logger.debug("Invoking investigator subgraph")
-    result = await investigator_graph.ainvoke(state)
+    try:
+        mission = state.get("mission")
+        if mission:
+            logger.info(f"Starting investigation mission for threat type: {mission.threat_type}")
+            logger.debug(f"Mission ID: {mission.mission_id}")
+        
+        # Run the investigator subgraph
+        logger.debug("Invoking investigator subgraph")
+        result = await investigator_graph.ainvoke(state)
+        
+        if result.get("investigation_report"):
+            logger.info(f"Investigation completed: {result['investigation_report'].conclusion}")
+        
+        # The result should contain the fields from InvestigatorOutputState
+        # We need to wrap it in a list so it gets aggregated via operator.add
+        logger.debug("Returning mission result for aggregation")
+        return {
+            "completed_investigations": [result]  # This will be aggregated
+        }
     
-    if result.get("investigation_report"):
-        logger.info(f"Investigation completed: {result['investigation_report'].conclusion}")
-    
-    # The result should contain the fields from InvestigatorOutputState
-    # We need to wrap it in a list so it gets aggregated via operator.add
-    logger.debug("Returning mission result for aggregation")
-    return {
-        "completed_investigations": [result]  # This will be aggregated
-    }
+    except Exception as e:
+        error_msg = f"Error in run_file_analysis: {e}"
+        logger.error(error_msg, exc_info=True)
+        return {"errors": [error_msg]}
 
 # Add the wrapper as the node instead of the raw subgraph
 
