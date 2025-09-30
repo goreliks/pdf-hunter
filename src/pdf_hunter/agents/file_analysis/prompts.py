@@ -28,6 +28,7 @@ First, apply your core principles to the report. Based on this initial evidence,
 
 **Part 2: Mission Generation**
 Next, you must identify every potential starting point for a deeper investigation. Create a list of `InvestigationMission` objects based on the evidence in the anatomical report.
+    * **Mission IDs:** Assign each mission a unique ID in the format `mission_<threat_type>_<number>` (e.g., 'mission_openaction_001', 'mission_javascript_001', 'mission_user_defined_001').
     * **Focus on High-Signal Threat Indicators:** Your primary targets are indicators of **Autonomy**. For each of the following keywords present in the report with a count **greater than zero** (or in *Suspicious elements* of peepdf output if present), you MUST create a corresponding mission:
         - `/OpenAction`
         - `/Launch`
@@ -52,12 +53,12 @@ file_analysis_investigator_system_prompt = """You are Dr. Evelyn Reed, a world-c
 
 2. **Tool-Centric Method:** Your entire investigation is conducted through the use of the provided tools. You will reason about the evidence and select the single best tool to call next.
     **Show Your Investigation Thinking:**
-    After each tool call, use think_tool to analyze your findings:
+    After each step, use think_tool to analyze your findings:
     - What concrete evidence did I discover about MY ASSIGNED THREAT?
     - What critical information is still missing to reach a conclusion?  
     - Do I have sufficient evidence to determine if this threat is malicious, benign, or if I'm blocked?
     - Should I continue investigating or prepare my final MissionReport?
-    **CRITICAL: Use think_tool after each search to reflect on results and plan next steps**
+    **CRITICAL: Use think_tool after each step to reflect on results and plan next steps**
 
 3. **Contextual Foraging:** If your primary thread is blocked (e.g., you find an encrypted script but have no key), you must consult the `structural_summary` (the initial triage report) to form a hypothesis about where a related clue might be. Your goal is to find information that helps you *unblock your current mission*, NOT to start new investigations.
 
@@ -181,6 +182,7 @@ file_analysis_reviewer_user_prompt = """You are Dr. Evelyn Reed, acting as the *
 **2. Formulate Follow-up Missions:**
 Based on your analysis, create a list of `new_missions`. You are authorized to create new missions **ONLY** under the following conditions:
 
+  * **Mission IDs:** Assign each new mission a unique ID in the format `mission_<threat_type>_<descriptor>` (e.g., 'mission_javascript_decode_002', 'mission_embedded_file_extracted', 'mission_openaction_unblock_001'). Ensure IDs are unique and do not conflict with existing mission IDs.
   * **To Unblock an Agent:** If you have identified a way to unblock a mission (e.g., you found a key in Mission B that is needed for Mission A), create a new mission that explicitly tells an agent to apply the new evidence.
   * **To Pursue a Direct Connection:** If a resolved mission has uncovered a clear, high-confidence next step that was outside its original scope (e.g., a script that writes a new file), create a mission to analyze that new artifact.
   * **To Audit a Failure:** If an agent's investigation transcript shows it clearly missed an obvious step or made an error, you may re-issue a more specific version of its mission with clearer guidance.

@@ -620,6 +620,29 @@ The project follows Python's standard src-layout pattern with the `pdf_hunter` p
 - **Runtime Resilience**: System no longer crashes on edge cases; errors aggregated and reported
 - **No Functionality Changes**: Error handling added without modifying any business logic
 
+### Mission ID Generation Fix (September 2025)
+- **Problem**: `InvestigationMission.mission_id` used `default_factory=lambda: f"mission_{uuid.uuid4().hex[:8]}"` causing random UUIDs
+- **Issue**: LLM couldn't predict or reference mission IDs since they were generated Python-side, not LLM-side
+- **Solution**: Removed `default_factory`, made field required with clear description and format examples
+- **Result**: LLM now generates semantic, human-readable IDs like `mission_openaction_001`, `mission_javascript_obj_42`
+- **Benefits**: Consistent mission tracking, predictable IDs, better debugging, LLM can reference missions meaningfully
+- **Implementation**: Updated schema + minimal prompt additions in triage and reviewer prompts
+
+### GraphRecursionError Handling (September 2025)
+- **Problem**: When investigators hit recursion limits (25 steps), entire analysis would crash with unhandled exception
+- **File Analysis Solution**: 
+  - Catch `GraphRecursionError` in investigation wrapper
+  - Mark mission as `BLOCKED` (vs `FAILED`) to distinguish recursion limits from other failures
+  - Preserve investigation transcript with "INCOMPLETE" marker for reviewer context
+  - Reviewer can analyze blocked missions and potentially regenerate with different approach
+- **URL Investigation Solution**:
+  - Catch `GraphRecursionError` in link analysis wrapper
+  - Create complete `URLAnalysisResult` with verdict `"Inaccessible"` and `mission_status="failed"`
+  - Include helpful error message suggesting manual investigation may be needed
+  - Final report includes URL with clear status (no missing results)
+- **Benefits**: No system crashes, clear status distinctions, complete audit trails, graceful partial completion
+- **Coverage**: Both tool-using investigator subgraphs protected with recursion limit handling
+
 ### Model Configuration Overhaul (September 2025)
 - **Simplified Providers**: Moved from complex multi-provider setup to clean OpenAI default + Ollama option
 - **Dependency Cleanup**: Removed all Hugging Face transformers, torch, and accelerate dependencies

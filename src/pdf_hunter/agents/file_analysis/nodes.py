@@ -253,7 +253,7 @@ async def file_analyzer(state: InvestigatorState):
 
             return {
                 "mission": mission,  # Include the mission in the return
-                "investigation_report": validated_report,
+                "mission_report": validated_report,
                 "messages": final_messages
             }
         else:
@@ -358,9 +358,27 @@ async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["
                         f"=== Mission {mission_id} ({threat_type}) ===\n{message_history}"
                     )
             else:
-                # If there's no report, the mission failed.
+                # If there's no report, check if it's a recursion limit issue or general failure
+                investigation_errors = investigation_packet.get("errors", [])
+                is_recursion_limit = any("recursion limit" in str(err).lower() for err in investigation_errors)
+                
                 if mission_id in mission_map:
-                    mission_map[mission_id].status = MissionStatus.FAILED
+                    if is_recursion_limit:
+                        # Mark as BLOCKED - investigation hit complexity limit
+                        mission_map[mission_id].status = MissionStatus.BLOCKED
+                        logger.warning(f"Mission {mission_id} blocked due to recursion limit")
+                    else:
+                        # General failure
+                        mission_map[mission_id].status = MissionStatus.FAILED
+                        logger.warning(f"Mission {mission_id} failed")
+                
+                # Still add transcript if available for reviewer context
+                if 'messages' in investigation_packet:
+                    threat_type = investigation_packet['mission'].threat_type
+                    message_history = get_buffer_string(investigation_packet['messages'])
+                    investigation_transcripts.append(
+                        f"=== Mission {mission_id} ({threat_type}) - INCOMPLETE ===\n{message_history}"
+                    )
 
 
         if new_subgraphs:

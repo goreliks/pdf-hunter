@@ -2,7 +2,6 @@ from typing import List, Dict, Optional, Union, Literal, Annotated
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 from enum import Enum
-import uuid
 import operator
 from typing_extensions import NotRequired
 from langchain_core.messages import AnyMessage
@@ -32,7 +31,10 @@ class MissionStatus(str, Enum):
 
 class InvestigationMission(BaseModel):
     """A single, focused investigative mission for an Investigator agent."""
-    mission_id: str = Field(default_factory=lambda: f"mission_{uuid.uuid4().hex[:8]}")
+    mission_id: str = Field(
+        ...,
+        description="Unique mission identifier. Format: 'mission_<threat_type>_<number>' or 'mission_<threat_type>_<descriptor>'. Examples: 'mission_openaction_001', 'mission_javascript_obj_42', 'mission_user_defined_001'"
+    )
     threat_type: ThreatType
     entry_point_description: str
     source_object_id: Optional[int] = None

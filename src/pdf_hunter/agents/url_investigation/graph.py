@@ -6,8 +6,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from langgraph.graph import StateGraph, START, END
+from langgraph.errors import GraphRecursionError
 
-from .schemas import URLInvestigationState, URLInvestigationInputState, URLInvestigationOutputState, URLInvestigatorState, URLInvestigatorOutputState
+from .schemas import URLInvestigationState, URLInvestigationInputState, URLInvestigationOutputState, URLInvestigatorState, URLInvestigatorOutputState, URLAnalysisResult, AnalystFindings
 from ..image_analysis.schemas import PrioritizedURL
 from .nodes import investigate_url, execute_browser_tools, analyze_url_content, should_continue, route_url_analysis, filter_high_priority_urls, save_url_analysis_state
 from ...shared.utils.logging_config import get_logger
@@ -57,6 +58,35 @@ async def conduct_link_analysis(state: dict):
         return {
             "link_analysis_final_reports": [result]  # This will be aggregated
         }
+    
+    except GraphRecursionError as e:
+        # Handle recursion limit specifically - mark URL analysis as failed with context
+        error_msg = f"URL analysis for {url} hit recursion limit - investigation too complex or stuck in loop"
+        logger.warning(error_msg)
+        logger.debug(f"Recursion error details: {e}")
+        
+        # Create a minimal URLAnalysisResult marking the investigation as failed
+        failed_result = URLAnalysisResult(
+            initial_url=url_task,
+            full_investigation_log=[{
+                "error": error_msg,
+                "status": "recursion_limit_exceeded"
+            }],
+            analyst_findings=AnalystFindings(
+                final_url=url_task.url,
+                verdict="Inaccessible",
+                confidence=0.0,
+                summary=f"Investigation exceeded recursion limit of {URL_INVESTIGATION_INVESTIGATOR_CONFIG.get('recursion_limit', 20)} steps. The URL analysis could not be completed due to complexity or infinite loop. Manual investigation may be required.",
+                detected_threats=[],
+                mission_status="failed"
+            )
+        )
+        
+        return {
+            "link_analysis_final_reports": [{"link_analysis_final_report": failed_result}],
+            "errors": [error_msg]
+        }
+    
     except Exception as e:
         error_msg = f"Error in conduct_link_analysis for URL {url}: {e}"
         logger.error(error_msg, exc_info=True)

@@ -187,22 +187,26 @@ async def node_function(state: AgentState) -> dict:
 errors: Annotated[List[str], operator.add]  # Agent level
 errors: Annotated[List[list], operator.add]  # Orchestrator level (nested)
 
-# GraphRecursionError handling for infinite loop prevention
+# GraphRecursionError handling for complexity/loop prevention
 from langgraph.errors import GraphRecursionError
 
+# In investigator wrappers (file_analysis, url_investigation):
 try:
-    result = agent_graph.invoke(state, config)
-except GraphRecursionError:
-    logger.error("Agent hit recursion limit - potential infinite loop")
-    return {"errors": ["Recursion limit exceeded"]}
+    result = await investigator_graph.ainvoke(state)
+except GraphRecursionError as e:
+    # File Analysis: Mark mission as BLOCKED, preserve transcript for reviewer
+    # URL Investigation: Create URLAnalysisResult with "Inaccessible" verdict
+    error_msg = f"Investigation hit recursion limit - too complex or stuck"
+    logger.warning(error_msg)
+    return partial_result_with_error_context
 ```
 
 **Coverage:**
 - PDF Extraction: 4/4 nodes (setup_session, extract_pdf_images, find_embedded_urls, scan_qr_codes)
 - Image Analysis: 2/2 nodes (analyze_pdf_images, compile_image_findings)
 - Report Generator: 3/3 nodes (determine_threat_verdict, generate_final_report, save_analysis_results)
-- URL Investigation: 6/6 nodes (all nodes.py functions + graph.py wrapper)
-- File Analysis: 8/8 nodes (all nodes.py functions + graph.py wrapper)
+- URL Investigation: 6/6 nodes + GraphRecursionError handling in wrapper
+- File Analysis: 8/8 nodes + GraphRecursionError handling in wrapper
 
 **Test Coverage:** 19 test cases across 5 test files in `tests/agents/` covering:
 - Missing files and invalid paths
@@ -218,6 +222,13 @@ except GraphRecursionError:
 - **Standardized Messages**: Format as `"Error in {function_name}: {error_details}"`
 - **Graceful Degradation**: Partial completion allowed when individual components fail
 - **Transparent Reporting**: All errors logged and aggregated in final state
+- **Recursion Protection**: Specialized handling for complexity limits prevents system crashes
+
+**Mission ID Generation (September 2025):**
+- `InvestigationMission.mission_id` changed from `default_factory` (random UUID) to LLM-generated semantic IDs
+- Format: `mission_<threat_type>_<number>` (e.g., `mission_openaction_001`, `mission_javascript_obj_42`)
+- Benefits: Predictable IDs, consistent tracking, LLM can reference missions meaningfully
+- Implementation: Required field with clear description and format examples in schema + prompt guidance
 
 ## Dependencies & Integration Points
 
