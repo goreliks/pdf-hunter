@@ -157,7 +157,7 @@ if __name__ == "__main__":
         if final_state.get("link_analysis_final_reports"):
             logger.info(f"Generated {len(final_state['link_analysis_final_reports'])} URL analysis reports")
             for i, report in enumerate(final_state["link_analysis_final_reports"]):
-                url = report.get("initial_url", {}).get("url", f"Report #{i}")
+                url = report.initial_url.url if hasattr(report, 'initial_url') else f"Report #{i}"
                 logger.info(f"Report for URL: {url}")
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(f"Report details: {report.model_dump_json(indent=2)}")
