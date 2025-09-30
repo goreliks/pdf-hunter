@@ -437,6 +437,27 @@ PDF Hunter is a **defensive security tool** designed for safe PDF analysis:
 - **💾 State Persistence**: Complete analysis state saving for debugging
 - **⚡ LangGraph Studio**: Full compatibility with non-blocking async architecture
 
+### Reliability & Error Handling
+
+PDF Hunter implements comprehensive error handling across all 5 agents (~30 node functions):
+
+- **Runtime Resilience**: Universal try-except wrapping prevents crashes from edge cases
+- **Input Validation**: Required fields validated at function entry with early failure detection
+- **Safe State Access**: Defensive `state.get()` patterns prevent KeyError crashes
+- **Error Aggregation**: Standardized error collection through LangGraph state management
+- **Test Coverage**: 19 test cases across 5 agents covering missing files, invalid paths, empty data
+- **Graceful Degradation**: Partial analysis completion even when individual components fail
+
+The system handles common failure scenarios automatically:
+- Missing or inaccessible PDF files
+- Invalid file paths and permissions
+- Empty or malformed data structures
+- Tool execution failures
+- Network timeouts during URL investigation
+- Resource limits (e.g., maximum page processing)
+
+All errors are logged with context and aggregated in the final analysis state, ensuring transparent failure reporting without system crashes.
+
 ### Threat Detection
 
 - **Autonomy Features**: JavaScript, OpenAction, Launch actions, Auto-Actions
