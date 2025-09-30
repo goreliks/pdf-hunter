@@ -15,6 +15,7 @@ from pdf_hunter.shared.utils.url_extraction import extract_urls_from_pdf
 from pdf_hunter.shared.utils.file_operations import ensure_output_directory
 from pdf_hunter.shared.utils.qr_extraction import process_pdf_for_qr_codes
 from pdf_hunter.shared.utils.logging_config import get_logger
+from pdf_hunter.config import MAXIMUM_PAGES_TO_PROCESS
 
 logger = get_logger(__name__)
 
@@ -33,6 +34,24 @@ def setup_session(state: PDFExtractionState):
         logger.debug(f"Processing file: {file_path}")
         logger.debug(f"Base output directory: {base_output_directory}")
         logger.debug(f"Pages to process: {number_of_pages_to_process}")
+
+        # Validate inputs
+        if not file_path:
+            raise ValueError("file_path is required")
+        
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"PDF file not found: {file_path}")
+        
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Path is not a file: {file_path}")
+        
+        if number_of_pages_to_process <= 0:
+            raise ValueError(f"number_of_pages_to_process must be positive, got: {number_of_pages_to_process}")
+        
+        # Apply maximum pages cap
+        if number_of_pages_to_process > MAXIMUM_PAGES_TO_PROCESS:
+            logger.warning(f"Requested {number_of_pages_to_process} pages exceeds maximum limit of {MAXIMUM_PAGES_TO_PROCESS}. Capping to {MAXIMUM_PAGES_TO_PROCESS}.")
+            number_of_pages_to_process = MAXIMUM_PAGES_TO_PROCESS
 
         # 1. Calculate file hashes first (needed for session_id)
         logger.debug("Calculating file hashes")
@@ -57,7 +76,11 @@ def setup_session(state: PDFExtractionState):
         page_count = get_pdf_page_count(file_path)
         logger.debug(f"PDF contains {page_count} pages")
 
-        # 6. Indices of pages to process
+        # 6. Validate and set pages to process
+        if number_of_pages_to_process > page_count:
+            logger.warning(f"Requested {number_of_pages_to_process} pages but PDF only has {page_count} pages. Processing all available pages.")
+            number_of_pages_to_process = page_count
+        
         pages_to_process = list(range(number_of_pages_to_process))
         
         logger.info(f"Session ID: {session_id}")
@@ -76,7 +99,7 @@ def setup_session(state: PDFExtractionState):
         return result
 
     except Exception as e:
-        error_msg = f"Error during initialization: {e}"
+        error_msg = f"Error in setup_session: {e}"
         logger.error(error_msg, exc_info=True)
         return {"errors": [error_msg]}
 
@@ -147,7 +170,7 @@ def extract_pdf_images(state: PDFExtractionState):
         return {"extracted_images": extracted_images}
 
     except Exception as e:
-        error_msg = f"Error during image extraction: {e}"
+        error_msg = f"Error in extract_pdf_images: {e}"
         logger.error(error_msg, exc_info=True)
         return {"errors": [error_msg]}
 
@@ -190,7 +213,7 @@ def find_embedded_urls(state: PDFExtractionState):
         return {"extracted_urls": extracted_urls}
 
     except Exception as e:
-        error_msg = f"Error during URL extraction: {e}"
+        error_msg = f"Error in find_embedded_urls: {e}"
         logger.error(error_msg, exc_info=True)
         return {"errors": [error_msg]}
     
@@ -230,6 +253,6 @@ def scan_qr_codes(state: PDFExtractionState):
         return {"extracted_urls": extracted_qr_urls}
 
     except Exception as e:
-        error_msg = f"Error during QR code extraction: {e}"
+        error_msg = f"Error in scan_qr_codes: {e}"
         logger.error(error_msg, exc_info=True)
         return {"errors": [error_msg]}

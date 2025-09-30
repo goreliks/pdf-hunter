@@ -437,6 +437,34 @@ PDF Hunter is a **defensive security tool** designed for safe PDF analysis:
 - **💾 State Persistence**: Complete analysis state saving for debugging
 - **⚡ LangGraph Studio**: Full compatibility with non-blocking async architecture
 
+### Reliability & Error Handling
+
+PDF Hunter implements comprehensive error handling across all 5 agents (~30 node functions):
+
+- **Runtime Resilience**: Universal try-except wrapping prevents crashes from edge cases
+- **Input Validation**: Required fields validated at function entry with early failure detection
+- **Safe State Access**: Defensive `state.get()` patterns prevent KeyError crashes
+- **Error Aggregation**: Standardized error collection through LangGraph state management
+- **Test Coverage**: 19 test cases across 5 agents covering missing files, invalid paths, empty data
+- **Graceful Degradation**: Partial analysis completion even when individual components fail
+- **Recursion Limit Protection**: Specialized handling for `GraphRecursionError` prevents crashes when investigations exceed complexity limits
+
+The system handles common failure scenarios automatically:
+- Missing or inaccessible PDF files
+- Invalid file paths and permissions
+- Empty or malformed data structures
+- Tool execution failures
+- Network timeouts during URL investigation
+- Resource limits (e.g., maximum page processing)
+- Investigation recursion limits (complex or stuck investigations)
+
+Advanced features:
+- **Mission ID Tracking**: LLM-generated semantic IDs (e.g., `mission_openaction_001`) for consistent investigation tracking
+- **Blocked Mission Recovery**: File analysis marks recursion-limited missions as `BLOCKED` for reviewer re-evaluation
+- **URL Analysis Continuity**: Failed URL investigations marked as "Inaccessible" with clear context in final report
+
+All errors are logged with context and aggregated in the final analysis state, ensuring transparent failure reporting without system crashes.
+
 ### Threat Detection
 
 - **Autonomy Features**: JavaScript, OpenAction, Launch actions, Auto-Actions

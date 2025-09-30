@@ -12,6 +12,9 @@ Recursion Limit Guidelines:
 - Complex Analysis: 20-30 (multiple investigation rounds)
 """
 
+# General Configuration
+MAXIMUM_PAGES_TO_PROCESS = 4  # Cap on pages to process for performance
+
 # -- ORCHESTRATOR CONFIGURATION --
 # Controls the overall workflow: pdf_extraction → {file_analysis || image_analysis} → url_investigation → report_generator
 ORCHESTRATOR_CONFIG = {

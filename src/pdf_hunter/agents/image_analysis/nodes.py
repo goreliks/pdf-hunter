@@ -68,9 +68,14 @@ async def analyze_pdf_images(state: ImageAnalysisState):
     logger.info("Starting Visual Deception Analysis")
     
     try:
+        # Validate required inputs
+        all_images = state.get('extracted_images', [])
+        all_urls = state.get('extracted_urls', [])
         num_pages_to_process = state.get("number_of_pages_to_process", 1)
-        all_images = state['extracted_images']
-        all_urls = state['extracted_urls']
+        
+        if not all_images:
+            logger.warning("No images available for analysis")
+            return {"page_analyses": []}
 
         logger.debug(f"Number of pages to process: {num_pages_to_process}")
         logger.debug(f"Total images found: {len(all_images)}")
@@ -138,8 +143,8 @@ async def analyze_pdf_images(state: ImageAnalysisState):
         return {"page_analyses": page_analyses_results}
 
     except Exception as e:
-        error_msg = f"An unexpected error occurred during visual analysis: {e}"
-        logger.error(error_msg, exc_info=True)  # Include traceback
+        error_msg = f"Error in analyze_pdf_images: {e}"
+        logger.error(error_msg, exc_info=True)
         return {"errors": [error_msg]}
 
 
@@ -149,70 +154,71 @@ async def compile_image_findings(state: ImageAnalysisState):
     robust, programmatic logic.
     """
     logger.info("Aggregating final image analysis report")
-    page_analyses = state.get("page_analyses", [])
-
-    if not page_analyses:
-        logger.info("No page analyses were performed, generating empty report")
-        # Correctly instantiate the report with keywords to prevent TypeError.
-        visual_analysis_report = ImageAnalysisReport(
-            overall_verdict="Benign",
-            overall_confidence=1.0,
-            document_flow_summary="No pages were analyzed.",
-            executive_summary="No pages were analyzed, so no threats were detected.",
-            page_analyses=[],
-            all_detailed_findings=[],
-            all_deception_tactics=[],
-            all_benign_signals=[],
-            all_priority_urls=[]
-        )
-        return {"visual_analysis_report": visual_analysis_report}
-
-    # Ensure pages are sorted for a logical flow summary.
-    sorted_analyses = sorted(page_analyses, key=lambda p: p.detailed_findings[0].page_number if p.detailed_findings else 0)
-
-    # --- Generate the Document Flow Summary ---
-    flow_steps = []
-    for analysis in sorted_analyses:
-        page_num = analysis.detailed_findings[0].page_number if analysis.detailed_findings else 'N/A'
-        flow_steps.append(f"Page {page_num}: {analysis.page_description}")
-    document_flow_summary = "\n".join(flow_steps)
     
-    # Determine Overall Verdict based on the most severe finding.
-    verdict_severity = {"Benign": 0, "Suspicious": 1, "Highly Deceptive": 2}
-    most_severe_verdict = max(page_analyses, key=lambda p: verdict_severity[p.visual_verdict]).visual_verdict
-
-    # Correctly calculate Overall Confidence based on the "weakest link" principle.
-    pages_with_highest_threat = [p for p in page_analyses if p.visual_verdict == most_severe_verdict]
-    overall_confidence = max(p.confidence_score for p in pages_with_highest_threat)
-
-    # Aggregate all findings into flat lists for the final report.
-    all_detailed_findings = [finding for p in page_analyses for finding in p.detailed_findings]
-    all_tactics = [tactic for p in page_analyses for tactic in p.deception_tactics]
-    all_signals = [signal for p in page_analyses for signal in p.benign_signals]
-    all_priority_urls = [url for p in page_analyses for url in p.prioritized_urls]
-
-    # Generate the Executive Summary.
-    summary = (
-        f"Visual analysis of {len(page_analyses)} page(s) resulted in an overall verdict of '{most_severe_verdict}'.\n"
-        f"The analysis produced {len(all_detailed_findings)} specific forensic findings, "
-        f"which were summarized into {len(all_tactics)} deception tactics and {len(all_signals)} benign signals.\n"
-        f"Flagged {len(all_priority_urls)} URLs for further investigation."
-    )
-
-    # Construct the final report object.
-    visual_analysis_report = ImageAnalysisReport(
-        overall_verdict=most_severe_verdict,
-        overall_confidence=overall_confidence,
-        document_flow_summary=document_flow_summary,
-        executive_summary=summary,
-        page_analyses=page_analyses,
-        all_detailed_findings=all_detailed_findings,
-        all_deception_tactics=all_tactics,
-        all_benign_signals=all_signals,
-        all_priority_urls=all_priority_urls
-    )
-
     try:
+        page_analyses = state.get("page_analyses", [])
+
+        if not page_analyses:
+            logger.warning("No page analyses were performed, generating empty report")
+            # Correctly instantiate the report with keywords to prevent TypeError.
+            visual_analysis_report = ImageAnalysisReport(
+                overall_verdict="Benign",
+                overall_confidence=1.0,
+                document_flow_summary="No pages were analyzed.",
+                executive_summary="No pages were analyzed, so no threats were detected.",
+                page_analyses=[],
+                all_detailed_findings=[],
+                all_deception_tactics=[],
+                all_benign_signals=[],
+                all_priority_urls=[]
+            )
+            return {"visual_analysis_report": visual_analysis_report}
+
+        # Ensure pages are sorted for a logical flow summary.
+        sorted_analyses = sorted(page_analyses, key=lambda p: p.detailed_findings[0].page_number if p.detailed_findings else 0)
+
+        # --- Generate the Document Flow Summary ---
+        flow_steps = []
+        for analysis in sorted_analyses:
+            page_num = analysis.detailed_findings[0].page_number if analysis.detailed_findings else 'N/A'
+            flow_steps.append(f"Page {page_num}: {analysis.page_description}")
+        document_flow_summary = "\n".join(flow_steps)
+        
+        # Determine Overall Verdict based on the most severe finding.
+        verdict_severity = {"Benign": 0, "Suspicious": 1, "Highly Deceptive": 2}
+        most_severe_verdict = max(page_analyses, key=lambda p: verdict_severity[p.visual_verdict]).visual_verdict
+
+        # Correctly calculate Overall Confidence based on the "weakest link" principle.
+        pages_with_highest_threat = [p for p in page_analyses if p.visual_verdict == most_severe_verdict]
+        overall_confidence = max(p.confidence_score for p in pages_with_highest_threat)
+
+        # Aggregate all findings into flat lists for the final report.
+        all_detailed_findings = [finding for p in page_analyses for finding in p.detailed_findings]
+        all_tactics = [tactic for p in page_analyses for tactic in p.deception_tactics]
+        all_signals = [signal for p in page_analyses for signal in p.benign_signals]
+        all_priority_urls = [url for p in page_analyses for url in p.prioritized_urls]
+
+        # Generate the Executive Summary.
+        summary = (
+            f"Visual analysis of {len(page_analyses)} page(s) resulted in an overall verdict of '{most_severe_verdict}'.\n"
+            f"The analysis produced {len(all_detailed_findings)} specific forensic findings, "
+            f"which were summarized into {len(all_tactics)} deception tactics and {len(all_signals)} benign signals.\n"
+            f"Flagged {len(all_priority_urls)} URLs for further investigation."
+        )
+
+        # Construct the final report object.
+        visual_analysis_report = ImageAnalysisReport(
+            overall_verdict=most_severe_verdict,
+            overall_confidence=overall_confidence,
+            document_flow_summary=document_flow_summary,
+            executive_summary=summary,
+            page_analyses=page_analyses,
+            all_detailed_findings=all_detailed_findings,
+            all_deception_tactics=all_tactics,
+            all_benign_signals=all_signals,
+            all_priority_urls=all_priority_urls
+        )
+
         # Save the final report to a JSON file for record-keeping.
         session_output_directory = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown")
@@ -224,9 +230,10 @@ async def compile_image_findings(state: ImageAnalysisState):
         logger.info(f"Saving image analysis report to {json_path}")
         await dump_state_to_file(visual_analysis_report, json_path)
         logger.debug("Image analysis report successfully saved")
+            
+        return {"visual_analysis_report": visual_analysis_report}
+    
     except Exception as e:
-        error_msg = f"Error saving visual analysis report to JSON: {e}"
+        error_msg = f"Error in compile_image_findings: {e}"
         logger.error(error_msg, exc_info=True)
-        state["errors"] = state.get("errors", []) + [error_msg]
-        
-    return {"visual_analysis_report": visual_analysis_report}
+        return {"errors": [error_msg]}
