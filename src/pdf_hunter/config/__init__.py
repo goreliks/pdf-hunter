@@ -17,6 +17,7 @@ from .execution_config import (
     URL_INVESTIGATION_PRIORITY_LEVEL,
     REPORT_GENERATION_CONFIG,
     THINKING_TOOL_ENABLED,
+    MAXIMUM_PAGES_TO_PROCESS
 )
 
 # Import model configuration
@@ -55,6 +56,8 @@ __all__ = [
     "URL_INVESTIGATION_INVESTIGATOR_CONFIG",
     "URL_INVESTIGATION_PRIORITY_LEVEL",
     "REPORT_GENERATION_CONFIG",
+    "THINKING_TOOL_ENABLED",
+    "MAXIMUM_PAGES_TO_PROCESS",
     
     # Model provider configs
     "openai_config",
