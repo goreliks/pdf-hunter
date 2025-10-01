@@ -93,7 +93,15 @@ def setup_session(state: PDFExtractionState):
             )
 
         # 3. Create session-specific output directory
-        session_output_directory = os.path.join(base_output_directory, session_id)
+        # Check if base_output_directory already includes the session_id (when called from API)
+        # to avoid double-nesting like output/{session_id}/{session_id}/
+        if base_output_directory.endswith(session_id):
+            # API server already created output/{session_id}/, use it directly
+            session_output_directory = base_output_directory
+        else:
+            # Standalone mode: base_output_directory is just "output", append session_id
+            session_output_directory = os.path.join(base_output_directory, session_id)
+        
         pdf_extraction_directory = os.path.join(session_output_directory, "pdf_extraction")
 
         # 4. Ensure directories exist

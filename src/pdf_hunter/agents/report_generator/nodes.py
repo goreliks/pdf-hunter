@@ -9,6 +9,7 @@ from pdf_hunter.orchestrator.schemas import OrchestratorState
 from pdf_hunter.shared.utils.serializer import serialize_state_safely, dump_state_to_file
 from .prompts import REPORT_GENERATOR_SYSTEM_PROMPT, REPORT_GENERATOR_USER_PROMPT, REPORT_GENERATOR_VERDICT_SYSTEM_PROMPT, REPORT_GENERATOR_VERDICT_USER_PROMPT
 from .schemas import FinalVerdict
+from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 
 
 async def determine_threat_verdict(state: OrchestratorState) -> dict:
@@ -44,7 +45,11 @@ async def determine_threat_verdict(state: OrchestratorState) -> dict:
         # Use a separate, structured-output LLM for the final verdict
         logger.debug("Invoking final verdict LLM", agent="ReportGenerator", node="determine_threat_verdict")
         llm_with_verdict = final_verdict_llm.with_structured_output(FinalVerdict)
-        response = await llm_with_verdict.ainvoke(messages)
+        # Add timeout protection to prevent infinite hangs on verdict LLM calls
+        response = await asyncio.wait_for(
+            llm_with_verdict.ainvoke(messages),
+            timeout=LLM_TIMEOUT_TEXT
+        )
         
         # Log complete FinalVerdict with all schema fields
         reasoning_preview = response.reasoning[:100] + "..." if len(response.reasoning) > 100 else response.reasoning
@@ -61,9 +66,29 @@ async def determine_threat_verdict(state: OrchestratorState) -> dict:
 
         return {"final_verdict": response}
     
+    except asyncio.TimeoutError:
+        error_msg = f"Error in determine_threat_verdict: Verdict LLM call timed out after {LLM_TIMEOUT_TEXT} seconds"
+        logger.error(
+            "Error in determine_threat_verdict: Verdict LLM call timed out after {} seconds",
+            LLM_TIMEOUT_TEXT,
+            agent="ReportGenerator",
+            node="determine_threat_verdict",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
     except Exception as e:
-        error_msg = f"Error in determine_threat_verdict: {e}"
-        logger.error(error_msg, agent="ReportGenerator", node="determine_threat_verdict", event_type="ERROR", exc_info=True)
+        error_msg = f"Error in determine_threat_verdict: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in determine_threat_verdict: {}: {}",
+            type(e).__name__,
+            str(e),
+            agent="ReportGenerator",
+            node="determine_threat_verdict",
+            event_type="ERROR",
+            exc_info=True
+        )
         return {"errors": [error_msg]}
 
 
@@ -87,7 +112,11 @@ async def generate_final_report(state: OrchestratorState):
         ]
 
         logger.debug("Invoking report generator LLM", agent="ReportGenerator", node="generate_final_report")
-        response = await report_generator_llm.ainvoke(messages)
+        # Add timeout protection to prevent infinite hangs on report generator LLM calls
+        response = await asyncio.wait_for(
+            report_generator_llm.ainvoke(messages),
+            timeout=LLM_TIMEOUT_TEXT
+        )
         final_report = response.content
         
         # Log report generation completion with full markdown report for streaming
@@ -106,9 +135,29 @@ async def generate_final_report(state: OrchestratorState):
         
         return {"final_report": final_report}
     
+    except asyncio.TimeoutError:
+        error_msg = f"Error in generate_final_report: LLM call timed out after {LLM_TIMEOUT_TEXT} seconds"
+        logger.error(
+            "Error in generate_final_report: LLM call timed out after {} seconds",
+            LLM_TIMEOUT_TEXT,
+            agent="ReportGenerator",
+            node="generate_final_report",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
     except Exception as e:
-        error_msg = f"Error in generate_final_report: {e}"
-        logger.error(error_msg, agent="ReportGenerator", node="generate_final_report", event_type="ERROR", exc_info=True)
+        error_msg = f"Error in generate_final_report: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in generate_final_report: {}: {}",
+            type(e).__name__,
+            str(e),
+            agent="ReportGenerator",
+            node="generate_final_report",
+            event_type="ERROR",
+            exc_info=True
+        )
         return {"errors": [error_msg]}
 
 

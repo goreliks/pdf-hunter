@@ -76,6 +76,11 @@ export const FILE_ANALYSIS_SCHEMA = {
     INVESTIGATION_BLOCKED: ['agent', 'event_type', 'mission_id', 'node', 'reason', 'session_id'],
   },
   
+  file_analyzer: {
+    null: ['agent', 'node', 'session_id'],
+    STRATEGIC_REFLECTION: ['agent', 'event_type', 'mission_id', 'node', 'reflection', 'session_id'],
+  },
+  
   review_analysis_results: {
     null: [
       ['agent', 'node', 'session_id'],
@@ -205,7 +210,7 @@ export const URL_INVESTIGATION_SCHEMA = {
     TOOL_EXECUTION_START: ['agent', 'event_type', 'node', 'session_id', 'tool_count', 'url'],
     TOOL_CALL: ['agent', 'event_type', 'node', 'session_id', 'tool_name'],
     TOOL_SUCCESS: ['agent', 'event_type', 'node', 'session_id', 'tool_name'],
-    STRATEGIC_THINKING: ['agent', 'event_type', 'node', 'session_id', 'tool_name'],
+    STRATEGIC_THINKING: ['agent', 'event_type', 'node', 'reflection', 'session_id', 'tool_name'],
     TOOL_EXECUTION_COMPLETE: ['agent', 'event_type', 'node', 'session_id', 'tool_count'],
   },
   
@@ -281,6 +286,7 @@ export const LOG_FIELD_SCHEMA = {
 export const HIDDEN_FIELDS = [
   'agent',      // Already shown as section header
   'node',       // Already shown in row format
+  'event_type', // Already shown in row format
   'session_id', // Not relevant to user during active monitoring
 ];
 
@@ -289,7 +295,6 @@ export const HIDDEN_FIELDS = [
  * Order matters - earlier = higher priority
  */
 export const PRIORITY_FIELDS = [
-  'event_type',
   'verdict',
   'confidence',
   'decision',

@@ -11,6 +11,7 @@ from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from langgraph.constants import Send
 from langgraph.graph import END
 from pdf_hunter.config import THINKING_TOOL_ENABLED
+from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 
 
 from pdf_hunter.config import url_investigation_investigator_llm, url_investigation_analyst_llm
@@ -224,7 +225,8 @@ async def execute_browser_tools(state: URLInvestigatorState):
                                 agent="URLInvestigation",
                                 node="execute_browser_tools",
                                 event_type="STRATEGIC_THINKING",
-                                tool_name=tool_name
+                                tool_name=tool_name,
+                                reflection=reflection_text
                             )
                     else:
                         # MCP browser tools
@@ -311,10 +313,14 @@ async def analyze_url_content(state: URLInvestigatorState) -> dict:
         )
         
         logger.debug("Invoking analyst LLM for findings synthesis", agent="URLInvestigation", node="analyze_url_content")
-        analyst_findings = await analyst_llm.ainvoke([
-            SystemMessage(content=URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT),
-            HumanMessage(content=analyst_prompt)
-        ])
+        # Add timeout protection to prevent infinite hangs on analyst LLM calls
+        analyst_findings = await asyncio.wait_for(
+            analyst_llm.ainvoke([
+                SystemMessage(content=URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT),
+                HumanMessage(content=analyst_prompt)
+            ]),
+            timeout=LLM_TIMEOUT_TEXT
+        )
 
         new_status = URLMissionStatus.COMPLETED if analyst_findings.mission_status == "completed" else URLMissionStatus.FAILED
         url_task.mission_status = new_status
@@ -344,9 +350,31 @@ async def analyze_url_content(state: URLInvestigatorState) -> dict:
         logger.debug("Generated final URL analysis report", agent="URLInvestigation", node="analyze_url_content")
         return {"link_analysis_final_report": link_analysis_final_report}
     
+    except asyncio.TimeoutError:
+        error_msg = f"Error in analyze_url_content: Analyst LLM call timed out after {LLM_TIMEOUT_TEXT} seconds for URL: {url_task.url}"
+        logger.error(
+            "Error in analyze_url_content: Analyst LLM call timed out after {} seconds for URL: {}",
+            LLM_TIMEOUT_TEXT,
+            url_task.url,
+            agent="URLInvestigation",
+            node="analyze_url_content",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            url=url_task.url,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
     except Exception as e:
-        error_msg = f"Error in analyze_url_content: {e}"
-        logger.error(error_msg, agent="URLInvestigation", node="analyze_url_content", event_type="ERROR", exc_info=True)
+        error_msg = f"Error in analyze_url_content: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in analyze_url_content: {}: {}",
+            type(e).__name__,
+            str(e),
+            agent="URLInvestigation",
+            node="analyze_url_content",
+            event_type="ERROR",
+            exc_info=True
+        )
         return {"errors": [error_msg]}
 
 

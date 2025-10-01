@@ -17,6 +17,7 @@ from .prompts import file_analysis_reviewer_system_prompt, file_analysis_reviewe
 from .prompts import file_analysis_finalizer_system_prompt, file_analysis_finalizer_user_prompt
 from pdf_hunter.config import file_analysis_triage_llm, file_analysis_investigator_llm, file_analysis_graph_merger_llm, file_analysis_reviewer_llm, file_analysis_finalizer_llm
 from pdf_hunter.config import THINKING_TOOL_ENABLED
+from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 from .schemas import TriageReport,MissionReport, ReviewerReport,FinalReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 
@@ -77,7 +78,11 @@ async def identify_suspicious_elements(state: FileAnalysisState):
         ]
 
         logger.debug("Invoking triage LLM", agent="FileAnalysis", node="identify_suspicious_elements")
-        result = await llm_router.ainvoke(messages)
+        # Add timeout protection to prevent infinite hangs on triage LLM calls
+        result = await asyncio.wait_for(
+            llm_router.ainvoke(messages),
+            timeout=LLM_TIMEOUT_TEXT
+        )
 
         updates = {
             "structural_summary": structural_summary,
@@ -129,10 +134,24 @@ async def identify_suspicious_elements(state: FileAnalysisState):
 
         return updates
     
-    except Exception as e:
-        error_msg = f"Error in identify_suspicious_elements: {e}"
+    except asyncio.TimeoutError:
+        error_msg = f"Error in identify_suspicious_elements: Triage LLM call timed out after {LLM_TIMEOUT_TEXT} seconds"
         logger.error(
-            error_msg,
+            "Error in identify_suspicious_elements: Triage LLM call timed out after {} seconds",
+            LLM_TIMEOUT_TEXT,
+            agent="FileAnalysis",
+            node="identify_suspicious_elements",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
+    except Exception as e:
+        error_msg = f"Error in identify_suspicious_elements: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in identify_suspicious_elements: {}: {}",
+            type(e).__name__,
+            str(e),
             agent="FileAnalysis",
             node="identify_suspicious_elements",
             event_type="ERROR",
@@ -350,7 +369,11 @@ async def file_analyzer(state: InvestigatorState):
 
         # --- LLM with Tools Call ---
         llm_with_tools = llm_investigator_with_tools
-        result = await llm_with_tools.ainvoke(messages)
+        # Add timeout protection to prevent infinite hangs on investigator LLM calls
+        result = await asyncio.wait_for(
+            llm_with_tools.ainvoke(messages),
+            timeout=LLM_TIMEOUT_TEXT
+        )
         
         # --- State and Routing Logic ---
         if not result.tool_calls:
@@ -373,7 +396,11 @@ async def file_analyzer(state: InvestigatorState):
                 HumanMessage(content="Your investigation is complete. Based on your findings in the conversation above, provide your final MissionReport in the required JSON format.")
             ]
 
-            mission_report_obj = await llm_investigator.ainvoke(report_generation_prompt)
+            # Add timeout protection to prevent infinite hangs on mission report LLM calls
+            mission_report_obj = await asyncio.wait_for(
+                llm_investigator.ainvoke(report_generation_prompt),
+                timeout=LLM_TIMEOUT_TEXT
+            )
             validated_report = MissionReport.model_validate(mission_report_obj)
             
             findings_count = len(validated_report.mission_subgraph.nodes)
@@ -425,9 +452,29 @@ async def file_analyzer(state: InvestigatorState):
             
             return {"messages": [result]}
     
+    except asyncio.TimeoutError:
+        error_msg = f"Error in file_analyzer: Investigator LLM call timed out after {LLM_TIMEOUT_TEXT} seconds"
+        logger.error(
+            "Error in file_analyzer: Investigator LLM call timed out after {} seconds",
+            LLM_TIMEOUT_TEXT,
+            agent="FileAnalysis",
+            node="file_analyzer",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
     except Exception as e:
-        error_msg = f"Error in file_analyzer: {e}"
-        logger.error(error_msg, exc_info=True)
+        error_msg = f"Error in file_analyzer: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in file_analyzer: {}: {}",
+            type(e).__name__,
+            str(e),
+            agent="FileAnalysis",
+            node="file_analyzer",
+            event_type="ERROR",
+            exc_info=True
+        )
         return {"errors": [error_msg]}
     
 
@@ -457,10 +504,14 @@ async def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: Li
             new_subgraphs_json=new_subgraphs_json
         )
 
-        result = await llm_graph_merger.ainvoke([
-            SystemMessage(content=file_analysis_graph_merger_system_prompt),
-            HumanMessage(content=user_prompt)
-        ])
+        # Add timeout protection to prevent infinite hangs on graph merger LLM calls
+        result = await asyncio.wait_for(
+            llm_graph_merger.ainvoke([
+                SystemMessage(content=file_analysis_graph_merger_system_prompt),
+                HumanMessage(content=user_prompt)
+            ]),
+            timeout=LLM_TIMEOUT_TEXT
+        )
         
         merged_nodes = len(result.master_graph.nodes)
         logger.info(
@@ -474,10 +525,30 @@ async def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: Li
         
         return result.master_graph
     
-    except Exception as e:
-        error_msg = f"Error in merge_evidence_graphs: {e}"
+    except asyncio.TimeoutError:
+        error_msg = f"Error in merge_evidence_graphs: Graph merger LLM call timed out after {LLM_TIMEOUT_TEXT} seconds"
         logger.error(
-            error_msg,
+            "Error in merge_evidence_graphs: Graph merger LLM call timed out after {} seconds",
+            LLM_TIMEOUT_TEXT,
+            agent="FileAnalysis",
+            node="merge_evidence_graphs",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            exc_info=True
+        )
+        # Return the current master graph on error to avoid data loss
+        logger.warning(
+            "⚠️ Returning unmerged graph due to timeout",
+            agent="FileAnalysis",
+            node="merge_evidence_graphs"
+        )
+        return current_master
+    except Exception as e:
+        error_msg = f"Error in merge_evidence_graphs: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in merge_evidence_graphs: {}: {}",
+            type(e).__name__,
+            str(e),
             agent="FileAnalysis",
             node="merge_evidence_graphs",
             event_type="ERROR",
@@ -651,10 +722,14 @@ async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["
             node="review_analysis_results"
         )
         
-        result = await llm_reviewer.ainvoke([
-            SystemMessage(content=file_analysis_reviewer_system_prompt),
-            HumanMessage(content=user_prompt)
-        ])
+        # Add timeout protection to prevent infinite hangs on reviewer LLM calls
+        result = await asyncio.wait_for(
+            llm_reviewer.ainvoke([
+                SystemMessage(content=file_analysis_reviewer_system_prompt),
+                HumanMessage(content=user_prompt)
+            ]),
+            timeout=LLM_TIMEOUT_TEXT
+        )
         
         logger.debug(
             "Reviewer LLM responded",
@@ -723,10 +798,24 @@ async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["
             
         return Command(goto=goto, update=updates)
     
-    except Exception as e:
-        error_msg = f"Error in review_analysis_results: {e}"
+    except asyncio.TimeoutError:
+        error_msg = f"Error in review_analysis_results: Reviewer LLM call timed out after {LLM_TIMEOUT_TEXT} seconds"
         logger.error(
-            error_msg,
+            "Error in review_analysis_results: Reviewer LLM call timed out after {} seconds",
+            LLM_TIMEOUT_TEXT,
+            agent="FileAnalysis",
+            node="review_analysis_results",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
+    except Exception as e:
+        error_msg = f"Error in review_analysis_results: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in review_analysis_results: {}: {}",
+            type(e).__name__,
+            str(e),
             agent="FileAnalysis",
             node="review_analysis_results",
             event_type="ERROR",
@@ -789,10 +878,14 @@ async def summarize_file_analysis(state: FileAnalysisState):
             completed_investigations=completed_investigations_text
         )
 
-        static_analysis_final_report = await llm_finalizer.ainvoke([
-            SystemMessage(content=file_analysis_finalizer_system_prompt),
-            HumanMessage(content=user_prompt)
-        ])
+        # Add timeout protection to prevent infinite hangs on finalizer LLM calls
+        static_analysis_final_report = await asyncio.wait_for(
+            llm_finalizer.ainvoke([
+                SystemMessage(content=file_analysis_finalizer_system_prompt),
+                HumanMessage(content=user_prompt)
+            ]),
+            timeout=LLM_TIMEOUT_TEXT
+        )
 
         # Save the final state to a JSON file for debugging and records
         session_output_directory = state.get("output_directory", "output")
@@ -819,7 +912,7 @@ async def summarize_file_analysis(state: FileAnalysisState):
         
         # Log executive summary
         logger.info(
-            f"� Executive Summary: {static_analysis_final_report.executive_summary[:150]}...",
+            f"📝 Executive Summary: {static_analysis_final_report.executive_summary[:150]}...",
             agent="FileAnalysis",
             node="summarize_file_analysis",
             event_type="EXECUTIVE_SUMMARY",
@@ -855,10 +948,24 @@ async def summarize_file_analysis(state: FileAnalysisState):
         
         return {"static_analysis_final_report": static_analysis_final_report}
     
-    except Exception as e:
-        error_msg = f"Error in summarize_file_analysis: {e}"
+    except asyncio.TimeoutError:
+        error_msg = f"Error in summarize_file_analysis: Finalizer LLM call timed out after {LLM_TIMEOUT_TEXT} seconds"
         logger.error(
-            error_msg,
+            "Error in summarize_file_analysis: Finalizer LLM call timed out after {} seconds",
+            LLM_TIMEOUT_TEXT,
+            agent="FileAnalysis",
+            node="summarize_file_analysis",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
+    except Exception as e:
+        error_msg = f"Error in summarize_file_analysis: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in summarize_file_analysis: {}: {}",
+            type(e).__name__,
+            str(e),
             agent="FileAnalysis",
             node="summarize_file_analysis",
             event_type="ERROR",

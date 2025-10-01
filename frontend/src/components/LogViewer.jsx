@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { formatLogEntry, getLogLevelColor } from '../utils/logUtils';
+import { getLogLevelColor } from '../utils/logUtils';
+import { extractFieldsFromLog } from '../utils/fieldExtractor';
 
-export default function LogViewer({ logs, agentName }) {
+export default function LogViewer({ logs, agentName, viewMode = 'both' }) {
   const logContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
+  const prevViewModeRef = useRef(viewMode);
+  const scrollPosBeforeToggleRef = useRef(0);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
@@ -11,6 +14,22 @@ export default function LogViewer({ logs, agentName }) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [logs]);
+
+  // Preserve scroll position when view mode changes
+  useEffect(() => {
+    if (prevViewModeRef.current !== viewMode && logContainerRef.current) {
+      // Save scroll position before mode change
+      scrollPosBeforeToggleRef.current = logContainerRef.current.scrollTop;
+      
+      // Restore scroll position after React re-renders
+      requestAnimationFrame(() => {
+        if (logContainerRef.current) {
+          logContainerRef.current.scrollTop = scrollPosBeforeToggleRef.current;
+        }
+      });
+    }
+    prevViewModeRef.current = viewMode;
+  }, [viewMode]);
 
   // Detect if user scrolled up (disable auto-scroll)
   const handleScroll = () => {
@@ -23,17 +42,17 @@ export default function LogViewer({ logs, agentName }) {
   };
 
   return (
-    <div className="bg-gray-900 p-4">
+    <div className="bg-gray-900/30 p-4">
       <div
         ref={logContainerRef}
         onScroll={handleScroll}
-        className="font-mono text-sm h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
+        className="font-mono text-xs h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-gray-800/50 transition-opacity duration-150"
       >
         {logs.length === 0 ? (
-          <div className="text-gray-500 italic">No logs yet...</div>
+          <div className="text-purple-300/40 italic">No logs yet...</div>
         ) : (
           logs.map((log, index) => (
-            <LogEntry key={`${agentName}-${index}`} log={log} />
+            <LogEntry key={`${agentName}-${index}`} log={log} viewMode={viewMode} />
           ))
         )}
       </div>
@@ -41,45 +60,96 @@ export default function LogViewer({ logs, agentName }) {
   );
 }
 
-function LogEntry({ log }) {
+function LogEntry({ log, viewMode }) {
   const record = log.record || {};
-  const timestamp = new Date(record.time?.timestamp * 1000 || Date.now()).toLocaleTimeString();
+  
+  // Extract timestamp (HH:MM:SS format)
+  const timestamp = record.time?.timestamp 
+    ? new Date(record.time.timestamp * 1000).toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      })
+    : '00:00:00';
+  
   const level = (record.level?.name || 'INFO').toUpperCase();
   const levelColor = getLogLevelColor(level);
   const message = record.message || log.text || '';
-  const node = record.extra?.node ? `[${record.extra.node}]` : '';
   
-  // Additional metadata to show if present
-  const hasMetadata = record.extra?.event_type || record.extra?.file_path || record.extra?.mission_id;
-
+  // Extract structured fields
+  const fields = extractFieldsFromLog(log);
+  const node = record.extra?.node || 'unknown';
+  const eventType = record.extra?.event_type || 'null';
+  
+  // Determine what to show based on view mode
+  const shouldShowMessage = (viewMode === 'both' || viewMode === 'messages') && message;
+  const shouldShowFields = (viewMode === 'both' || viewMode === 'structured') && fields.length > 0;
+  
+  // Don't render anything if there's nothing to show in current view mode
+  if (!shouldShowMessage && !shouldShowFields) {
+    return null;
+  }
+  
   return (
-    <div className="py-1 hover:bg-gray-800 transition-colors">
-      <div className="flex gap-2">
-        {/* Timestamp */}
-        <span className="text-gray-500">[{timestamp}]</span>
-        
-        {/* Log Level */}
-        <span className={`font-semibold ${levelColor} min-w-[60px]`}>
-          {level}
-        </span>
-        
-        {/* Node Name */}
-        {node && (
-          <span className="text-purple-400">{node}</span>
-        )}
-        
-        {/* Message */}
-        <span className="text-gray-200 flex-1">{message}</span>
-      </div>
-      
-      {/* Additional metadata (if any) */}
-      {hasMetadata && (
-        <div className="ml-24 text-xs text-gray-500 mt-0.5">
-          {record.extra?.event_type && <span className="mr-3">Event: {record.extra.event_type}</span>}
-          {record.extra?.file_path && <span className="mr-3">File: {record.extra.file_path}</span>}
-          {record.extra?.mission_id && <span className="mr-3">Mission: {record.extra.mission_id}</span>}
+    <div className="py-2 border-b border-purple-500/10 hover:bg-purple-900/10 transition-colors">
+      {/* Message Header - show based on view mode */}
+      {shouldShowMessage && (
+        <div className="flex gap-3 mb-1.5">
+          {/* Log Level */}
+          <span className={`font-semibold text-xs ${levelColor} min-w-[70px] shrink-0`}>
+            {level}
+          </span>
+          
+          {/* Message */}
+          <span className="text-purple-100/80 text-xs break-all">{message}</span>
         </div>
       )}
+      
+      {/* Structured Fields - show based on view mode */}
+      {shouldShowFields && fields.map((field, idx) => (
+        <FieldRow
+          key={idx}
+          timestamp={timestamp}
+          node={node}
+          eventType={eventType}
+          fieldName={field.displayName}
+          value={field.value}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FieldRow({ timestamp, node, eventType, fieldName, value }) {
+  return (
+    <div className="flex items-center gap-3 py-1 text-xs font-mono leading-snug">
+      {/* Timestamp */}
+      <span className="text-purple-300/50 shrink-0">{timestamp}</span>
+      
+      {/* Separator */}
+      <span className="text-purple-400/40 font-bold">|</span>
+      
+      {/* Node */}
+      <span className="text-fuchsia-400 shrink-0 min-w-[140px]">{node}</span>
+      
+      {/* Separator */}
+      <span className="text-purple-400/40 font-bold">|</span>
+      
+      {/* Event Type */}
+      <span className="text-violet-400 shrink-0 min-w-[180px]">{eventType}</span>
+      
+      {/* Separator */}
+      <span className="text-purple-400/40 font-bold">|</span>
+      
+      {/* Field Name */}
+      <span className="text-pink-400 shrink-0 min-w-[140px]">{fieldName}</span>
+      
+      {/* Separator */}
+      <span className="text-purple-400/40 font-bold">|</span>
+      
+      {/* Value */}
+      <span className="text-purple-100/90 break-all">{value}</span>
     </div>
   );
 }

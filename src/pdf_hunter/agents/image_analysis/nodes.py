@@ -12,6 +12,7 @@ from .schemas import ImageAnalysisState, PageAnalysisResult, ImageAnalysisReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from .prompts import IMAGE_ANALYSIS_SYSTEM_PROMPT, IMAGE_ANALYSIS_USER_PROMPT
 from pdf_hunter.config import image_analysis_llm
+from pdf_hunter.config.execution_config import LLM_TIMEOUT_VISION
 
 llm_with_structured_output = image_analysis_llm.with_structured_output(PageAnalysisResult)
 
@@ -161,7 +162,11 @@ async def analyze_pdf_images(state: ImageAnalysisState):
                 element_count=len(urls_for_this_page),
             )
             
-            page_result = await llm_with_structured_output.ainvoke(messages)
+            # Add timeout protection to prevent infinite hangs on vision LLM calls
+            page_result = await asyncio.wait_for(
+                llm_with_structured_output.ainvoke(messages),
+                timeout=LLM_TIMEOUT_VISION
+            )
             page_analyses_results.append(page_result)
             
             # Verdict event with key metrics
@@ -268,15 +273,27 @@ async def analyze_pdf_images(state: ImageAnalysisState):
         
         return {"page_analyses": page_analyses_results}
 
+    except asyncio.TimeoutError:
+        error_msg = f"Error in analyze_pdf_images: Vision LLM call timed out after {LLM_TIMEOUT_VISION} seconds"
+        logger.exception(
+            "❌ Visual analysis failed - timeout",
+            agent="ImageAnalysis",
+            node="analyze_images",
+            event_type="ERROR",
+            session_id=state.get('session_id'),
+            error=error_msg,
+            timeout_seconds=LLM_TIMEOUT_VISION
+        )
+        return {"errors": [error_msg]}
     except Exception as e:
-        error_msg = f"Error in analyze_pdf_images: {e}"
+        error_msg = f"Error in analyze_pdf_images: {type(e).__name__}: {e}"
         logger.exception(
             "❌ Visual analysis failed",
             agent="ImageAnalysis",
             node="analyze_images",
             event_type="ERROR",
             session_id=state.get('session_id'),
-            error=str(e),
+            error=error_msg,
         )
         return {"errors": [error_msg]}
 

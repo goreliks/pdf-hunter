@@ -2,16 +2,16 @@ import { useState, useRef, useEffect } from 'react';
 import { getAgentStatus } from '../utils/logUtils';
 import LogViewer from './LogViewer';
 
-export default function AgentPanel({ agentName, displayName, logs, icon }) {
+export default function AgentPanel({ agentName, displayName, logs, icon, viewMode }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const status = getAgentStatus(logs);
   
   // Status badge colors
   const statusColors = {
-    idle: 'bg-gray-600 text-gray-300',
-    running: 'bg-blue-600 text-blue-100 animate-pulse',
-    complete: 'bg-green-600 text-green-100',
-    error: 'bg-red-600 text-red-100',
+    idle: 'bg-gray-600/80 text-gray-300 border border-gray-500/30',
+    running: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white animate-pulse border border-purple-400/50',
+    complete: 'bg-gradient-to-r from-green-600 to-emerald-600 text-white border border-green-400/50',
+    error: 'bg-gradient-to-r from-red-600 to-rose-600 text-white border border-red-400/50',
   };
 
   const statusText = {
@@ -22,17 +22,17 @@ export default function AgentPanel({ agentName, displayName, logs, icon }) {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-purple-500/20 overflow-hidden card-glow transition-all duration-300">
       {/* Panel Header */}
       <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-750 transition-colors"
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-purple-900/20 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3">
           <span className="text-2xl">{icon}</span>
           <div>
-            <h2 className="text-lg font-semibold">{displayName}</h2>
-            <p className="text-xs text-gray-400">{logs.length} log entries</p>
+            <h2 className="text-lg font-semibold text-purple-100">{displayName}</h2>
+            <p className="text-xs text-purple-300/60">{logs.length} log entries</p>
           </div>
         </div>
         
@@ -56,8 +56,8 @@ export default function AgentPanel({ agentName, displayName, logs, icon }) {
 
       {/* Panel Content */}
       {isExpanded && (
-        <div className="border-t border-gray-700">
-          <LogViewer logs={logs} agentName={agentName} />
+        <div className="border-t border-purple-500/20 bg-gray-900/50">
+          <LogViewer logs={logs} agentName={agentName} viewMode={viewMode} />
         </div>
       )}
     </div>

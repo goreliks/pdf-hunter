@@ -5,9 +5,10 @@ import { API_ENDPOINTS } from '../config/api';
  * Custom hook for streaming Server-Sent Events from PDF Hunter backend
  * 
  * @param {string} sessionId - The session ID from upload response
+ * @param {boolean} enabled - Whether to enable SSE connection (default: true)
  * @returns {Object} - { logs, isConnected, error, connectionState }
  */
-export function useSSEStream(sessionId) {
+export function useSSEStream(sessionId, enabled = true) {
   const [logs, setLogs] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
@@ -22,7 +23,7 @@ export function useSSEStream(sessionId) {
 
   // Connect to SSE stream
   const connect = useCallback(() => {
-    if (!sessionId) {
+    if (!sessionId || !enabled) {
       return;
     }
 
@@ -82,11 +83,11 @@ export function useSSEStream(sessionId) {
       console.log('💓 Keepalive ping received');
     });
 
-  }, [sessionId]);
+  }, [sessionId, enabled]);
 
   // Connect when component mounts
   useEffect(() => {
-    if (sessionId) {
+    if (sessionId && enabled) {
       connect();
     }
 
@@ -99,7 +100,7 @@ export function useSSEStream(sessionId) {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [sessionId, connect]);
+  }, [sessionId, enabled, connect]);
 
   return {
     logs,

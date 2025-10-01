@@ -7,6 +7,7 @@ const LandingPage = ({ onAnalysisStart }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
+  const [devMode, setDevMode] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleDragOver = (e) => {
@@ -73,7 +74,8 @@ const LandingPage = ({ onAnalysisStart }) => {
         sessionId: data.session_id,
         streamUrl: data.stream_url,
         statusUrl: data.status_url,
-        filename: file.name
+        filename: file.name,
+        devMode: false  // Real analysis, not dev mode
       });
     } catch (err) {
       setError(err.message || 'Failed to upload file');
@@ -81,25 +83,74 @@ const LandingPage = ({ onAnalysisStart }) => {
     }
   };
 
+  const handleDevMode = () => {
+    // Start dev mode with mock data
+    onAnalysisStart({
+      sessionId: 'dev-mode-mock-session',
+      streamUrl: null,  // No real stream URL in dev mode
+      statusUrl: null,
+      filename: 'mock-analysis.pdf',
+      devMode: true  // Enable dev mode
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-8">
+    <div className="min-h-screen gradient-bg flex items-center justify-center p-8">
       <div className="max-w-2xl w-full space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center space-x-4">
-            {/* Animated pulse circle */}
+            {/* Animated pulse circle with purple/pink gradient */}
             <div className="relative">
-              <div className="w-16 h-16 bg-blue-500 rounded-full animate-pulse"></div>
-              <div className="absolute inset-0 w-16 h-16 bg-blue-400 rounded-full animate-ping opacity-25"></div>
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse"></div>
+              <div className="absolute inset-0 w-16 h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-ping opacity-25"></div>
             </div>
-            <h1 className="text-5xl font-bold text-white">PDF Hunter</h1>
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+              PDF Hunter
+            </h1>
           </div>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-purple-100">
             AI-Powered PDF Threat Analysis
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-purple-300/70">
             Upload a PDF file to begin deep security analysis
           </p>
+        </div>
+
+        {/* Dev Mode Toggle */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setDevMode(!devMode)}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg backdrop-blur-sm transition-all duration-300 ${
+              devMode
+                ? 'bg-purple-500/40 border-2 border-purple-400 card-glow'
+                : 'bg-gray-800/30 border-2 border-purple-500/30 hover:border-purple-400/50'
+            }`}
+            title="Enable dev mode to use mock data for frontend development"
+          >
+            <svg 
+              className={`w-5 h-5 ${devMode ? 'text-purple-200' : 'text-purple-300/60'}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <span className={`text-sm font-medium ${devMode ? 'text-purple-200' : 'text-purple-300/70'}`}>
+              Dev Mode {devMode ? 'ON' : 'OFF'}
+            </span>
+          </button>
         </div>
 
         {/* File Upload Area */}
@@ -107,10 +158,10 @@ const LandingPage = ({ onAnalysisStart }) => {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer ${
+          className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer backdrop-blur-sm ${
             isDragging
-              ? 'border-blue-500 bg-blue-500/10 scale-105'
-              : 'border-gray-600 bg-gray-800/50 hover:border-gray-500'
+              ? 'border-pink-500 bg-pink-500/20 scale-105 shadow-lg shadow-pink-500/30'
+              : 'border-purple-500/30 bg-gray-800/30 hover:border-purple-400/50 card-glow'
           }`}
           onClick={() => fileInputRef.current?.click()}
         >
@@ -125,7 +176,7 @@ const LandingPage = ({ onAnalysisStart }) => {
           <div className="space-y-4">
             <div className="flex justify-center">
               <svg
-                className="w-16 h-16 text-gray-400"
+                className="w-16 h-16 text-purple-300/60"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -141,19 +192,19 @@ const LandingPage = ({ onAnalysisStart }) => {
 
             {file ? (
               <div className="space-y-2">
-                <p className="text-green-400 font-medium text-lg">
+                <p className="text-emerald-400 font-medium text-lg break-all px-4">
                   ✓ {file.name}
                 </p>
-                <p className="text-gray-400 text-sm">
+                <p className="text-purple-300/70 text-sm">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-gray-300 text-lg font-medium">
+                <p className="text-purple-100 text-lg font-medium">
                   Drop your PDF here or click to browse
                 </p>
-                <p className="text-gray-500 text-sm">
+                <p className="text-purple-300/50 text-sm">
                   Supports PDF files up to 10MB
                 </p>
               </div>
@@ -162,12 +213,12 @@ const LandingPage = ({ onAnalysisStart }) => {
         </div>
 
         {/* Page Slider */}
-        <div className="bg-gray-800/50 rounded-xl p-6 space-y-4">
+        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 space-y-4 border border-purple-500/20 card-glow">
           <div className="flex items-center justify-between">
-            <label className="text-gray-300 font-medium">
+            <label className="text-purple-100 font-medium">
               Pages to Analyze
             </label>
-            <span className="text-blue-400 text-2xl font-bold">
+            <span className="text-pink-400 text-2xl font-bold">
               {maxPages}
             </span>
           </div>
@@ -177,9 +228,9 @@ const LandingPage = ({ onAnalysisStart }) => {
             max="4"
             value={maxPages}
             onChange={(e) => setMaxPages(parseInt(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+            className="w-full h-2 bg-gray-700/50 rounded-lg appearance-none cursor-pointer slider"
           />
-          <div className="flex justify-between text-xs text-gray-500">
+          <div className="flex justify-between text-xs text-purple-300/60">
             <span>1 page</span>
             <span>2 pages</span>
             <span>3 pages</span>
@@ -189,34 +240,57 @@ const LandingPage = ({ onAnalysisStart }) => {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500 rounded-lg p-4 text-center">
-            <p className="text-red-400">{error}</p>
+          <div className="bg-rose-500/10 border border-rose-500/50 rounded-lg p-4 text-center backdrop-blur-sm">
+            <p className="text-rose-400">{error}</p>
           </div>
         )}
 
-        {/* Upload Button */}
-        <button
-          onClick={handleUpload}
-          disabled={!file || isUploading}
-          className={`w-full py-4 px-8 rounded-xl font-semibold text-lg transition-all duration-300 ${
-            !file || isUploading
-              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-500/50 transform hover:scale-105'
-          }`}
-        >
-          {isUploading ? (
+        {/* Upload Button or Dev Mode Button */}
+        {devMode ? (
+          <button
+            onClick={handleDevMode}
+            className="w-full py-4 px-8 rounded-xl font-semibold text-lg transition-all duration-300 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 hover:shadow-lg hover:shadow-purple-500/50 transform hover:scale-105"
+          >
             <span className="flex items-center justify-center space-x-3">
-              <svg
-                className="animate-spin h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
+              <svg 
+                className="w-5 h-5" 
+                fill="none" 
+                stroke="currentColor" 
                 viewBox="0 0 24 24"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"
+                />
+              </svg>
+              <span>Start Dev Mode Analysis</span>
+            </span>
+          </button>
+        ) : (
+          <button
+            onClick={handleUpload}
+            disabled={!file || isUploading}
+            className={`w-full py-4 px-8 rounded-xl font-semibold text-lg transition-all duration-300 ${
+              !file || isUploading
+                ? 'bg-gray-700/50 text-purple-300/40 cursor-not-allowed border border-purple-500/20'
+                : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 hover:shadow-lg hover:shadow-purple-500/50 transform hover:scale-105'
+            }`}
+          >
+            {isUploading ? (
+              <span className="flex items-center justify-center space-x-3">
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
                   stroke="currentColor"
                   strokeWidth="4"
                 ></circle>
@@ -231,10 +305,11 @@ const LandingPage = ({ onAnalysisStart }) => {
           ) : (
             '🚀 Start Analysis'
           )}
-        </button>
+          </button>
+        )}
 
         {/* Info Footer */}
-        <div className="text-center text-gray-500 text-sm space-y-2">
+        <div className="text-center text-purple-300/60 text-sm space-y-2">
           <p>
             Powered by GPT-4 + LangGraph Multi-Agent System
           </p>

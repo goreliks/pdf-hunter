@@ -15,6 +15,12 @@ Recursion Limit Guidelines:
 # General Configuration
 MAXIMUM_PAGES_TO_PROCESS = 4  # Cap on pages to process for performance
 
+# -- LLM TIMEOUT CONFIGURATION --
+# Timeout values (in seconds) for LLM API calls to prevent infinite hangs
+# Increased TEXT timeout to 120s to accommodate complex operations like report generation
+LLM_TIMEOUT_TEXT = 120    # Timeout for text-only LLM calls (triage, investigator, analyst, etc.)
+LLM_TIMEOUT_VISION = 120  # Timeout for vision LLM calls (image analysis with base64 images)
+
 # -- ORCHESTRATOR CONFIGURATION --
 # Controls the overall workflow: pdf_extraction → {file_analysis || image_analysis} → url_investigation → report_generator
 ORCHESTRATOR_CONFIG = {

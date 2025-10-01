@@ -87,18 +87,18 @@ export function getLogLevelColor(level) {
   switch (levelUpper) {
     case 'DEBUG':
     case 'TRACE':
-      return 'text-gray-400';
+      return 'text-purple-300/60';
     case 'INFO':
-      return 'text-blue-400';
+      return 'text-cyan-400';
     case 'SUCCESS':
-      return 'text-green-400';
+      return 'text-emerald-400';
     case 'WARNING':
-      return 'text-yellow-400';
+      return 'text-amber-400';
     case 'ERROR':
-      return 'text-red-400';
+      return 'text-rose-400';
     case 'CRITICAL':
-      return 'text-red-600 font-bold';
+      return 'text-rose-500 font-bold';
     default:
-      return 'text-gray-300';
+      return 'text-purple-200';
   }
 }
