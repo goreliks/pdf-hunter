@@ -220,9 +220,24 @@ Every log entry in `session.jsonl` follows this format:
 
 ## 🎨 Frontend Technical Requirements
 
-### **1. Data Source: Loguru Async Sink + SSE (Recommended)**
+### **1. Data Source: Loguru Async Sink + SSE**
 
-The frontend receives logs via **Server-Sent Events (SSE)** streamed directly from Loguru's async sink - a single solution that works for both local and remote deployments.
+The frontend receives logs via **Server-Sent Events (SSE)** streamed directly from **Loguru's async sink** - a single solution that works for both local and remote deployments.
+
+**Why This Works:**
+
+Loguru natively supports **coroutine functions as sinks**, allowing us to push log events to in-memory queues in real-time. This means we can stream logs directly from the logging system to connected clients without any file I/O or polling.
+
+```python
+# Loguru supports async sinks
+async def sse_sink(message):
+    # Push log to all connected client queues
+    for queue in connected_clients:
+        await queue.put(message)
+
+# Register the async sink
+logger.add(sse_sink, serialize=True, enqueue=True)
+```
 
 **Architecture:**
 
@@ -242,7 +257,7 @@ Agent Panels (visual display)
 
 **How It Works:**
 
-1. **Loguru Async Sink**: Configured as a coroutine function that pushes logs to client queues
+1. **Loguru Async Sink**: Coroutine function registered as Loguru sink, pushes logs to client queues
 2. **FastAPI Server**: Provides SSE endpoint that yields logs from client queue
 3. **Frontend**: Subscribes via EventSource, receives logs in real-time
 
@@ -277,22 +292,7 @@ def setup_logging(session_id, output_directory, enable_sse=False):
 - **LangGraph Studio**: `setup_logging()` - SSE disabled, only terminal + files
 - **Testing/Debug**: `setup_logging()` - SSE disabled, no overhead
 
-**Alternative Approach (File Polling):**
-
-For desktop apps (Electron/Tauri) with filesystem access, you can skip FastAPI and poll JSONL files directly:
-- Frontend reads `output/{session_id}/logs/session.jsonl` every 100-500ms
-- Zero backend changes required
-- Simpler but ~100-500ms latency vs instant SSE streaming
-
-**Why SSE Over File Polling:**
-
-The async sink + SSE approach is recommended because:
-- Works identically on same machine and remote deployments (no code changes)
-- No filesystem access required (works in pure web apps)
-- Real-time updates without polling overhead
-- Production-grade solution with minimal implementation complexity
-
-**File Location (Persistent Backup):**
+**Persistent Log Files:**
 ```
 output/{session_id}/logs/session.jsonl
 ```
@@ -378,26 +378,24 @@ Backend Agents
     ↓
 Structured Logging (Loguru)
     ↓
-JSONL File (output/{session_id}/logs/session.jsonl)
+Async Sink → SSE Endpoint
     ↓
-    ↓──→ [Option A] File Polling (100-500ms intervals)
-    ↓──→ [Option B] SSE Stream (real-time push)
+Frontend EventSource
     ↓
-Frontend Event Parser
-    ↓
-Agent Router (routes by .record.extra.agent field)
+Agent Router (routes by agent field)
     ↓
 Agent Panels (visual display)
 ```
 
+Also persists to: `output/{session_id}/logs/session.jsonl`
+
 ### **Key Design Decisions**
 
-**Why JSONL Files as Source of Truth?**
-- Files persist across backend restarts
-- Can replay/debug sessions later
-- No custom backend work required for basic polling approach
-- Natural audit trail for investigations
-- Same data structure works for both polling and streaming
+**Why JSONL Files?**
+- Persist across backend restarts
+- Session replay capability
+- Debugging and audit trails
+- Fallback if SSE unavailable
 
 **Why Agent-Centric Panels?**
 - Matches mental model of multi-agent system
@@ -422,58 +420,46 @@ The frontend is a **separate application** from the backend:
 ```
 pdf-hunter/
 ├── src/                    # Backend Python code (existing)
+│   └── pdf_hunter/
+│       ├── config/
+│       │   └── logging_config.py    # Loguru with async sink → SSE streaming
+│       └── api/
+│           └── server.py            # FastAPI SSE endpoint (receives from Loguru)
 ├── output/                 # Analysis outputs + JSONL logs (existing)
 ├── docs/                   # Documentation (existing)
 │   └── LOGGING_FIELD_REFERENCE.md  # Complete field mapping reference
 │
-└── dashboard/              # Frontend application (to be created)
+└── frontend/              # Frontend application (to be created)
     ├── package.json        # Separate npm project
     ├── src/
-    │   ├── components/
-    │   │   ├── AgentPanel.tsx           # Base panel component
-    │   │   ├── PDFExtractionPanel.tsx   # Panel for extraction agent
-    │   │   ├── ImageAnalysisPanel.tsx   # Panel for image analysis
-    │   │   ├── FileAnalysisPanel.tsx    # Panel for file analysis
-    │   │   ├── URLInvestigationPanel.tsx # Panel for URL investigation
-    │   │   └── ReportPanel.tsx          # Final report display
-    │   ├── hooks/
-    │   │   ├── useLogTail.ts            # Hook for polling JSONL file
-    │   │   └── useEventRouter.ts        # Hook for routing events to panels
-    │   ├── types/
-    │   │   └── events.ts                # TypeScript types for log events
-    │   └── App.tsx
     └── public/
 ```
 
 **Development Workflow:**
 ```bash
-# Backend (terminal 1)
-uv run python -m pdf_hunter.orchestrator.graph
+# Terminal 1: FastAPI Server with SSE
+cd src/pdf_hunter/api
+uvicorn server:app --reload
 
-# Frontend (terminal 2)
-cd dashboard
+# Terminal 2: Frontend Development
+cd frontend
 npm run dev
 ```
 
-### **Deployment Options**
+**Key Backend Components:**
 
-**Option 1: Static Site + File Access**
-- Build frontend as static React app
-- Serve from same server as backend
-- Frontend reads JSONL files directly from filesystem
-- Best for: Local development, single-user deployments
+1. **`logging_config.py`**: Loguru configuration with async sink
+   - `setup_logging(enable_sse=True)` - Activates SSE streaming
+   - `async def sse_sink(message)` - Pushes logs to client queues
+   - `connected_clients: Set[asyncio.Queue]` - Manages client connections
 
-**Option 2: API Backend + SSE**
-- Add lightweight FastAPI server
-- Expose endpoint: `GET /api/sessions/{session_id}/events` (SSE)
-- Frontend connects to SSE stream
-- Best for: Multi-user deployments, remote access
+2. **`server.py`**: FastAPI application
+   - `POST /api/analyze` - Upload PDF, returns session_id
+   - `GET /api/sessions/{session_id}/logs` - SSE stream of log events
 
-**Option 3: Hybrid Approach**
-- Frontend can switch between file polling and SSE
-- Environment variable controls which mode to use
-- Same UI code works for both
-- Best for: Maximum flexibility
+**Frontend Connects To:**
+- `http://localhost:8000/api/analyze` - Upload endpoint
+- `http://localhost:8000/api/sessions/{session_id}/logs` - EventSource SSE stream
 
 ---
 
