@@ -1,13 +1,8 @@
 from langgraph.graph import StateGraph, START, END
 
 from .schemas import PDFExtractionState, PDFExtractionInputState, PDFExtractionOutputState
-from .nodes import setup_session, extract_pdf_images, scan_qr_codes, find_embedded_urls
-from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+from .nodes import setup_session, extract_pdf_images, scan_qr_codes, find_embedded_urls, finalize_extraction
 from pdf_hunter.config import PDF_EXTRACTION_CONFIG
-
-# Configure logging for this module
-configure_logging()
-logger = get_logger(__name__)
 
 
 preprocessing_builder = StateGraph(PDFExtractionState, input_schema=PDFExtractionInputState, output_schema=PDFExtractionOutputState)
@@ -16,6 +11,7 @@ preprocessing_builder.add_node("setup_session", setup_session)
 preprocessing_builder.add_node("extract_pdf_images", extract_pdf_images)
 preprocessing_builder.add_node("find_embedded_urls", find_embedded_urls)
 preprocessing_builder.add_node("scan_qr_codes", scan_qr_codes)
+preprocessing_builder.add_node("finalize_extraction", finalize_extraction)
 
 preprocessing_builder.add_edge(START, "setup_session")
 
@@ -23,9 +19,12 @@ preprocessing_builder.add_edge("setup_session", "extract_pdf_images")
 preprocessing_builder.add_edge("setup_session", "find_embedded_urls")
 preprocessing_builder.add_edge("setup_session", "scan_qr_codes")
 
-preprocessing_builder.add_edge("extract_pdf_images", END)
-preprocessing_builder.add_edge("find_embedded_urls", END)
-preprocessing_builder.add_edge("scan_qr_codes", END)
+# All parallel tasks converge to finalize_extraction before END
+preprocessing_builder.add_edge("extract_pdf_images", "finalize_extraction")
+preprocessing_builder.add_edge("find_embedded_urls", "finalize_extraction")
+preprocessing_builder.add_edge("scan_qr_codes", "finalize_extraction")
+
+preprocessing_builder.add_edge("finalize_extraction", END)
 
 preprocessing_graph = preprocessing_builder.compile()
 preprocessing_graph = preprocessing_graph.with_config(PDF_EXTRACTION_CONFIG)
@@ -33,13 +32,13 @@ preprocessing_graph = preprocessing_graph.with_config(PDF_EXTRACTION_CONFIG)
 
 if __name__ == "__main__":
     import pprint
-    import logging
     import os
     import asyncio
+    from loguru import logger
+    from pdf_hunter.config.logging_config import setup_logging
 
-    # Configure more detailed logging for standalone execution
-    configure_logging(level=logging.INFO, log_to_file=True)
-    logger = get_logger(__name__)
+    # Configure logging for standalone execution with DEBUG output
+    setup_logging(debug_to_terminal=True)
 
     async def run_extraction():
         module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -54,28 +53,34 @@ if __name__ == "__main__":
             "number_of_pages_to_process": 1,  # We want to process only the first page (page 0)
         }
 
-        logger.info(f"Running PDF Extraction on: {file_path}")
+        logger.info(f"Running PDF Extraction on: {file_path}",
+                    agent="pdf_extraction_test",
+                    test_file=file_path)
 
         final_state = await preprocessing_graph.ainvoke(initial_state)
 
-        logger.info("PDF Extraction Complete")
-        
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Final state: {pprint.pformat(final_state)}")
+        session_id = final_state.get('session_id', 'unknown')
+        logger.info("PDF Extraction Complete",
+                    agent="pdf_extraction_test",
+                    session_id=session_id)
 
         # Verification
         if final_state.get("errors"):
-            logger.warning(f"Completed with {len(final_state['errors'])} error(s)")
+            logger.warning(f"Completed with {len(final_state['errors'])} error(s)",
+                          agent="pdf_extraction_test",
+                          session_id=session_id,
+                          error_count=len(final_state["errors"]))
             for error in final_state["errors"]:
-                logger.error(f"Error: {error}")
+                logger.error(f"Error: {error}",
+                           agent="pdf_extraction_test",
+                           session_id=session_id)
         else:
-            logger.info("Completed successfully")
-            logger.info(f"PDF Hash Calculated: {'Yes' if final_state.get('pdf_hash') else 'No'}")
-            logger.info(f"Images Extracted: {len(final_state.get('extracted_images', []))}")
-            logger.info(f"URL Findings: {len(final_state.get('extracted_urls', []))}")
-            
-            if final_state.get('extracted_urls') and logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Example URL Finding: {pprint.pformat(final_state['extracted_urls'][0])}")
+            logger.success("✅ PDF Extraction completed successfully",
+                          agent="pdf_extraction_test",
+                          session_id=session_id,
+                          images_extracted=len(final_state.get('extracted_images', [])),
+                          urls_found=len(final_state.get('extracted_urls', [])))
+
 
     # Run the async function
     asyncio.run(run_extraction())

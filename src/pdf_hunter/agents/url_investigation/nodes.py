@@ -1,8 +1,8 @@
 import os
 import json
 import asyncio
-import logging
 from datetime import datetime
+from loguru import logger
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from typing import Literal
 from pdf_hunter.agents.image_analysis.schemas import URLMissionStatus
@@ -10,16 +10,13 @@ from .tools import domain_whois
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from langgraph.constants import Send
 from langgraph.graph import END
-from pdf_hunter.shared.utils.logging_config import get_logger
 from pdf_hunter.config import THINKING_TOOL_ENABLED
+from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 
 
 from pdf_hunter.config import url_investigation_investigator_llm, url_investigation_analyst_llm
 from .schemas import URLInvestigationState, URLInvestigatorState, URLAnalysisResult, AnalystFindings
 from .prompts import URL_INVESTIGATION_INVESTIGATOR_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_USER_PROMPT
-
-# Initialize logger
-logger = get_logger(__name__)
 
 # Helper function to load MCP tools asynchronously
 async def load_mcp_tools_async(session):
@@ -59,37 +56,48 @@ async def investigate_url(state: URLInvestigatorState):
         if not session_output_dir:
             raise ValueError("output_directory is required")
         
-        logger.info(f"Starting URL investigation for: {url_task.url}")
-        logger.debug(f"URL priority: {url_task.priority}, source context: {getattr(url_task, 'source_context', 'None')}")
+        logger.info(
+            f"🔍 Starting URL investigation: {url_task.url}",
+            agent="URLInvestigation",
+            node="investigate_url",
+            event_type="INVESTIGATION_START",
+            url=url_task.url,
+            priority=url_task.priority
+        )
+        logger.debug(
+            f"URL priority: {url_task.priority}, source context: {getattr(url_task, 'source_context', 'None')}",
+            agent="URLInvestigation",
+            node="investigate_url"
+        )
 
         # Generate unique task ID for this investigation to ensure session isolation
         task_id = f"url_{abs(hash(url_task.url))}"
-        logger.debug(f"Generated task ID: {task_id}")
+        logger.debug(f"Generated task ID: {task_id}", agent="URLInvestigation", node="investigate_url")
 
         # Create task-specific investigation directory under url investigation
         url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
         task_investigation_dir = os.path.join(url_investigation_dir, task_id)
         await asyncio.to_thread(os.makedirs, task_investigation_dir, exist_ok=True)
-        logger.debug(f"Created investigation directory: {task_investigation_dir}")
+        logger.debug(f"Created investigation directory: {task_investigation_dir}", agent="URLInvestigation", node="investigate_url")
 
         # Get the task-specific MCP session and load tools fresh each time
         from ...shared.utils.mcp_client import get_mcp_session
         
-        logger.debug(f"Getting MCP session for task: {task_id}")
+        logger.debug(f"Getting MCP session for task: {task_id}", agent="URLInvestigation", node="investigate_url")
         session = await get_mcp_session(task_id, session_output_dir)
-        logger.debug("Loading MCP tools")
+        logger.debug("Loading MCP tools", agent="URLInvestigation", node="investigate_url")
         mcp_tools = await load_mcp_tools_async(session)
         all_tools = mcp_tools + [domain_whois]
         if THINKING_TOOL_ENABLED:
             from pdf_hunter.shared.tools import think_tool
             all_tools.append(think_tool)
-            logger.debug("Thinking tool enabled and added to toolset")
-        logger.debug(f"Loaded {len(all_tools)} tools for investigation")
+            logger.debug("Thinking tool enabled and added to toolset", agent="URLInvestigation", node="investigate_url")
+        logger.debug(f"Loaded {len(all_tools)} tools for investigation", agent="URLInvestigation", node="investigate_url")
         model_with_tools = url_investigation_investigator_llm.bind_tools(all_tools)
 
         messages = state.get("investigation_logs", [])
         if not messages:
-            logger.info("Starting new URL investigation chain")
+            logger.info("🆕 Starting new investigation chain", agent="URLInvestigation", node="investigate_url", event_type="CHAIN_START")
             # Get absolute path for the task investigation directory
             abs_task_investigation_dir = await asyncio.to_thread(os.path.abspath, task_investigation_dir)
             # Build context information
@@ -110,26 +118,26 @@ async def investigate_url(state: URLInvestigatorState):
             **IMPORTANT:** This URL was extracted from a PDF document, not discovered on a website. The PDF may have used social engineering tactics (like fake verification prompts) to trick users into visiting this URL. Your investigation should focus on where this URL leads and whether it's part of a larger attack chain.
             """
             initial_messages = [ SystemMessage(content=URL_INVESTIGATION_INVESTIGATOR_SYSTEM_PROMPT), HumanMessage(content=initial_prompt) ]
-            logger.debug("Created initial investigation prompt")
+            logger.debug("Created initial investigation prompt", agent="URLInvestigation", node="investigate_url")
             
             # Get the LLM response asynchronously - proper async pattern
-            logger.debug("Invoking investigator LLM")
+            logger.debug("Invoking investigator LLM", agent="URLInvestigation", node="investigate_url")
             llm_response = await model_with_tools.ainvoke(initial_messages)
-            logger.debug("Received LLM response for initial investigation")
+            logger.debug("Received LLM response for initial investigation", agent="URLInvestigation", node="investigate_url")
             
             # Return both the initial messages AND the LLM response
             return {"investigation_logs": initial_messages + [llm_response]}
         
         else:
             # For subsequent calls, use existing messages and add only the new response
-            logger.debug(f"Continuing investigation chain, turn {len(messages) // 2}")
+            logger.debug(f"🔄 Continuing investigation chain, turn {len(messages) // 2}", agent="URLInvestigation", node="investigate_url")
             llm_response = await model_with_tools.ainvoke(messages)
-            logger.debug("Received LLM response for continued investigation")
+            logger.debug("Received LLM response for continued investigation", agent="URLInvestigation", node="investigate_url")
             return {"investigation_logs": [llm_response]}
     
     except Exception as e:
         error_msg = f"Error in investigate_url: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.error(error_msg, agent="URLInvestigation", node="investigate_url", event_type="ERROR", exc_info=True)
         return {"errors": [error_msg]}
 
 
@@ -141,12 +149,12 @@ async def execute_browser_tools(state: URLInvestigatorState):
         # Safety check to handle potential issues with tool_calls format
         investigation_logs = state.get("investigation_logs", [])
         if not investigation_logs:
-            logger.warning("No investigation logs found")
+            logger.warning("No investigation logs found", agent="URLInvestigation", node="execute_browser_tools")
             return {"errors": ["No investigation logs available for tool execution"]}
             
         last_message = investigation_logs[-1]
         if not hasattr(last_message, "tool_calls") or not last_message.tool_calls:
-            logger.warning("No tool calls found in the last message")
+            logger.warning("No tool calls found in the last message", agent="URLInvestigation", node="execute_browser_tools")
             return {"investigation_logs": [ToolMessage(content="No tool calls were found to execute.", tool_call_id="none")]}
         
         tool_calls = last_message.tool_calls
@@ -159,8 +167,14 @@ async def execute_browser_tools(state: URLInvestigatorState):
         if not session_output_dir:
             raise ValueError("output_directory is required")
         
-        logger.info(f"Executing browser tool calls for URL: {url_task.url}")
-        logger.info(f"Found {len(tool_calls)} tool call(s) to execute")
+        logger.info(
+            f"🔧 Executing {len(tool_calls)} tool call(s) for: {url_task.url}",
+            agent="URLInvestigation",
+            node="execute_browser_tools",
+            event_type="TOOL_EXECUTION_START",
+            tool_count=len(tool_calls),
+            url=url_task.url
+        )
 
         # Generate the same task ID as used in investigate_url for session consistency
         task_id = f"url_{abs(hash(url_task.url))}"
@@ -176,52 +190,61 @@ async def execute_browser_tools(state: URLInvestigatorState):
             # Get the task-specific MCP session and load tools fresh each time
             from ...shared.utils.mcp_client import get_mcp_session
             
-            logger.debug(f"Getting MCP session for tool execution: {task_id}")
+            logger.debug(f"Getting MCP session for tool execution: {task_id}", agent="URLInvestigation", node="execute_browser_tools")
             session = await get_mcp_session(task_id, session_output_dir)
-            logger.debug("Loading MCP tools for execution")
+            logger.debug("Loading MCP tools for execution", agent="URLInvestigation", node="execute_browser_tools")
             mcp_tools = await load_mcp_tools_async(session)
             tools = mcp_tools + [domain_whois]
             if THINKING_TOOL_ENABLED:
                 from pdf_hunter.shared.tools.think_tool import think_tool
                 tools.append(think_tool)
-                logger.debug("Thinking tool enabled and added to execution toolset")
-            logger.debug(f"Loaded {len(tools)} tools for execution")
+                logger.debug("Thinking tool enabled and added to execution toolset", agent="URLInvestigation", node="execute_browser_tools")
+            logger.debug(f"Loaded {len(tools)} tools for execution", agent="URLInvestigation", node="execute_browser_tools")
             tool_by_name = {tool.name: tool for tool in tools}
 
             # Execute tool calls (sequentially for reliability)
             observations = []
             for tool_call in tool_calls:
                 tool_name = tool_call["name"]
-                logger.info(f"Executing tool: {tool_name}")
+                logger.info(f"🔧 Executing tool: {tool_name}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_CALL", tool_name=tool_name)
                 
                 try:
                     tool = tool_by_name[tool_name]
                     
                     if tool_name == "domain_whois":
                         # Use async invoke to prevent blocking
-                        logger.info(f"Running domain_whois with args: {tool_call['args']}")
                         observation = await asyncio.to_thread(tool.invoke, tool_call["args"])
                     elif tool_name == "think_tool":
                         # Use async invoke to prevent blocking
-                        logger.info(f"Running think_tool with reflection: {tool_call['args']}")
                         observation = await asyncio.to_thread(tool.invoke, tool_call["args"])
+                        # Log the strategic reflection at INFO level
+                        reflection_text = tool_call["args"].get("reflection", "")
+                        if reflection_text:
+                            logger.info(
+                                f"💭 Strategic Reflection: {reflection_text}",
+                                agent="URLInvestigation",
+                                node="execute_browser_tools",
+                                event_type="STRATEGIC_THINKING",
+                                tool_name=tool_name,
+                                reflection=reflection_text
+                            )
                     else:
-                        logger.info(f"Running MCP tool {tool_name} with args: {tool_call['args']}")
+                        # MCP browser tools
                         observation = await tool.ainvoke(tool_call["args"])
                         
-                    logger.info(f"Tool {tool_name} executed successfully")
+                    logger.info(f"✅ Tool {tool_name} executed successfully", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_SUCCESS", tool_name=tool_name)
                     observations.append(observation)
                     
                 except ToolException as e:
                     # Handle tool exceptions gracefully (e.g., network errors, invalid URLs)
                     error_msg = f"Tool execution failed: {str(e)}"
-                    logger.warning(f"Tool {tool_name} execution failed: {str(e)}")
+                    logger.warning(f"⚠️ Tool {tool_name} execution failed: {str(e)}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_FAILURE", tool_name=tool_name)
                     observations.append(error_msg)
                     
                 except Exception as e:
                     # Handle any other unexpected errors
                     error_msg = f"Unexpected error in tool '{tool_name}': {str(e)}"
-                    logger.error(f"Unexpected error in tool {tool_name}: {str(e)}", exc_info=True)
+                    logger.error(f"Unexpected error in tool {tool_name}: {str(e)}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_ERROR", tool_name=tool_name, exc_info=True)
                     observations.append(error_msg)
 
             tool_outputs = [
@@ -233,12 +256,18 @@ async def execute_browser_tools(state: URLInvestigatorState):
                 for observation, tool_call in zip(observations, tool_calls)
             ]
             
-            logger.info(f"Created {len(tool_outputs)} tool messages")
+            logger.debug(f"Created {len(tool_outputs)} tool messages", agent="URLInvestigation", node="execute_browser_tools")
             return tool_outputs
         
-        logger.info("Executing all tools")
+        logger.debug("Executing all tools", agent="URLInvestigation", node="execute_browser_tools")
         messages = await execute_tools()
-        logger.info(f"Completed execution of {len(messages)} tools")
+        logger.info(
+            f"✅ Completed execution of {len(messages)} tools",
+            agent="URLInvestigation",
+            node="execute_browser_tools",
+            event_type="TOOL_EXECUTION_COMPLETE",
+            tool_count=len(messages)
+        )
 
         # Return the messages to be added to the investigation_logs
         # Since add_messages handles sequences, we can return the list
@@ -246,7 +275,7 @@ async def execute_browser_tools(state: URLInvestigatorState):
     
     except Exception as e:
         error_msg = f"Error in execute_browser_tools: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.error(error_msg, agent="URLInvestigation", node="execute_browser_tools", event_type="ERROR", exc_info=True)
         return {"errors": [error_msg]}
 
 
@@ -265,28 +294,52 @@ async def analyze_url_content(state: URLInvestigatorState) -> dict:
         if not investigation_log:
             raise ValueError("investigation_logs is required")
 
-        logger.info(f"Starting analysis synthesis for URL: {url_task.url}")
-        logger.debug(f"Investigation log contains {len(investigation_log)} messages")
+        logger.info(
+            f"📊 Starting analysis synthesis for: {url_task.url}",
+            agent="URLInvestigation",
+            node="analyze_url_content",
+            event_type="ANALYSIS_START",
+            url=url_task.url,
+            log_messages=len(investigation_log)
+        )
 
         analyst_llm = url_investigation_analyst_llm.with_structured_output(AnalystFindings)
         
-        logger.debug("Creating analyst prompt")
+        logger.debug("Creating analyst prompt", agent="URLInvestigation", node="analyze_url_content")
         analyst_prompt = URL_INVESTIGATION_ANALYST_USER_PROMPT.format(
             current_datetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             initial_briefing_json=url_task.model_dump_json(indent=2),
             investigation_log_json=json.dumps([msg.model_dump() for msg in investigation_log], indent=2)
         )
         
-        logger.debug("Invoking analyst LLM for findings synthesis")
-        analyst_findings = await analyst_llm.ainvoke([
-            SystemMessage(content=URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT),
-            HumanMessage(content=analyst_prompt)
-        ])
+        logger.debug("Invoking analyst LLM for findings synthesis", agent="URLInvestigation", node="analyze_url_content")
+        # Add timeout protection to prevent infinite hangs on analyst LLM calls
+        analyst_findings = await asyncio.wait_for(
+            analyst_llm.ainvoke([
+                SystemMessage(content=URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT),
+                HumanMessage(content=analyst_prompt)
+            ]),
+            timeout=LLM_TIMEOUT_TEXT
+        )
 
         new_status = URLMissionStatus.COMPLETED if analyst_findings.mission_status == "completed" else URLMissionStatus.FAILED
         url_task.mission_status = new_status
-        logger.info(f"URL investigation complete with status: {new_status}")
-        logger.debug(f"Verdict: {analyst_findings.verdict}, confidence: {analyst_findings.confidence}")
+
+        summary_preview = analyst_findings.summary[:300] + "..." if len(analyst_findings.summary) > 300 else analyst_findings.summary
+        logger.info(
+            f"📊 Analysis Complete | Verdict: {analyst_findings.verdict} | Confidence: {analyst_findings.confidence:.1%} | Status: {new_status.value} | Summary: {summary_preview}",
+            agent="URLInvestigation",
+            node="analyze_url_content",
+            event_type="ANALYSIS_COMPLETE",
+            url=url_task.url,
+            verdict=analyst_findings.verdict,
+            confidence=analyst_findings.confidence,
+            mission_status=new_status.value,
+            final_url=analyst_findings.final_url,
+            summary=analyst_findings.summary,
+            detected_threats=analyst_findings.detected_threats,
+            screenshot_count=len(analyst_findings.screenshot_paths)
+        )
 
         link_analysis_final_report = URLAnalysisResult(
             initial_url=url_task,
@@ -294,13 +347,34 @@ async def analyze_url_content(state: URLInvestigatorState) -> dict:
             analyst_findings=analyst_findings
         )
         
-        logger.info(f"URL analysis summary: {analyst_findings.summary[:100]}...")
-        logger.debug("Generated final URL analysis report")
+        logger.debug("Generated final URL analysis report", agent="URLInvestigation", node="analyze_url_content")
         return {"link_analysis_final_report": link_analysis_final_report}
     
+    except asyncio.TimeoutError:
+        error_msg = f"Error in analyze_url_content: Analyst LLM call timed out after {LLM_TIMEOUT_TEXT} seconds for URL: {url_task.url}"
+        logger.error(
+            "Error in analyze_url_content: Analyst LLM call timed out after {} seconds for URL: {}",
+            LLM_TIMEOUT_TEXT,
+            url_task.url,
+            agent="URLInvestigation",
+            node="analyze_url_content",
+            event_type="ERROR",
+            timeout_seconds=LLM_TIMEOUT_TEXT,
+            url=url_task.url,
+            exc_info=True
+        )
+        return {"errors": [error_msg]}
     except Exception as e:
-        error_msg = f"Error in analyze_url_content: {e}"
-        logger.error(error_msg, exc_info=True)
+        error_msg = f"Error in analyze_url_content: {type(e).__name__}: {e}"
+        logger.error(
+            "Error in analyze_url_content: {}: {}",
+            type(e).__name__,
+            str(e),
+            agent="URLInvestigation",
+            node="analyze_url_content",
+            event_type="ERROR",
+            exc_info=True
+        )
         return {"errors": [error_msg]}
 
 
@@ -317,10 +391,10 @@ def should_continue(state: URLInvestigatorState) -> Literal["execute_browser_too
     url = state["url_task"].url
     
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        logger.debug(f"URL {url}: Tool calls found, continuing with tool execution")
+        logger.debug(f"URL {url}: Tool calls found, continuing with tool execution", agent="URLInvestigation", node="should_continue")
         return "execute_browser_tools"
     
-    logger.info(f"URL {url}: No more tool calls, proceeding to analysis")
+    logger.info(f"URL {url}: No more tool calls, proceeding to analysis", agent="URLInvestigation", node="should_continue", event_type="ROUTING_TO_ANALYSIS")
     return "analyze_url_content"
 
 
@@ -332,17 +406,23 @@ def route_url_analysis(state: URLInvestigationState):
     high_priority_urls = state.get("high_priority_urls", [])
     
     if high_priority_urls:
-        logger.info(f"Found {len(high_priority_urls)} high priority URLs to analyze")
+        logger.info(
+            f"🚀 Dispatching {len(high_priority_urls)} URL investigations in parallel",
+            agent="URLInvestigation",
+            node="route_url_analysis",
+            event_type="PARALLEL_DISPATCH",
+            url_count=len(high_priority_urls)
+        )
         
         for url in high_priority_urls:
-            logger.debug(f"Preparing to analyze URL: {url.url} (priority: {url.priority})")
+            logger.debug(f"Preparing to analyze URL: {url.url} (priority: {url.priority})", agent="URLInvestigation", node="route_url_analysis")
             
         return [Send("conduct_link_analysis", {
             "url_task": url,
             "output_directory": state["output_directory"]
         }) for url in high_priority_urls]
     
-    logger.info("No high priority URLs found for analysis")
+    logger.info("No high priority URLs found for analysis", agent="URLInvestigation", node="route_url_analysis", event_type="NO_URLS_TO_ANALYZE")
     return "save_url_analysis_state"
 
 
@@ -350,7 +430,7 @@ async def filter_high_priority_urls(state: URLInvestigationState):
     """
     Filter and return only high priority URLs from the visual analysis report.
     """
-    logger.info("Filtering high priority URLs from visual analysis report")
+    logger.info("🔎 Filtering high priority URLs from visual analysis", agent="URLInvestigation", node="filter_high_priority_urls", event_type="FILTER_START")
     
     try:
         # Create url investigation investigations directory
@@ -360,19 +440,19 @@ async def filter_high_priority_urls(state: URLInvestigationState):
         if session_output_dir:
             url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
             await asyncio.to_thread(os.makedirs, url_investigation_dir, exist_ok=True)
-            logger.debug(f"Created URL investigation directory: {url_investigation_dir}")
+            logger.debug(f"Created URL investigation directory: {url_investigation_dir}", agent="URLInvestigation", node="filter_high_priority_urls")
 
         if "visual_analysis_report" in state and state["visual_analysis_report"]:
             visual_report = state["visual_analysis_report"]
-            logger.debug("Found visual analysis report in state")
+            logger.debug("Found visual analysis report in state", agent="URLInvestigation", node="filter_high_priority_urls")
             
             # Handle both dict and object formats
             if isinstance(visual_report, dict):
                 all_priority_urls = visual_report.get("all_priority_urls", [])
-                logger.debug(f"Found {len(all_priority_urls)} URLs in dictionary format report")
+                logger.debug(f"Found {len(all_priority_urls)} URLs in dictionary format report", agent="URLInvestigation", node="filter_high_priority_urls")
             else:
                 all_priority_urls = visual_report.all_priority_urls
-                logger.debug(f"Found {len(all_priority_urls)} URLs in object format report")
+                logger.debug(f"Found {len(all_priority_urls)} URLs in object format report", agent="URLInvestigation", node="filter_high_priority_urls")
 
             if all_priority_urls:
                 high_priority_count = 0
@@ -383,22 +463,30 @@ async def filter_high_priority_urls(state: URLInvestigationState):
                         url.mission_status = URLMissionStatus.IN_PROGRESS
                         high_priority_urls.append(url)
                         high_priority_count += 1
-                        logger.debug(f"Selected high priority URL: {url.url} (priority: {url.priority})")
+                        logger.debug(f"Selected high priority URL: {url.url} (priority: {url.priority})", agent="URLInvestigation", node="filter_high_priority_urls")
                     else:
                         url.mission_status = URLMissionStatus.NOT_RELEVANT
                         low_priority_count += 1
                         
-                logger.info(f"Filtered URLs: {high_priority_count} high priority, {low_priority_count} low priority")
+                logger.info(
+                    f"🔎 Filtered URLs: {high_priority_count} high priority (≤5), {low_priority_count} low priority (>5)",
+                    agent="URLInvestigation",
+                    node="filter_high_priority_urls",
+                    event_type="FILTER_COMPLETE",
+                    high_priority_count=high_priority_count,
+                    low_priority_count=low_priority_count,
+                    total_urls=len(all_priority_urls)
+                )
             else:
-                logger.info("No URLs found in visual analysis report")
+                logger.info("No URLs found in visual analysis report", agent="URLInvestigation", node="filter_high_priority_urls")
         else:
-            logger.info("No visual analysis report found in state")
+            logger.info("No visual analysis report found in state", agent="URLInvestigation", node="filter_high_priority_urls")
             
         return {"high_priority_urls": high_priority_urls}
     
     except Exception as e:
         error_msg = f"Error in filter_high_priority_urls: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.error(error_msg, agent="URLInvestigation", node="filter_high_priority_urls", event_type="ERROR", exc_info=True)
         return {"errors": [error_msg]}
 
 
@@ -406,14 +494,13 @@ async def save_url_analysis_state(state: URLInvestigationState):
     """
     Saving the final state to disk for debugging and tracking.
     """
-    logger.info("Saving URL analysis final state")
+    logger.info("💾 Saving URL analysis final state", agent="URLInvestigation", node="save_url_analysis_state", event_type="SAVE_START")
     
     try:
         session_output_dir = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown_session")
         
-        logger.debug(f"Session ID: {session_id}")
-        logger.debug(f"Output directory: {session_output_dir}")
+        logger.debug(f"Session ID: {session_id} | Output: {session_output_dir}", agent="URLInvestigation", node="save_url_analysis_state")
 
         # Create url investigation subdirectory
         url_investigation_directory = os.path.join(session_output_dir, "url_investigation")
@@ -422,13 +509,24 @@ async def save_url_analysis_state(state: URLInvestigationState):
         json_filename = f"url_investigation_state_session_{session_id}.json"
         json_path = os.path.join(url_investigation_directory, json_filename)
         
-        logger.debug(f"Saving state to: {json_path}")
+        logger.debug(f"Saving state to: {json_path}", agent="URLInvestigation", node="save_url_analysis_state")
         await dump_state_to_file(state, json_path)
-        logger.info(f"URL analysis state saved to: {json_path}")
+        
+        # Count results
+        results_count = len(state.get("link_analysis_final_reports", []))
+        logger.info(
+            f"💾 URL analysis state saved: {results_count} investigations complete",
+            agent="URLInvestigation",
+            node="save_url_analysis_state",
+            event_type="SAVE_COMPLETE",
+            file_path=json_path,
+            investigation_count=results_count,
+            session_id=session_id
+        )
 
         return {}
     
     except Exception as e:
         error_msg = f"Error in save_url_analysis_state: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.error(error_msg, agent="URLInvestigation", node="save_url_analysis_state", event_type="ERROR", exc_info=True)
         return {"errors": [error_msg]}

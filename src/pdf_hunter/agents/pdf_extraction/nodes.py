@@ -1,10 +1,12 @@
 import base64
 from PIL import Image
 import io
-import logging
 import pathlib
 import os
+import inspect
 from datetime import datetime
+
+from loguru import logger
 
 from .schemas import PDFExtractionState, PDFHashData, ExtractedImage, ExtractedURL
 
@@ -14,26 +16,27 @@ from pdf_hunter.shared.utils.image_extraction import extract_pages_as_base64_ima
 from pdf_hunter.shared.utils.url_extraction import extract_urls_from_pdf
 from pdf_hunter.shared.utils.file_operations import ensure_output_directory
 from pdf_hunter.shared.utils.qr_extraction import process_pdf_for_qr_codes
-from pdf_hunter.shared.utils.logging_config import get_logger
 from pdf_hunter.config import MAXIMUM_PAGES_TO_PROCESS
-
-logger = get_logger(__name__)
 
 
 def setup_session(state: PDFExtractionState):
     """
     Initializes the PDF extraction by validating paths, calculating hashes,
-    generating session_id, and creating session-specific directory structure.
+    generating session_id (or using provided one), and creating session-specific directory structure.
     """
-    logger.info("Setting Up Session")
     try:
         file_path = state['file_path']
         base_output_directory = state.get('output_directory', 'output')
         number_of_pages_to_process = state["number_of_pages_to_process"]
+        provided_session_id = state.get('session_id')
         
-        logger.debug(f"Processing file: {file_path}")
-        logger.debug(f"Base output directory: {base_output_directory}")
-        logger.debug(f"Pages to process: {number_of_pages_to_process}")
+        # Agent start event
+        logger.info(f"🚀 Starting PDF extraction session",
+                    agent="PdfExtraction",
+                    node="setup_session",
+                    event_type="AGENT_START",
+                    file_path=file_path,
+                    provided_session_id=provided_session_id)
 
         # Validate inputs
         if not file_path:
@@ -50,43 +53,89 @@ def setup_session(state: PDFExtractionState):
         
         # Apply maximum pages cap
         if number_of_pages_to_process > MAXIMUM_PAGES_TO_PROCESS:
-            logger.warning(f"Requested {number_of_pages_to_process} pages exceeds maximum limit of {MAXIMUM_PAGES_TO_PROCESS}. Capping to {MAXIMUM_PAGES_TO_PROCESS}.")
+            logger.warning(f"Requested {number_of_pages_to_process} pages exceeds maximum limit of {MAXIMUM_PAGES_TO_PROCESS}. Capping to {MAXIMUM_PAGES_TO_PROCESS}.",
+                          agent="PdfExtraction",
+                          node="setup_session")
             number_of_pages_to_process = MAXIMUM_PAGES_TO_PROCESS
 
-        # 1. Calculate file hashes first (needed for session_id)
-        logger.debug("Calculating file hashes")
+        # 1. Calculate file hashes (needed for validation and session_id generation)
         hashes = calculate_file_hashes(file_path)
         pdf_hash = PDFHashData(sha1=hashes["sha1"], md5=hashes["md5"])
 
-        # 2. Generate session_id using {sha1}_{timestamp}
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        session_id = f"{pdf_hash.sha1}_{timestamp}"
-        logger.debug(f"Generated session ID: {session_id}")
+        # 2. Use provided session_id or generate new one
+        if provided_session_id:
+            session_id = provided_session_id
+            logger.info(
+                f"📝 Using provided session_id",
+                agent="PdfExtraction",
+                node="setup_session",
+                session_id=session_id,
+                expected_sha1=pdf_hash.sha1[:16]
+            )
+            # Validate that provided session_id matches file hash
+            if not session_id.startswith(pdf_hash.sha1):
+                logger.warning(
+                    f"⚠️ Provided session_id doesn't match file SHA1 hash",
+                    agent="PdfExtraction",
+                    node="setup_session",
+                    session_id=session_id,
+                    file_sha1=pdf_hash.sha1[:16]
+                )
+        else:
+            # Generate new session_id using {sha1}_{timestamp}
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            session_id = f"{pdf_hash.sha1}_{timestamp}"
+            logger.info(
+                f"🆕 Generated new session_id",
+                agent="PdfExtraction",
+                node="setup_session",
+                session_id=session_id
+            )
 
         # 3. Create session-specific output directory
-        session_output_directory = os.path.join(base_output_directory, session_id)
+        # Check if base_output_directory already includes the session_id (when called from API)
+        # to avoid double-nesting like output/{session_id}/{session_id}/
+        if base_output_directory.endswith(session_id):
+            # API server already created output/{session_id}/, use it directly
+            session_output_directory = base_output_directory
+        else:
+            # Standalone mode: base_output_directory is just "output", append session_id
+            session_output_directory = os.path.join(base_output_directory, session_id)
+        
         pdf_extraction_directory = os.path.join(session_output_directory, "pdf_extraction")
 
         # 4. Ensure directories exist
-        logger.debug(f"Creating directory structure in {session_output_directory}")
         ensure_output_directory(pathlib.Path(session_output_directory))
         ensure_output_directory(pathlib.Path(pdf_extraction_directory))
 
         # 5. Get total page count
         page_count = get_pdf_page_count(file_path)
-        logger.debug(f"PDF contains {page_count} pages")
 
         # 6. Validate and set pages to process
         if number_of_pages_to_process > page_count:
-            logger.warning(f"Requested {number_of_pages_to_process} pages but PDF only has {page_count} pages. Processing all available pages.")
+            logger.warning(
+                f"⚠️ Requested {number_of_pages_to_process} pages but PDF only has {page_count} pages. Processing all available pages.",
+                agent="PdfExtraction",
+                node="setup_session",
+            )
             number_of_pages_to_process = page_count
         
         pages_to_process = list(range(number_of_pages_to_process))
         
-        logger.info(f"Session ID: {session_id}")
-        logger.info(f"PDF Hash (SHA1): {pdf_hash.sha1}")
-        logger.info(f"Session Output Directory: {session_output_directory}")
-        logger.info(f"Total Pages: {page_count}")
+        # Session created event with all metadata
+        logger.info(
+            f"✅ Session initialized | ID: {session_id} | SHA1: {pdf_hash.sha1[:16]}... | MD5: {pdf_hash.md5[:16]}... | Pages (to process/total): {number_of_pages_to_process}/{page_count}",
+            agent="PdfExtraction",
+            node="setup_session",
+            event_type="SESSION_CREATED",
+            session_id=session_id,
+            pdf_hash_sha1=pdf_hash.sha1,
+            pdf_hash_md5=pdf_hash.md5,
+            total_pages=page_count,
+            pages_to_process=number_of_pages_to_process,
+            session_output_dir=session_output_directory,
+            pdf_extraction_dir=pdf_extraction_directory,
+        )
 
         result = {
             "session_id": session_id,
@@ -95,12 +144,15 @@ def setup_session(state: PDFExtractionState):
             "page_count": page_count,
             "pages_to_process": pages_to_process
         }
-        logger.debug("Session setup complete")
         return result
 
     except Exception as e:
         error_msg = f"Error in setup_session: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.exception("❌ Session setup failed",
+                        agent="PdfExtraction",
+                        node="setup_session",
+                        event_type="ERROR",
+                        error=str(e))
         return {"errors": [error_msg]}
 
 
@@ -109,9 +161,9 @@ def extract_pdf_images(state: PDFExtractionState):
     Extracts images from the specified pages of the PDF, calculates their
     perceptual hash (phash), and saves them to the preprocessing subdirectory.
     """
-    logger.info("Extracting PDF Images")
     try:
         file_path = state['file_path']
+        session_id = state.get('session_id')
         session_output_dir = state['output_directory']
         pdf_extraction_dir = pathlib.Path(os.path.join(session_output_dir, "pdf_extraction"))
         pages_to_process = state.get('pages_to_process')
@@ -119,12 +171,17 @@ def extract_pdf_images(state: PDFExtractionState):
         # If specific pages aren't defined, default to the first page.
         if not pages_to_process:
             pages_to_process = [0] if state.get('page_count', 0) > 0 else []
-            logger.debug("No specific pages defined, defaulting to first page")
-        else:
-            logger.debug(f"Processing pages: {pages_to_process}")
+
+        # Image extraction start event
+        logger.info("📸 Extracting images from PDF pages",
+                    agent="PdfExtraction",
+                    node="extract_images",
+                    event_type="IMAGE_EXTRACTION_START",
+                    session_id=session_id,
+                    pages_count=len(pages_to_process),
+                    dpi=150)
 
         # 1. Extract raw image data using our utility
-        logger.debug(f"Extracting images from {len(pages_to_process)} pages at 150 DPI")
         base64_images_data = extract_pages_as_base64_images(
             pdf_path=file_path,
             pages=pages_to_process,
@@ -133,20 +190,19 @@ def extract_pdf_images(state: PDFExtractionState):
         )
 
         extracted_images = []
+        images_data = []  # For summary logging with all image details
+        
         for img_data in base64_images_data:
             page_number = img_data['page_number']
-            logger.debug(f"Processing image from page {page_number}")
             
             # 2. Decode image to calculate phash and save
             img_bytes = base64.b64decode(img_data["base64_data"])
             pil_image = Image.open(io.BytesIO(img_bytes))
 
             # 3. Calculate perceptual hash
-            logger.debug(f"Calculating perceptual hash for page {page_number}")
             phash = calculate_image_phash(pil_image)
 
             # 4. Save the image file to pdf_extraction subdirectory
-            logger.debug(f"Saving image for page {page_number}")
             saved_path = save_image(
                 image=pil_image,
                 output_dir=pdf_extraction_dir,
@@ -155,8 +211,18 @@ def extract_pdf_images(state: PDFExtractionState):
                 phash=phash
             )
 
+            # Progress logging (DEBUG level for per-image tracking)
+            logger.debug(
+                f"📸 Page {page_number} extracted | pHash: {phash} | Path: {saved_path.name}",
+                agent="PdfExtraction",
+                node="extract_images",
+                session_id=session_id,
+                page_number=page_number,
+                phash=phash,
+                saved_path=str(saved_path),
+            )
+
             # 5. Create the structured ExtractedImage object
-            # This reflects all our schema decisions.
             extracted_image = ExtractedImage(
                 page_number=page_number,
                 base64_data=img_data["base64_data"],
@@ -165,13 +231,46 @@ def extract_pdf_images(state: PDFExtractionState):
                 saved_path=str(saved_path)
             )
             extracted_images.append(extracted_image)
+            
+            # Collect data for summary log
+            images_data.append({
+                "page_number": page_number,
+                "phash": phash,
+                "saved_path": str(saved_path),
+                "base64_data": img_data["base64_data"]  # Include for remote rendering
+            })
 
-        logger.info(f"Extracted and processed {len(extracted_images)} image(s)")
+        # Summary with all images data
+        logger.info(
+            f"📸 Extracted {len(images_data)} images from PDF",
+            agent="PdfExtraction",
+            node="extract_images",
+            event_type="IMAGE_EXTRACTION_PROGRESS",
+            session_id=session_id,
+            images_data=images_data,
+        )
+
+        # Completion event
+        logger.success(
+            f"✅ Image extraction complete | {len(extracted_images)} images processed",
+            agent="PdfExtraction",
+            node="extract_images",
+            event_type="IMAGE_EXTRACTION_COMPLETE",
+            session_id=session_id,
+            images_extracted=len(extracted_images),
+            pages_processed=len(pages_to_process),
+        )
+
         return {"extracted_images": extracted_images}
 
     except Exception as e:
         error_msg = f"Error in extract_pdf_images: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.exception("❌ Image extraction failed",
+                        agent="PdfExtraction",
+                        node="extract_images",
+                        event_type="ERROR",
+                        session_id=state.get('session_id'),
+                        error=str(e))
         return {"errors": [error_msg]}
 
 
@@ -180,41 +279,85 @@ def find_embedded_urls(state: PDFExtractionState):
     Extracts URLs from the specified pages of the PDF from both
     annotations and raw text.
     """
-    logger.info("Finding Embedded URLs")
     try:
         file_path = state['file_path']
+        session_id = state.get('session_id')
         pages_to_process = state.get('pages_to_process')
 
         # If specific pages aren't defined, default to the first page.
         if not pages_to_process:
             pages_to_process = [0] if state.get('page_count', 0) > 0 else []
-            logger.debug("No specific pages defined, defaulting to first page")
-        else:
-            logger.debug(f"Processing pages: {pages_to_process}")
+
+        # URL extraction start event
+        logger.info("🔗 Searching for embedded URLs",
+                    agent="PdfExtraction",
+                    node="find_urls",
+                    event_type="URL_EXTRACTION_START",
+                    session_id=session_id,
+                    pages_to_scan=len(pages_to_process))
 
         # 1. Extract URL data using our final, validated utility
-        logger.debug("Extracting URLs from PDF")
         url_data_list = extract_urls_from_pdf(
             pdf_path=file_path,
             specific_pages=pages_to_process
         )
 
         # 2. Convert the dictionaries into ExtractedURL Pydantic objects.
-        # The **url_data syntax will correctly map all keys from our utility's
-        # dictionary output (including 'xref') to the Pydantic model fields.
         extracted_urls = [ExtractedURL(**url_data) for url_data in url_data_list]
 
-        if logger.isEnabledFor(logging.DEBUG) and extracted_urls:
-            # Log a sample URL at debug level
-            sample = extracted_urls[0]
-            logger.debug(f"Sample URL: {sample.url} (type: {sample.url_type}, page: {sample.page_number})")
+        # Calculate URL type breakdown
+        url_type_counts = {}
+        url_list = []
+        for url_obj in extracted_urls:
+            url_type_counts[url_obj.url_type] = url_type_counts.get(url_obj.url_type, 0) + 1
+            url_list.append({
+                "url": url_obj.url,
+                "url_type": url_obj.url_type,
+                "page_number": url_obj.page_number
+            })
 
-        logger.info(f"Extracted {len(extracted_urls)} URL finding(s)")
+        # URLs found event (INFO level - just data, not suspicious)
+        # Format URL preview for terminal (first 3 URLs)
+        if url_list:
+            url_preview = ", ".join([u["url"][:60] + ("..." if len(u["url"]) > 60 else "") for u in url_list[:3]])
+            if len(url_list) > 3:
+                url_preview += f" ... and {len(url_list) - 3} more"
+            
+            # Format type breakdown for display (escape braces for loguru)
+            types_str = str(url_type_counts).replace('{', '{{').replace('}', '}}')
+            
+            logger.info(
+                f"🔗 Found {len(extracted_urls)} embedded URLs | Types: {types_str} | URLs: {url_preview}",
+                agent="PdfExtraction",
+                node="find_urls",
+                event_type="URLS_FOUND",
+                session_id=session_id,
+                url_count=len(extracted_urls),
+                url_type_breakdown=url_type_counts,
+                url_list=url_list,
+            )
+        else:
+            logger.info(
+                "🔗 No embedded URLs found",
+                agent="PdfExtraction",
+                node="find_urls",
+                event_type="URLS_FOUND",
+                session_id=session_id,
+                url_count=0,
+                url_type_breakdown={},
+                url_list=[],
+            )
+
         return {"extracted_urls": extracted_urls}
 
     except Exception as e:
         error_msg = f"Error in find_embedded_urls: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.exception("❌ URL extraction failed",
+                        agent="PdfExtraction",
+                        node="find_urls",
+                        event_type="ERROR",
+                        session_id=state.get('session_id'),
+                        error=str(e))
         return {"errors": [error_msg]}
     
 
@@ -222,37 +365,128 @@ def scan_qr_codes(state: PDFExtractionState):
     """
     Extracts QR codes from the specified pages of the PDF.
     """
-    logger.info("Scanning QR Codes")
     try:
         file_path = state['file_path']
+        session_id = state.get('session_id')
         pages_to_process = state.get('pages_to_process')
 
         # If specific pages aren't defined, default to the first page.
         if not pages_to_process:
             pages_to_process = [0] if state.get('page_count', 0) > 0 else []
-            logger.debug("No specific pages defined, defaulting to first page")
-        else:
-            logger.debug(f"Scanning pages for QR codes: {pages_to_process}")
 
-        # 1. Extract QR code data using our utility
-        logger.debug("Processing PDF pages for QR codes")
+        # QR scan start event
+        logger.info("📱 Scanning for QR codes",
+                    agent="PdfExtraction",
+                    node="scan_qr",
+                    event_type="QR_SCAN_START",
+                    session_id=session_id,
+                    pages_to_scan=len(pages_to_process))
+
+        # 1. Extract QR code data using our utility (auto-detect caller's function name)
+        caller_name = inspect.currentframe().f_code.co_name
         qr_data_list = process_pdf_for_qr_codes(
             pdf_path=file_path,
-            specific_pages=pages_to_process
+            specific_pages=pages_to_process,
+            log_agent="PdfExtraction",
+            log_caller=caller_name  # Automatically gets "scan_qr_codes"
         )
 
         # 2. Convert the dictionaries into ExtractedURL Pydantic objects.
         extracted_qr_urls = [ExtractedURL(**qr_data) for qr_data in qr_data_list]
 
-        if logger.isEnabledFor(logging.DEBUG) and extracted_qr_urls:
-            # Log QR code details at debug level
-            for qr_url in extracted_qr_urls:
-                logger.debug(f"QR code found on page {qr_url.page_number}: {qr_url.url}")
+        # Build QR code list with all details
+        qr_list = []
+        for qr_url in extracted_qr_urls:
+            qr_list.append({
+                "url": qr_url.url,
+                "page_number": qr_url.page_number
+            })
+
+        # QR codes found event (WARNING level - suspicious!)
+        if extracted_qr_urls:
+            # Format QR URLs for terminal display (first 2)
+            qr_preview = " | ".join([f"Page {qr['page_number']}: {qr['url'][:80]}" for qr in qr_list[:2]])
+            if len(qr_list) > 2:
+                qr_preview += f" ... and {len(qr_list) - 2} more"
+            
+            logger.warning(
+                f"⚠️  QR codes detected: {len(extracted_qr_urls)} codes found | {qr_preview}",
+                agent="PdfExtraction",
+                node="scan_qr",
+                event_type="QR_CODES_FOUND",
+                session_id=session_id,
+                qr_count=len(extracted_qr_urls),
+                qr_list=qr_list,
+            )
+        else:
+            logger.info(
+                "📱 No QR codes found",
+                agent="PdfExtraction",
+                node="scan_qr",
+                event_type="QR_SCAN_COMPLETE",
+                session_id=session_id,
+                qr_count=0,
+            )
         
-        logger.info(f"Extracted {len(extracted_qr_urls)} QR code URL(s)")
         return {"extracted_urls": extracted_qr_urls}
 
     except Exception as e:
         error_msg = f"Error in scan_qr_codes: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.exception("❌ QR code scanning failed",
+                        agent="PdfExtraction",
+                        node="scan_qr",
+                        event_type="ERROR",
+                        session_id=state.get('session_id'),
+                        error=str(e))
+        return {"errors": [error_msg]}
+
+
+async def finalize_extraction(state: PDFExtractionState) -> dict:
+    """
+    Final node that logs completion of PDF extraction.
+    This ensures the frontend knows the agent has finished.
+    
+    Args:
+        state: Current extraction state
+        
+    Returns:
+        Empty dict (no state changes, just logging)
+    """
+    try:
+        session_id = state.get('session_id', 'unknown')
+        images_count = len(state.get('extracted_images', []))
+        urls_count = len(state.get('extracted_urls', []))
+        errors_count = len(state.get('errors', []))
+        
+        if errors_count > 0:
+            logger.warning(
+                f"⚠️ PDF Extraction complete with {errors_count} error(s)",
+                agent="PdfExtraction",
+                node="finalize_extraction",
+                event_type="EXTRACTION_COMPLETE_WITH_ERRORS",
+                session_id=session_id,
+                images_extracted=images_count,
+                urls_found=urls_count,
+                error_count=errors_count
+            )
+        else:
+            logger.success(
+                f"✅ PDF Extraction complete | Images: {images_count}, URLs: {urls_count}",
+                agent="PdfExtraction",
+                node="finalize_extraction",
+                event_type="EXTRACTION_COMPLETE",
+                session_id=session_id,
+                images_extracted=images_count,
+                urls_found=urls_count
+            )
+        
+        return {}
+        
+    except Exception as e:
+        error_msg = f"Error in finalize_extraction: {e}"
+        logger.error(error_msg,
+                    agent="PdfExtraction",
+                    node="finalize_extraction",
+                    session_id=state.get('session_id'),
+                    exc_info=True)
         return {"errors": [error_msg]}

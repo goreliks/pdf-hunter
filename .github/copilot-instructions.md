@@ -104,11 +104,19 @@ NEW → IN_PROGRESS → {COMPLETED | FAILED | NOT_RELEVANT}
 ### File Organization by Session
 ```
 output/{session_id}/
+├── logs/                    # Session-specific logs
+│   └── session.jsonl       # Structured JSONL for this session only
 ├── pdf_extraction/          # Page images with pHash naming
 ├── file_analysis/           # Evidence graphs, state persistence
 ├── url_investigation/       # URL investigations with screenshots
 │   └── task_url_*/         # Individual URL analysis artifacts
 └── report_generator/        # Final reports and verdict
+```
+
+Central logs:
+```
+logs/
+└── pdf_hunter_YYYYMMDD.jsonl  # All sessions from a given day
 ```
 
 ## Testing & Debugging
@@ -246,41 +254,89 @@ except GraphRecursionError as e:
 
 ## Logging System
 
+### Logging Architecture
+
+PDF Hunter uses **Loguru** for structured logging with three output streams:
+
+**Terminal Output:**
+- Colorful, human-readable format with emojis
+- INFO+ level by default (production)
+- DEBUG+ level when `debug_to_terminal=True` (development)
+
+**Central Log File:**
+- `logs/pdf_hunter_YYYYMMDD.jsonl` - All sessions, daily rotation
+- Structured JSONL format (one JSON object per line)
+- DEBUG+ level for complete historical record
+
+**Session Log File:**
+- `output/{session_id}/logs/session.jsonl` - Single session only
+- Structured JSONL format for session-specific analysis
+- DEBUG+ level, auto-created when session starts
+
 ### Logging Configuration
+
 ```python
-# Configure logging at application start
-from pdf_hunter.shared.utils.logging_config import configure_logging
-import logging
+# In orchestrator/graph.py startup
+from pdf_hunter.config.logging_config import setup_logging
 
-# Default configuration (INFO level)
-configure_logging()
+# Production mode (INFO+ in terminal, all logs in files)
+setup_logging(
+    session_id=session_id,
+    output_directory=output_dir  # Creates session.jsonl
+)
 
-# Debug level with file output
-configure_logging(level=logging.DEBUG, log_to_file=True)
-
-# Session-specific logging
-configure_logging(log_to_file=True, session_id=session_id)
+# Development mode (DEBUG+ in terminal)
+setup_logging(debug_to_terminal=True)
 ```
 
 ### Logger Usage Pattern
+
 ```python
 # Import at module level
-from pdf_hunter.shared.utils.logging_config import get_logger
+from loguru import logger
 
-# Create module-specific logger
-logger = get_logger(__name__)
+# Basic logging with agent context
+logger.info("Starting extraction",
+            agent="PdfExtraction",
+            node="extract_images",
+            session_id=state.get("session_id"))
 
-# Use appropriate log levels
-logger.debug("Detailed debugging information")
-logger.info("General operational information")
-logger.warning("Warning situations")
-logger.error("Error events", exc_info=True)  # Include traceback
-logger.critical("Critical errors")
+# Event-based logging
+logger.success("✅ Extraction complete",
+               agent="PdfExtraction",
+               node="extract_images",
+               event_type="IMAGE_EXTRACTION_COMPLETE",
+               image_count=len(images))
 
-# Conditional verbose logging
-if logger.isEnabledFor(logging.DEBUG):
-    logger.debug(f"Complex object: {serialize_state_safely(complex_object)}")
+# Error logging with automatic traceback
+logger.exception("❌ Operation failed",
+                agent="PdfExtraction",
+                node="extract_images")
+
+# Complex objects auto-serialize to JSON
+logger.debug("State dump",
+            agent="FileAnalysis",
+            state_data=state.model_dump())
 ```
+
+### Agent Naming Convention
+
+All agents use **PascalCase** for the `agent` field:
+- `PdfExtraction` (not `pdf_extraction`)
+- `FileAnalysis` (not `file_analysis`)
+- `ImageAnalysis` (not `image_analysis`)
+- `URLInvestigation` (not `url_investigation`)
+- `ReportGenerator` (not `report_generator`)
+
+### Log Levels
+
+- `logger.trace()` - Very detailed debugging
+- `logger.debug()` - Debug information (JSON only, not terminal by default)
+- `logger.info()` - General operational events
+- `logger.success()` - Success events (green checkmark in terminal)
+- `logger.warning()` - Warning conditions
+- `logger.error()` - Error events
+- `logger.critical()` - Critical system failures
 
 ## Common Pitfalls
 

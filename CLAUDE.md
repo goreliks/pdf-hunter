@@ -682,61 +682,121 @@ This is a **defensive security tool** for PDF threat analysis. The codebase hand
 
 ## Logging System
 
-The project uses a centralized logging system implemented in `src/pdf_hunter/shared/utils/logging_config.py`:
+PDF Hunter uses **Loguru** for structured logging with three output streams:
 
-- **Hierarchical Loggers**: Named loggers matching Python module hierarchy
-- **Configurable Levels**: Supports DEBUG, INFO, WARNING, ERROR, CRITICAL
-- **Enhanced Tool Visibility**: Tool execution logging elevated to INFO level for better investigation tracking
-- **Consistent Formatting**: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
-- **File Logging**: Optional log file output with session-based naming
-- **Console Output**: Standard output to console with proper formatting
+### Logging Architecture
 
-### Tool Execution Transparency
+**Terminal Output:**
+- Colorful, human-readable format with emojis
+- INFO+ level by default (production)
+- DEBUG+ level when `debug_to_terminal=True` (development)
 
-Recent improvements provide better visibility into agent tool usage:
+**Central Log File:**
+- `logs/pdf_hunter_YYYYMMDD.jsonl` - All sessions, daily rotation
+- Structured JSONL format (one JSON object per line)
+- DEBUG+ level for complete historical record
 
-- **Tool Names at INFO Level**: All tool calls now logged at INFO level, visible in standard logs
-- **Strategic Reflection Tracking**: think_tool usage clearly visible for investigation quality assessment
-- **Investigation Flow Visibility**: Tool selection patterns and decision points traceable in logs
-- **No Debug Mode Required**: Tool visibility available in production INFO-level logging
+**Session Log File:**
+- `output/{session_id}/logs/session.jsonl` - Single session only
+- Structured JSONL format for session-specific analysis
+- DEBUG+ level, auto-created when session starts
 
-### Using the Logging System
-
-```python
-# Import logging utilities at the top of each module
-from pdf_hunter.shared.utils.logging_config import get_logger
-
-# Create a module-specific logger
-logger = get_logger(__name__)
-
-# Use appropriate log levels
-logger.debug("Detailed debugging information")
-logger.info("General operational information")
-logger.warning("Warning situations that should be addressed")
-logger.error("Error events that might still allow the application to continue")
-logger.critical("Very serious error events that might cause the application to terminate")
-
-# Conditional verbose logging
-if logger.isEnabledFor(logging.DEBUG):
-    logger.debug(f"Detailed object state: {complex_object}")
-```
-
-### Configuring Logging
-
-The orchestrator automatically configures logging when run. For individual agent testing or custom needs:
+### Logging Configuration
 
 ```python
-from pdf_hunter.shared.utils.logging_config import configure_logging
+# In orchestrator/graph.py startup
+from pdf_hunter.config.logging_config import setup_logging
 
-# Default configuration (INFO level, console only)
-configure_logging()
+# Production mode (INFO+ in terminal, all logs in files)
+setup_logging(
+    session_id=session_id,
+    output_directory=output_dir  # Creates session.jsonl
+)
 
-# Debug level with file output
-configure_logging(level=logging.DEBUG, log_to_file=True)
-
-# Session-specific logging
-configure_logging(log_to_file=True, session_id=session_id)
+# Development mode (DEBUG+ in terminal)
+setup_logging(debug_to_terminal=True)
 ```
+
+### Logger Usage Pattern
+
+```python
+# Import at module level
+from loguru import logger
+
+# Basic logging with agent context
+logger.info("Starting extraction",
+            agent="PdfExtraction",
+            node="extract_images",
+            session_id=state.get("session_id"))
+
+# Event-based logging
+logger.success("✅ Extraction complete",
+               agent="PdfExtraction",
+               node="extract_images",
+               event_type="IMAGE_EXTRACTION_COMPLETE",
+               image_count=len(images))
+
+# Error logging with automatic traceback
+logger.exception("❌ Operation failed",
+                agent="PdfExtraction",
+                node="extract_images")
+
+# Complex objects auto-serialize to JSON
+logger.debug("State dump",
+            agent="FileAnalysis",
+            state_data=state.model_dump())
+```
+
+### Agent Naming Convention
+
+All agents use **PascalCase** for the `agent` field:
+- `PdfExtraction` (not `pdf_extraction`)
+- `FileAnalysis` (not `file_analysis`)
+- `ImageAnalysis` (not `image_analysis`)
+- `URLInvestigation` (not `url_investigation`)
+- `ReportGenerator` (not `report_generator`)
+
+### Log Levels
+
+- `logger.trace()` - Very detailed debugging
+- `logger.debug()` - Debug information (JSON only, not terminal by default)
+- `logger.info()` - General operational events
+- `logger.success()` - Success events (green checkmark in terminal)
+- `logger.warning()` - Warning conditions
+- `logger.error()` - Error events
+- `logger.critical()` - Critical system failures
+
+### Log File Structure
+
+Every log entry in JSONL files follows this structure:
+
+```json
+{
+  "record": {
+    "extra": {
+      "agent": "PdfExtraction",
+      "node": "extract_images",
+      "session_id": "abc123_20251001_143000",
+      "event_type": "IMAGE_EXTRACTION_COMPLETE",
+      "image_count": 3
+    },
+    "level": { "name": "INFO", "no": 20 },
+    "message": "📸 Extracted 3 images from PDF",
+    "time": { "timestamp": 1727784600.123 }
+  }
+}
+```
+
+**Key Fields:**
+- `record.extra.agent` - Agent identifier (PascalCase)
+- `record.extra.node` - Node function name
+- `record.extra.session_id` - Session identifier
+- `record.extra.event_type` - Optional semantic event type
+- `record.level.name` - Log level (DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
+- `record.message` - Human-readable message
+- `record.time.timestamp` - Unix timestamp
+
+See `docs/LOGGING_FIELD_REFERENCE.md` for complete field mappings and event types.
 
 ## Important Implementation Reminders
 

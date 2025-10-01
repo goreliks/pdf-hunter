@@ -2,21 +2,16 @@ import asyncio
 import os
 import json
 import uuid
-import logging
 from datetime import datetime
 from pathlib import Path
+from loguru import logger
 from langgraph.graph import StateGraph, START, END
 from langgraph.errors import GraphRecursionError
 
 from .schemas import URLInvestigationState, URLInvestigationInputState, URLInvestigationOutputState, URLInvestigatorState, URLInvestigatorOutputState, URLAnalysisResult, AnalystFindings
 from ..image_analysis.schemas import PrioritizedURL
 from .nodes import investigate_url, execute_browser_tools, analyze_url_content, should_continue, route_url_analysis, filter_high_priority_urls, save_url_analysis_state
-from ...shared.utils.logging_config import get_logger
 from pdf_hunter.config import URL_INVESTIGATION_CONFIG, URL_INVESTIGATION_INVESTIGATOR_CONFIG
-
-
-# Initialize logger
-logger = get_logger(__name__)
 
 
 link_investigator_state = StateGraph(URLInvestigatorState, output_schema=URLInvestigatorOutputState)
@@ -45,16 +40,16 @@ async def conduct_link_analysis(state: dict):
     url_task = state.get("url_task")
     url = url_task.url if url_task else "unknown URL"
     
-    logger.info(f"Starting link analysis for URL: {url}")
+    logger.info(f"🔍 Starting link analysis for URL: {url}", agent="URLInvestigation", node="conduct_link_analysis_wrapper", event_type="WRAPPER_START", url=url)
     
     try:
         # Run the investigator subgraph
-        logger.debug("Invoking link investigator graph")
+        logger.debug("Invoking link investigator graph", agent="URLInvestigation", node="conduct_link_analysis_wrapper")
         result = await link_investigator_graph.ainvoke(state)
         
         # The result should contain the fields from InvestigatorOutputState
         # We need to wrap it in a list so it gets aggregated via operator.add
-        logger.info(f"Link analysis complete for URL: {url}")
+        logger.info(f"✅ Link analysis complete for URL: {url}", agent="URLInvestigation", node="conduct_link_analysis_wrapper", event_type="WRAPPER_COMPLETE", url=url)
         return {
             "link_analysis_final_reports": [result]  # This will be aggregated
         }
@@ -62,8 +57,8 @@ async def conduct_link_analysis(state: dict):
     except GraphRecursionError as e:
         # Handle recursion limit specifically - mark URL analysis as failed with context
         error_msg = f"URL analysis for {url} hit recursion limit - investigation too complex or stuck in loop"
-        logger.warning(error_msg)
-        logger.debug(f"Recursion error details: {e}")
+        logger.warning(error_msg, agent="URLInvestigation", node="conduct_link_analysis_wrapper", event_type="RECURSION_LIMIT", url=url)
+        logger.debug(f"Recursion error details: {e}", agent="URLInvestigation", node="conduct_link_analysis_wrapper")
         
         # Create a minimal URLAnalysisResult marking the investigation as failed
         failed_result = URLAnalysisResult(
@@ -109,13 +104,13 @@ link_analysis_graph = link_analysis_graph.with_config(URL_INVESTIGATION_CONFIG)
 if __name__ == "__main__":
     from .schemas import PrioritizedURL
     import asyncio
-    from ...shared.utils.logging_config import configure_logging
+    from pdf_hunter.config.logging_config import setup_logging
 
-    # Configure more detailed logging when running directly
-    configure_logging(level=logging.INFO)
+    # Configure more detailed logging when running directly with DEBUG output
+    setup_logging(debug_to_terminal=True)
     
     output_dir = "./output/test_url_analysis"
-    logger.info(f"Setting up test with output directory: {output_dir}")
+    logger.info(f"Setting up test with output directory: {output_dir}", agent="TestRunner", node="setup")
 
     test_state = {
         "visual_analysis_report": {
@@ -138,30 +133,35 @@ if __name__ == "__main__":
     }
 
     async def main():
-        logger.info("Running the full URL Investigator -> Analyst pipeline")
+        logger.info("Running the full URL Investigator -> Analyst pipeline", agent="TestRunner", node="main")
         
         try:
-            logger.debug("Invoking link analysis graph with test state")
+            logger.debug("Invoking link analysis graph with test state", agent="TestRunner", node="main")
             final_state = await link_analysis_graph.ainvoke(test_state)
-            logger.info("Link analysis graph execution complete")
+            logger.info("Link analysis graph execution complete", agent="TestRunner", node="main")
         except Exception as e:
-            logger.error(f"Error during link analysis: {str(e)}", exc_info=True)
+            logger.error(f"Error during link analysis: {str(e)}", agent="TestRunner", node="main", exc_info=True)
             raise
         finally:
             # Cleanup all MCP sessions when done
             from ...shared.utils.mcp_client import cleanup_mcp_session
-            logger.debug("Cleaning up MCP sessions")
+            logger.debug("Cleaning up MCP sessions", agent="TestRunner", node="main")
             await cleanup_mcp_session()  # This will cleanup all sessions
         
-        logger.info("Generating final forensic report")
+        logger.info("Generating final forensic report", agent="TestRunner", node="verify")
         if final_state.get("link_analysis_final_reports"):
-            logger.info(f"Generated {len(final_state['link_analysis_final_reports'])} URL analysis reports")
+            logger.info(f"Generated {len(final_state['link_analysis_final_reports'])} URL analysis reports", agent="TestRunner", node="verify")
             for i, report in enumerate(final_state["link_analysis_final_reports"]):
-                url = report.initial_url.url if hasattr(report, 'initial_url') else f"Report #{i}"
-                logger.info(f"Report for URL: {url}")
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"Report details: {report.model_dump_json(indent=2)}")
+                # Handle both dict and Pydantic model formats
+                if isinstance(report, dict):
+                    url = report.get('initial_url', {}).get('url', f"Report #{i}")
+                    logger.info(f"Report for URL: {url}", agent="TestRunner", node="verify")
+                    logger.debug(f"Report verdict: {report.get('analyst_findings', {}).get('verdict', 'Unknown')}", agent="TestRunner", node="verify")
+                else:
+                    url = report.initial_url.url if hasattr(report, 'initial_url') else f"Report #{i}"
+                    logger.info(f"Report for URL: {url}", agent="TestRunner", node="verify")
+                    logger.debug(f"Report details: {report.model_dump_json(indent=2)}", agent="TestRunner", node="verify")
         else:
-            logger.warning("No final report generated")
+            logger.warning("No final report generated", agent="TestRunner", node="verify")
 
     asyncio.run(main())
