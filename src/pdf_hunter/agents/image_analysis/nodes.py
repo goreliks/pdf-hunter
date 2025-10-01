@@ -1,20 +1,17 @@
 # src/pdf_hunter/agents/visual_analysis/nodes.py
 
 import json
-import logging
 import os
 import asyncio
 from typing import List
 
 from langchain_core.messages import SystemMessage, HumanMessage
+from loguru import logger
 
 from .schemas import ImageAnalysisState, PageAnalysisResult, ImageAnalysisReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
-from pdf_hunter.shared.utils.logging_config import get_logger
 from .prompts import IMAGE_ANALYSIS_SYSTEM_PROMPT, IMAGE_ANALYSIS_USER_PROMPT
 from pdf_hunter.config import image_analysis_llm
-
-logger = get_logger(__name__)
 
 llm_with_structured_output = image_analysis_llm.with_structured_output(PageAnalysisResult)
 
@@ -65,21 +62,40 @@ async def analyze_pdf_images(state: ImageAnalysisState):
     Visual Deception Analyst (VDA) analyzes pages with a focus on visually
     deceptive content, phishing, and presentation concerns.
     """
-    logger.info("Starting Visual Deception Analysis")
-    
     try:
         # Validate required inputs
         all_images = state.get('extracted_images', [])
         all_urls = state.get('extracted_urls', [])
         num_pages_to_process = state.get("number_of_pages_to_process", 1)
+        session_id = state.get('session_id')
+        
+        # Agent start event
+        logger.info(
+            "🎨 Starting Visual Deception Analysis",
+            agent="ImageAnalysis",
+            node="analyze_images",
+            event_type="AGENT_START",
+            session_id=session_id,
+            pages_to_analyze=num_pages_to_process,
+        )
         
         if not all_images:
-            logger.warning("No images available for analysis")
+            logger.warning(
+                "No images available for analysis",
+                agent="ImageAnalysis",
+                node="analyze_images",
+                session_id=session_id,
+            )
             return {"page_analyses": []}
 
-        logger.debug(f"Number of pages to process: {num_pages_to_process}")
-        logger.debug(f"Total images found: {len(all_images)}")
-        logger.debug(f"Total URLs found: {len(all_urls)}")
+        logger.debug(
+            f"Processing {num_pages_to_process} pages | {len(all_images)} images | {len(all_urls)} URLs",
+            agent="ImageAnalysis",
+            node="analyze_images",
+            session_id=session_id,
+            total_images=len(all_images),
+            total_urls=len(all_urls),
+        )
 
         images_to_process = sorted(
             [img for img in all_images if img.page_number < num_pages_to_process],
@@ -87,7 +103,12 @@ async def analyze_pdf_images(state: ImageAnalysisState):
         )
         
         if not images_to_process:
-            logger.warning("No images found for the requested page range")
+            logger.warning(
+                "No images found for the requested page range",
+                agent="ImageAnalysis",
+                node="analyze_images",
+                session_id=session_id,
+            )
             return {"page_analyses": []}
 
         page_analyses_results: List[PageAnalysisResult] = []
@@ -95,7 +116,14 @@ async def analyze_pdf_images(state: ImageAnalysisState):
 
         for image in images_to_process:
             page_num = image.page_number
-            logger.info(f"Analyzing Page {page_num}")
+            logger.info(
+                f"🔍 Analyzing Page {page_num} for visual deception",
+                agent="ImageAnalysis",
+                node="analyze_images",
+                event_type="PAGE_ANALYSIS_START",
+                session_id=session_id,
+                page_number=page_num,
+            )
 
             urls_for_this_page = [url for url in all_urls if url.page_number == page_num]
             element_map = {
@@ -124,27 +152,132 @@ async def analyze_pdf_images(state: ImageAnalysisState):
             ]
 
             # Invoke the LLM with the correct message structure.
-            logger.debug(f"Sending page {page_num} to LLM for analysis")
+            logger.debug(
+                f"Sending page {page_num} to VDA LLM | {len(urls_for_this_page)} interactive elements",
+                agent="ImageAnalysis",
+                node="analyze_images",
+                session_id=session_id,
+                page_number=page_num,
+                element_count=len(urls_for_this_page),
+            )
+            
             page_result = await llm_with_structured_output.ainvoke(messages)
             page_analyses_results.append(page_result)
-            logger.info(f"Page {page_num} Verdict: {page_result.visual_verdict} (Confidence: {page_result.confidence_score:.2f})")
             
-            # Log detailed findings at debug level
-            if logger.isEnabledFor(logging.DEBUG):
-                for finding in page_result.detailed_findings:
-                    logger.debug(f"Finding: {finding.element_type} - {finding.assessment} (Significance: {finding.significance})")
+            # Verdict event with key metrics
+            logger.info(
+                f"📊 Page {page_num} Analysis Complete | Verdict: {page_result.visual_verdict} | Confidence: {page_result.confidence_score:.1%} | Findings: {len(page_result.detailed_findings)} | Summary: {page_result.summary[:80]}...",
+                agent="ImageAnalysis",
+                node="analyze_images",
+                event_type="PAGE_ANALYSIS_COMPLETE",
+                session_id=session_id,
+                page_number=page_num,
+                page_description=page_result.page_description,
+                verdict=page_result.visual_verdict,
+                confidence=page_result.confidence_score,
+                summary=page_result.summary,
+                findings_count=len(page_result.detailed_findings),
+                tactics_count=len(page_result.deception_tactics),
+                benign_signals_count=len(page_result.benign_signals),
+                urls_prioritized=len(page_result.prioritized_urls),
+                detailed_findings=[f.model_dump() for f in page_result.detailed_findings],
+                deception_tactics=[t.model_dump() for t in page_result.deception_tactics],
+                benign_signals=[s.model_dump() for s in page_result.benign_signals],
+            )
+            
+            # Log high-significance findings at WARNING level
+            high_sig_findings = [f for f in page_result.detailed_findings if f.significance == "high"]
+            if high_sig_findings:
+                for finding in high_sig_findings:
+                    logger.warning(
+                        f"⚠️  Page {page_num} High-Significance Finding: {finding.element_type} - {finding.assessment[:80]}",
+                        agent="ImageAnalysis",
+                        node="analyze_images",
+                        event_type="HIGH_SIGNIFICANCE_FINDING",
+                        session_id=session_id,
+                        page_number=page_num,
+                        element_type=finding.element_type,
+                        visual_description=finding.visual_description,
+                        technical_data=finding.technical_data,
+                        assessment=finding.assessment,
+                        significance=finding.significance,
+                    )
+            
+            # Log deception tactics detected
+            if page_result.deception_tactics:
+                tactics_summary = ", ".join([f"{t.tactic_type} ({t.confidence:.0%})" for t in page_result.deception_tactics[:3]])
+                if len(page_result.deception_tactics) > 3:
+                    tactics_summary += f" ... and {len(page_result.deception_tactics) - 3} more"
                 
-                if page_result.prioritized_urls:
-                    logger.debug(f"Found {len(page_result.prioritized_urls)} prioritized URLs for further analysis")
+                logger.warning(
+                    f"🚨 Page {page_num} Deception Tactics: {tactics_summary}",
+                    agent="ImageAnalysis",
+                    node="analyze_images",
+                    event_type="DECEPTION_TACTICS_DETECTED",
+                    session_id=session_id,
+                    page_number=page_num,
+                    tactics_count=len(page_result.deception_tactics),
+                    deception_tactics=[t.model_dump() for t in page_result.deception_tactics],
+                )
+            
+            # Log benign signals found
+            if page_result.benign_signals:
+                signals_summary = ", ".join([f"{s.signal_type} ({s.confidence:.0%})" for s in page_result.benign_signals[:3]])
+                if len(page_result.benign_signals) > 3:
+                    signals_summary += f" ... and {len(page_result.benign_signals) - 3} more"
+                
+                logger.info(
+                    f"✅ Page {page_num} Benign Signals: {signals_summary}",
+                    agent="ImageAnalysis",
+                    node="analyze_images",
+                    event_type="BENIGN_SIGNALS_DETECTED",
+                    session_id=session_id,
+                    page_number=page_num,
+                    signals_count=len(page_result.benign_signals),
+                    benign_signals=[s.model_dump() for s in page_result.benign_signals],
+                )
+            
+            # Log prioritized URLs for investigation
+            if page_result.prioritized_urls:
+                url_summary = ", ".join([f"P{u.priority}: {u.url[:40]}..." for u in page_result.prioritized_urls[:3]])
+                if len(page_result.prioritized_urls) > 3:
+                    url_summary += f" ... and {len(page_result.prioritized_urls) - 3} more"
+                
+                logger.info(
+                    f"🔗 Page {page_num} flagged {len(page_result.prioritized_urls)} URLs for investigation | {url_summary}",
+                    agent="ImageAnalysis",
+                    node="analyze_images",
+                    event_type="URLS_PRIORITIZED",
+                    session_id=session_id,
+                    page_number=page_num,
+                    url_count=len(page_result.prioritized_urls),
+                    prioritized_urls=[u.model_dump() for u in page_result.prioritized_urls],
+                )
 
             # Generate the rich, structured briefing for the next iteration.
             previous_pages_context = _create_structured_forensic_briefing(page_result)
+        
+        logger.success(
+            f"✅ Visual analysis complete | {len(page_analyses_results)} pages analyzed",
+            agent="ImageAnalysis",
+            node="analyze_images",
+            event_type="ANALYSIS_COMPLETE",
+            session_id=session_id,
+            pages_analyzed=len(page_analyses_results),
+        )
         
         return {"page_analyses": page_analyses_results}
 
     except Exception as e:
         error_msg = f"Error in analyze_pdf_images: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.exception(
+            "❌ Visual analysis failed",
+            agent="ImageAnalysis",
+            node="analyze_images",
+            event_type="ERROR",
+            session_id=state.get('session_id'),
+            error=str(e),
+        )
         return {"errors": [error_msg]}
 
 
@@ -153,13 +286,26 @@ async def compile_image_findings(state: ImageAnalysisState):
     Aggregates all page-level analyses into a final, conclusive report using
     robust, programmatic logic.
     """
-    logger.info("Aggregating final image analysis report")
-    
     try:
+        session_id = state.get('session_id')
         page_analyses = state.get("page_analyses", [])
+        
+        logger.info(
+            "📑 Compiling final image analysis report",
+            agent="ImageAnalysis",
+            node="compile_findings",
+            event_type="COMPILATION_START",
+            session_id=session_id,
+            page_count=len(page_analyses),
+        )
 
         if not page_analyses:
-            logger.warning("No page analyses were performed, generating empty report")
+            logger.warning(
+                "No page analyses available - generating empty report",
+                agent="ImageAnalysis",
+                node="compile_findings",
+                session_id=session_id,
+            )
             # Correctly instantiate the report with keywords to prevent TypeError.
             visual_analysis_report = ImageAnalysisReport(
                 overall_verdict="Benign",
@@ -198,12 +344,33 @@ async def compile_image_findings(state: ImageAnalysisState):
         all_signals = [signal for p in page_analyses for signal in p.benign_signals]
         all_priority_urls = [url for p in page_analyses for url in p.prioritized_urls]
 
-        # Generate the Executive Summary.
+        # Generate the Executive Summary (before logging so we can include it).
         summary = (
             f"Visual analysis of {len(page_analyses)} page(s) resulted in an overall verdict of '{most_severe_verdict}'.\n"
             f"The analysis produced {len(all_detailed_findings)} specific forensic findings, "
             f"which were summarized into {len(all_tactics)} deception tactics and {len(all_signals)} benign signals.\n"
             f"Flagged {len(all_priority_urls)} URLs for further investigation."
+        )
+
+        # Log verdict determination with full report details
+        logger.info(
+            f"🎯 Overall Verdict: {most_severe_verdict} | Confidence: {overall_confidence:.1%} | Pages: {len(page_analyses)} | Findings: {len(all_detailed_findings)} | Tactics: {len(all_tactics)} | Benign Signals: {len(all_signals)} | Priority URLs: {len(all_priority_urls)}",
+            agent="ImageAnalysis",
+            node="compile_findings",
+            event_type="VERDICT_DETERMINED",
+            session_id=session_id,
+            verdict=most_severe_verdict,
+            confidence=overall_confidence,
+            executive_summary=summary,
+            document_flow_summary=document_flow_summary,
+            findings_count=len(all_detailed_findings),
+            tactics_count=len(all_tactics),
+            signals_count=len(all_signals),
+            priority_urls_count=len(all_priority_urls),
+            all_detailed_findings=[f.model_dump() for f in all_detailed_findings],
+            all_deception_tactics=[t.model_dump() for t in all_tactics],
+            all_benign_signals=[s.model_dump() for s in all_signals],
+            all_priority_urls=[u.model_dump() for u in all_priority_urls],
         )
 
         # Construct the final report object.
@@ -227,13 +394,38 @@ async def compile_image_findings(state: ImageAnalysisState):
         json_filename = f"image_analysis_state_session_{session_id}.json"
         json_path = os.path.join(image_analysis_directory, json_filename)
         
-        logger.info(f"Saving image analysis report to {json_path}")
+        logger.info(
+            f"💾 Saving report to: {json_path}",
+            agent="ImageAnalysis",
+            node="compile_findings",
+            event_type="REPORT_SAVED",
+            session_id=session_id,
+            report_path=json_path,
+        )
+        
         await dump_state_to_file(visual_analysis_report, json_path)
-        logger.debug("Image analysis report successfully saved")
+        
+        logger.success(
+            f"✅ Image analysis complete | Verdict: {most_severe_verdict} | {len(all_priority_urls)} URLs flagged",
+            agent="ImageAnalysis",
+            node="compile_findings",
+            event_type="COMPILATION_COMPLETE",
+            session_id=session_id,
+            final_verdict=most_severe_verdict,
+            final_confidence=overall_confidence,
+            priority_urls_count=len(all_priority_urls),
+        )
             
         return {"visual_analysis_report": visual_analysis_report}
     
     except Exception as e:
         error_msg = f"Error in compile_image_findings: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.exception(
+            "❌ Report compilation failed",
+            agent="ImageAnalysis",
+            node="compile_findings",
+            event_type="ERROR",
+            session_id=state.get('session_id'),
+            error=str(e),
+        )
         return {"errors": [error_msg]}

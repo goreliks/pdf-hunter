@@ -7,12 +7,10 @@ from ..agents.file_analysis.graph import static_analysis_graph
 from ..agents.url_investigation.graph import link_analysis_graph
 from ..agents.report_generator.graph import report_generator_graph
 from ..shared.utils.serializer import serialize_state_safely
-from ..shared.utils.logging_config import configure_logging, get_logger
+from ..config.logging_config import setup_logging
 from pdf_hunter.config import ORCHESTRATOR_CONFIG
 
-# Configure logging for the orchestrator
-configure_logging()
-logger = get_logger(__name__)
+# Note: Logging will be configured in __main__ with session_id
 
 
 orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState, output_schema=OrchestratorOutputState)
@@ -38,11 +36,11 @@ if __name__ == "__main__":
     import json
     import os
     import asyncio
-    import logging
+    from loguru import logger
 
-    # Configure more detailed logging for the orchestrator when run directly
-    configure_logging(level=logging.INFO, log_to_file=True)
-    logger = get_logger(__name__)
+    # Configure logging with DEBUG output to terminal for development/testing
+    # Note: Session-specific log will be added after PDF extraction completes
+    setup_logging(debug_to_terminal=True)
 
     async def main():
         # file_to_analyze = "test_mal_one.pdf"
@@ -62,66 +60,80 @@ if __name__ == "__main__":
             "additional_context": None
         }
         
-        logger.info("STARTING PDF HUNTER ORCHESTRATOR")
+        logger.info("🚀 Starting PDF Hunter orchestrator",
+                    agent="Orchestrator",
+                    file_path=file_path,
+                    pages_to_process=number_of_pages_to_process)
+        
+        session_id = None
+        output_directory = None
         
         try:
-            # Invoke the entire orchestrator with the initial state using async
-            logger.info("Invoking orchestrator graph")
-            final_state = await orchestrator_graph.ainvoke(orchestrator_input)
+            # Stream the orchestrator to reconfigure logging after PDF extraction
+            async for event in orchestrator_graph.astream(orchestrator_input, stream_mode="values"):
+                # After PDF extraction completes, we have session_id and output_directory
+                if event.get('session_id') and event.get('output_directory') and not session_id:
+                    session_id = event['session_id']
+                    output_directory = event['output_directory']
+                    
+                    # Reconfigure logging to add session-specific log file
+                    logger.info("📝 Adding session-specific log file",
+                               agent="Orchestrator",
+                               session_id=session_id,
+                               output_directory=output_directory)
+                    setup_logging(session_id=session_id, 
+                                 output_directory=output_directory,
+                                 debug_to_terminal=True)
+                
+                final_state = event
+                
         finally:
             # Cleanup MCP session when done
             from ..shared.utils.mcp_client import cleanup_mcp_session
-            logger.debug("Cleaning up MCP session")
+            logger.debug("Cleaning up MCP session", agent="Orchestrator")
             await cleanup_mcp_session()
 
-        logger.info("PDF HUNTER ORCHESTRATOR COMPLETE")
-        logger.debug("Final State of the Hunt:")
-        
-        if logger.isEnabledFor(logging.DEBUG):
-            def pretty_print_state(state):
-                printable_state = {}
-                for key, value in state.items():
-                    if hasattr(value, 'model_dump'):
-                        printable_state[key] = value.model_dump()
-                    else:
-                        printable_state[key] = value
-                return printable_state
-            
-            logger.debug(f"State details: {pretty_print_state(final_state)}")
+        session_id = final_state.get('session_id', 'unknown')
+        logger.info("✅ PDF Hunter orchestrator complete",
+                    agent="Orchestrator",
+                    session_id=session_id)
 
         image_analysis_report = final_state.get("image_analysis_report")
         if image_analysis_report:
-            logger.info(f"Image Analysis Verdict: {image_analysis_report.overall_verdict}")
-            logger.info(f"Confidence: {image_analysis_report.overall_confidence}")
+            logger.info(f"Image Analysis Verdict: {image_analysis_report.overall_verdict}",
+                       agent="Orchestrator",
+                       session_id=session_id,
+                       verdict=image_analysis_report.overall_verdict,
+                       confidence=image_analysis_report.overall_confidence)
 
         # Save final state to JSON file
         if final_state:
             # Use session-specific directory from final state
             session_output_directory = final_state.get('output_directory')
-            session_id = final_state.get('session_id', 'unknown')
             filename = f"analysis_report_session_{session_id}.json"
 
             # Ensure output directory exists
             if session_output_directory:
-                logger.debug(f"Creating output directory: {session_output_directory}")
                 os.makedirs(session_output_directory, exist_ok=True)
 
                 # Full path for the JSON file
                 json_path = os.path.join(session_output_directory, filename)
-                logger.debug(f"Preparing to save state to {json_path}")
 
                 # Convert final state to JSON-serializable format
-                logger.debug("Serializing state")
                 serializable_state = serialize_state_safely(final_state)
 
                 # Save to JSON file
-                logger.debug("Writing state to file")
                 with open(json_path, 'w', encoding='utf-8') as f:
                     json.dump(serializable_state, f, indent=2, ensure_ascii=False)
 
-                logger.info(f"Final state saved to: {json_path}")
+                logger.info(f"Final state saved to: {json_path}",
+                           agent="Orchestrator",
+                           session_id=session_id,
+                           output_file=json_path)
             else:
-                logger.warning("No output directory found in final state")
+                logger.warning("No output directory found in final state",
+                             agent="Orchestrator",
+                             session_id=session_id)
 
     # Run the async main function
     asyncio.run(main())

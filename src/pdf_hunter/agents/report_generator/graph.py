@@ -25,13 +25,12 @@ if __name__ == "__main__":
     import pprint
     import os
     import asyncio
-    import logging
     import glob
-    from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+    from loguru import logger
+    from pdf_hunter.config.logging_config import setup_logging
     
-    # Configure logging with more verbose output for standalone execution
-    configure_logging(level=logging.INFO, log_to_file=True)
-    logger = get_logger(__name__)
+    # Configure logging with more verbose output for standalone execution with DEBUG output
+    setup_logging(debug_to_terminal=True)
     
     async def run_report_generator():
         # Directly use a known file path in the output directory
@@ -39,17 +38,17 @@ if __name__ == "__main__":
         
         # Check if the specific file exists
         if not os.path.exists(test_json_path):
-            logger.warning(f"Specified file not found: {test_json_path}")
+            logger.warning(f"Specified file not found: {test_json_path}", agent="TestRunner", node="load_state")
             
             # Try to find any session directory with JSON files as a fallback
             output_dir = "/Users/gorelik/Courses/pdf-hunter/output"
-            logger.info(f"Looking for any analysis files in: {output_dir}")
+            logger.info(f"Looking for any analysis files in: {output_dir}", agent="TestRunner", node="load_state")
             
             # Find all JSON files in the output directory (recursively)
             all_json_files = glob.glob(f"{output_dir}/**/*.json", recursive=True)
             
             if not all_json_files:
-                logger.warning("No JSON files found in output directory")
+                logger.warning("No JSON files found in output directory", agent="TestRunner", node="search_files")
                 
                 # Create a minimal test state
                 test_state = {
@@ -73,26 +72,26 @@ if __name__ == "__main__":
             all_json_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
             test_json_path = all_json_files[0]
         
-        logger.info(f"Using JSON file: {test_json_path}")
+        logger.info(f"Using JSON file: {test_json_path}", agent="TestRunner", node="load_state")
         
         try:
             with open(test_json_path, 'r', encoding='utf-8') as f:
                 test_state = json.load(f)
             
-            logger.info(f"Running Report Generator on test state from: {test_json_path}")
+            logger.info(f"🚀 Running Report Generator on test state from: {test_json_path}", agent="TestRunner", node="run_graph")
             # Use ainvoke instead of invoke
             final_state = await report_generator_graph.ainvoke(test_state)
             
-            logger.info("Report Generator Complete")
+            logger.success("✅ Report Generator Complete", agent="TestRunner", node="run_graph")
             return final_state
         except FileNotFoundError:
-            logger.error(f"File not found: {test_json_path}")
+            logger.error(f"File not found: {test_json_path}", agent="TestRunner", node="run_graph")
             return None
         except json.JSONDecodeError:
-            logger.error(f"Invalid JSON in file: {test_json_path}")
+            logger.error(f"Invalid JSON in file: {test_json_path}", agent="TestRunner", node="run_graph")
             return None
         except Exception as e:
-            logger.error(f"Error running report generator: {str(e)}", exc_info=True)
+            logger.error(f"Error running report generator: {str(e)}", agent="TestRunner", node="run_graph", exc_info=True)
             return None
     
     # Run the async function
@@ -102,11 +101,11 @@ if __name__ == "__main__":
     if final_state:
         print("\n--- Verification ---")
         if final_state.get("errors"):
-            print(f"Completed with {len(final_state['errors'])} error(s).")
+            logger.warning(f"Completed with {len(final_state['errors'])} error(s).", agent="TestRunner", node="verify")
         else:
-            print("Completed successfully.")
-            print(f"Final Report Generated: {'Yes' if final_state.get('final_report') else 'No'}")
-            print(f"Final Verdict Generated: {'Yes' if final_state.get('final_verdict') else 'No'}")
+            logger.success("✅ Completed successfully.", agent="TestRunner", node="verify")
+            logger.info(f"Final Report Generated: {'Yes' if final_state.get('final_report') else 'No'}", agent="TestRunner", node="verify")
+            logger.info(f"Final Verdict Generated: {'Yes' if final_state.get('final_verdict') else 'No'}", agent="TestRunner", node="verify")
             if final_state.get('final_verdict'):
-                print("Final Verdict Details:")
+                logger.info("Final Verdict Details:", agent="TestRunner", node="verify")
                 pprint.pprint(final_state['final_verdict'].model_dump_json(indent=2))

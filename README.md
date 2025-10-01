@@ -32,13 +32,13 @@ graph TD
 - **🔍 PDF Extraction**: Extract metadata, images, URLs, QR codes safely
 - **🧬 File Analysis**: Multi-tool PDF scanning with mission-based investigations and strategic reflection
 - **👁️ Image Analysis**: Visual deception detection and URL prioritization
-- **🌐 URL Investigation**: Automated web reconnaissance with strategic reflection and enhanced logging
+- **🌐 URL Investigation**: Automated web reconnaissance with strategic reflection
 - **📊 Report Generator**: Comprehensive report generation and final verdict
 
 ### Key Features
 
 - **🧠 Strategic Reflection**: Integrated think_tool for systematic investigation decision-making
-- **📊 Enhanced Logging**: Tool execution tracking at INFO level for investigation transparency
+- **📊 Structured Logging**: Loguru-based logging with JSONL output for monitoring and analysis
 - **🔄 Sophisticated Orchestration**: Parallel agent execution with state aggregation
 - **📁 Session Management**: Organized output with session-specific directory structures
 - **🛡️ Safe Analysis**: No PDF execution, only static and visual analysis techniques
@@ -213,38 +213,57 @@ output/
 
 ### Logging Configuration
 
-PDF Hunter includes a centralized logging system:
+PDF Hunter uses **Loguru** for structured logging with multiple output streams:
+
+**Output Streams:**
+- **Terminal**: Colorful, human-readable with emojis (INFO+ by default, DEBUG+ in development mode)
+- **Central Log**: `logs/pdf_hunter_YYYYMMDD.jsonl` - All sessions, daily rotation, structured JSONL format
+- **Session Log**: `output/{session_id}/logs/session.jsonl` - Session-specific logs, structured JSONL format
+
+**Basic Usage:**
 
 ```python
-# In any module:
-from pdf_hunter.shared.utils.logging_config import get_logger
+# Import in any module
+from loguru import logger
 
-# Create a module-specific logger
-logger = get_logger(__name__)
+# Log with structured context
+logger.info("Starting extraction",
+            agent="PdfExtraction",
+            node="extract_images",
+            session_id=session_id)
 
-# Use appropriate log levels
-logger.info("Starting process")
-logger.warning("Potential issue detected")
-logger.error("Error occurred", exc_info=True)
+# Success events
+logger.success("✅ Extraction complete",
+               image_count=len(images))
+
+# Errors with automatic traceback
+logger.exception("❌ Operation failed")
 ```
 
-Configure logging levels for more detailed output:
+**Configuration:**
 
 ```python
-from pdf_hunter.shared.utils.logging_config import configure_logging
-import logging
+from pdf_hunter.config.logging_config import setup_logging
 
-# Default configuration (INFO level)
-configure_logging()
+# Production mode (INFO+ in terminal, all logs in files)
+setup_logging(session_id=session_id, output_directory=output_dir)
 
-# Debug level with file output for troubleshooting
-configure_logging(level=logging.DEBUG, log_to_file=True)
-
-# Session-specific logging
-configure_logging(log_to_file=True, session_id=session_id)
+# Development mode (DEBUG+ in terminal)
+setup_logging(debug_to_terminal=True)
 ```
 
-Log files are stored in a `logs/` directory with naming pattern `pdf_hunter_{timestamp}.log`. When using async operations, always use the logger instead of print statements to avoid interfering with event loops.
+**Log File Structure:**
+
+Each log entry in JSONL files includes structured fields:
+- `record.extra.agent` - Agent identifier (PdfExtraction, FileAnalysis, etc.)
+- `record.extra.node` - Node function name
+- `record.extra.session_id` - Session identifier
+- `record.extra.event_type` - Optional semantic event type
+- `record.level.name` - Log level (DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
+- `record.message` - Human-readable message
+- `record.time.timestamp` - Unix timestamp
+
+For complete field mappings and event types, see `docs/LOGGING_FIELD_REFERENCE.md`.
 
 ### Investigation Enhancement Configuration
 
@@ -429,6 +448,8 @@ PDF Hunter is a **defensive security tool** designed for safe PDF analysis:
 
 - **🎯 Multi-Modal Analysis**: Combines structural, visual, and behavioral analysis
 - **🤖 AI-Powered Insights**: 10 specialized LLMs for different analysis tasks
+- **🧠 Strategic Reflection**: Integrated think_tool for systematic investigation decision-making
+- **📊 Structured Logging**: Loguru-based logging with JSONL output for analysis and monitoring
 - **🔄 Parallel Processing**: Concurrent analysis for improved performance
 - **📈 Evidence Graphs**: Structured representation of attack chains
 - **🌐 Web Reconnaissance**: Automated URL investigation with MCP Playwright integration

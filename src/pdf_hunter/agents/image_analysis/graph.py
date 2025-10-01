@@ -2,11 +2,7 @@ from langgraph.graph import StateGraph, START, END
 
 from .schemas import ImageAnalysisState
 from .nodes import analyze_pdf_images, compile_image_findings
-from pdf_hunter.shared.utils.logging_config import configure_logging
 from pdf_hunter.config import IMAGE_ANALYSIS_CONFIG
-
-# Configure logging for this module
-configure_logging()
 
 
 visual_analysis_builder = StateGraph(ImageAnalysisState)
@@ -26,15 +22,14 @@ visual_analysis_graph = visual_analysis_graph.with_config(IMAGE_ANALYSIS_CONFIG)
 
 if __name__ == "__main__":
     import pprint
-    import logging
     import os
     import asyncio
+    from loguru import logger
     from ..pdf_extraction.graph import preprocessing_graph
-    from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+    from pdf_hunter.config.logging_config import setup_logging
 
-    # Configure logging with more verbose output for standalone execution
-    configure_logging(level=logging.INFO, log_to_file=True)
-    logger = get_logger(__name__)
+    # Configure logging for standalone execution with DEBUG output
+    setup_logging(debug_to_terminal=True)
 
     async def run_analysis():
         module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -44,7 +39,7 @@ if __name__ == "__main__":
         output_directory = "output/image_analysis_results"
         pages_to_process = 1
 
-        logger.info(f"Running Preprocessing on: {file_path}")
+        logger.info(f"Running Preprocessing on: {file_path}", agent="image_analysis_test")
         preprocessing_input = {
             "file_path": file_path,
             "output_directory": output_directory,
@@ -54,38 +49,35 @@ if __name__ == "__main__":
         preprocessing_results = await preprocessing_graph.ainvoke(preprocessing_input)
         
         if preprocessing_results.get("errors"):
-            logger.error("Preprocessing Failed")
+            logger.error("Preprocessing Failed", agent="image_analysis_test")
             for error in preprocessing_results["errors"]:
-                logger.error(f"Error: {error}")
+                logger.error(f"Error: {error}", agent="image_analysis_test")
             return None
         else:
-            logger.info("Preprocessing Succeeded. Preparing for Visual Analysis...")
+            logger.info("Preprocessing Succeeded. Preparing for Visual Analysis...", agent="image_analysis_test")
 
             visual_analysis_input = {
                 "extracted_images": preprocessing_results["extracted_images"],
                 "extracted_urls": preprocessing_results["extracted_urls"],
-                "number_of_pages_to_process": 1
+                "number_of_pages_to_process": 1,
+                "session_id": preprocessing_results.get("session_id"),
+                "output_directory": preprocessing_results.get("output_directory"),
             }
 
-            logger.info(f"Running Visual Analysis on {pages_to_process} page(s)")
+            logger.info(f"Running Visual Analysis on {pages_to_process} page(s)", agent="image_analysis_test")
             
             # Use ainvoke instead of invoke
             final_state = await visual_analysis_graph.ainvoke(visual_analysis_input)
 
-            logger.info("Visual Analysis Complete")
+            if final_state.get("errors"):
+                logger.error(f"Completed with {len(final_state['errors'])} error(s)", agent="image_analysis_test")
+                for error in final_state["errors"]:
+                    logger.error(f"Error: {error}", agent="image_analysis_test")
+            else:
+                logger.success("✅ Visual Analysis completed successfully", agent="image_analysis_test")
+            
             return final_state
     
     # Run the async function with asyncio.run()
     final_state = asyncio.run(run_analysis())
 
-    if final_state:
-        if final_state.get("errors"):
-            logger.error("Visual Analysis Failed")
-            for error in final_state["errors"]:
-                logger.error(f"Error: {error}")
-        else:
-            visual_analysis_report = final_state.get("visual_analysis_report")
-            if visual_analysis_report:
-                logger.info("Final Report Generated")
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(pprint.pformat(visual_analysis_report))

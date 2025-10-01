@@ -6,12 +6,8 @@ from .schemas import InvestigatorState, InvestigatorOutputState, FileAnalysisSta
 from .nodes import file_analyzer, identify_suspicious_elements, create_analysis_tasks, assign_analysis_tasks, review_analysis_results, summarize_file_analysis
 from .tools import pdf_parser_tools
 from langgraph.prebuilt import tools_condition
-from pdf_hunter.shared.utils.logging_config import configure_logging, get_logger
+from loguru import logger
 from pdf_hunter.config import FILE_ANALYSIS_CONFIG, FILE_ANALYSIS_INVESTIGATOR_CONFIG
-
-# Configure logging for this module
-configure_logging()
-logger = get_logger(__name__)
 
 
 
@@ -41,29 +37,46 @@ async def run_file_analysis(state: dict):
     
     try:
         mission = state.get("mission")
+        mission_id = mission.mission_id if mission else "unknown"
+        threat_type = mission.threat_type if mission else "unknown"
+        
         if mission:
-            logger.info(f"Starting investigation mission for threat type: {mission.threat_type}")
-            logger.debug(f"Mission ID: {mission.mission_id}")
+            logger.debug(
+                f"Starting investigator subgraph for {mission_id}",
+                agent="FileAnalysis",
+                node="run_file_analysis",
+                mission_id=mission_id,
+                threat_type=threat_type
+            )
         
         # Run the investigator subgraph
-        logger.debug("Invoking investigator subgraph")
         result = await investigator_graph.ainvoke(state)
         
         if result.get("mission_report"):
-            logger.info(f"Investigation completed with status: {result['mission_report'].final_status}")
+            logger.debug(
+                f"Investigation completed: {mission_id} -> {result['mission_report'].final_status}",
+                agent="FileAnalysis",
+                node="run_file_analysis",
+                mission_id=mission_id,
+                final_status=result['mission_report'].final_status.value
+            )
         
         # The result should contain the fields from InvestigatorOutputState
         # We need to wrap it in a list so it gets aggregated via operator.add
-        logger.debug("Returning mission result for aggregation")
         return {
             "completed_investigations": [result]  # This will be aggregated
         }
     
     except GraphRecursionError as e:
         # Handle recursion limit specifically - mark mission as blocked
-        error_msg = f"Mission {mission.mission_id if mission else 'unknown'} hit recursion limit - investigation too complex or stuck in loop"
-        logger.warning(error_msg)
-        logger.debug(f"Recursion error details: {e}")
+        error_msg = f"Mission {mission_id} hit recursion limit - too complex or stuck in loop"
+        logger.warning(
+            f"⚠️ {error_msg}",
+            agent="FileAnalysis",
+            node="run_file_analysis",
+            event_type="RECURSION_LIMIT",
+            mission_id=mission_id
+        )
         
         # Return a partial investigation result marking the mission as blocked
         from .schemas import EvidenceGraph
@@ -81,7 +94,13 @@ async def run_file_analysis(state: dict):
     
     except Exception as e:
         error_msg = f"Error in run_file_analysis: {e}"
-        logger.error(error_msg, exc_info=True)
+        logger.error(
+            error_msg,
+            agent="FileAnalysis",
+            node="run_file_analysis",
+            event_type="ERROR",
+            exc_info=True
+        )
         return {"errors": [error_msg]}
 
 # Add the wrapper as the node instead of the raw subgraph
@@ -112,13 +131,10 @@ if __name__ == "__main__":
     import json
     import os
     import uuid
-    import logging
     import asyncio
     from datetime import datetime
     
-    # Configure more detailed logging for standalone execution
-    configure_logging(level=logging.INFO, log_to_file=True)
-    logger = get_logger(__name__)
+    # Loguru is already configured globally, no need to reconfigure here
     
     async def run_analysis():
         module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -129,15 +145,17 @@ if __name__ == "__main__":
         additional_context = "None"
         session_id = "123"
     
-        logger.info(f"Running file analysis on: {file_path}")
-        logger.info(f"Session ID: {session_id}")
+        logger.info(
+            f"Running file analysis on: {file_path}",
+            agent="FileAnalysis",
+            session_id=session_id
+        )
     
         final_state = None
         async for event in static_analysis_graph.astream({"file_path":file_path,"output_directory": output_directory, "additional_context": additional_context, "session_id": session_id}, stream_mode="values"):
-            if logger.isEnabledFor(logging.DEBUG):
-                # Don't log the full event as it can be very large
-                event_keys = list(event.keys()) if isinstance(event, dict) else "Non-dict event"
-                logger.debug(f"Event received with keys: {event_keys}")
+            # Don't log full event as it can be very large
+            event_keys = list(event.keys()) if isinstance(event, dict) else "Non-dict event"
+            logger.debug(f"Event received with keys: {event_keys}")
             final_state = event
             
         # Save final state to JSON file if available
