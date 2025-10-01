@@ -2671,6 +2671,10 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+api = [
+    { name = "fastapi" },
+    { name = "python-multipart" },
+]
 dev = [
     { name = "ipykernel" },
     { name = "jupyterlab" },
@@ -2868,6 +2872,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+api = [
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "python-multipart", specifier = ">=0.0.9" },
+]
 dev = [
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "jupyterlab", specifier = ">=4.4.4" },

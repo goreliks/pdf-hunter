@@ -21,7 +21,7 @@ class OrchestratorState(TypedDict):
     number_of_pages_to_process: int
     pages_to_process: Optional[List[int]]
     additional_context: NotRequired[Optional[str]]
-    session_id: str
+    session_id: NotRequired[Optional[str]]
 
     pdf_hash: Optional[PDFHashData]
     page_count: Optional[int]
@@ -56,6 +56,7 @@ class OrchestratorInputState(TypedDict):
     output_directory: NotRequired[Optional[str]]
     number_of_pages_to_process: int
     additional_context: NotRequired[Optional[str]]
+    session_id: NotRequired[Optional[str]]
 
 
 class OrchestratorOutputState(TypedDict):

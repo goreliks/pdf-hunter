@@ -100,13 +100,21 @@ async def analyze_pdf(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         session_id = f"{sha1_hash}_{timestamp}"
         
-        # Save PDF to temporary location
+        # Create output directory structure
         output_dir = Path("output") / session_id
         output_dir.mkdir(parents=True, exist_ok=True)
         
+        # Save PDF to session directory
         pdf_path = output_dir / file.filename
         with open(pdf_path, 'wb') as f:
             f.write(content)
+        
+        # Setup logging BEFORE orchestrator runs (includes session.jsonl)
+        setup_logging(
+            session_id=session_id,
+            output_directory=str(output_dir),
+            enable_sse=True
+        )
         
         logger.info(
             f"📄 PDF uploaded: {file.filename} ({len(content)} bytes)",
@@ -137,8 +145,7 @@ async def analyze_pdf(
             "filename": file.filename,
             "max_pages": max_pages,
             "stream_url": f"/api/sessions/{session_id}/stream",
-            "status_url": f"/api/sessions/{session_id}/status",
-            "note": "session_id will be updated once PDF extraction completes. The stream will automatically redirect to the real session_id."
+            "status_url": f"/api/sessions/{session_id}/status"
         }
         
     except Exception as e:
@@ -155,17 +162,14 @@ async def run_pdf_analysis(session_id: str, pdf_path: str, max_pages: int):
     """
     Run the PDF Hunter analysis pipeline in background.
     
-    Note: The session_id passed in is temporary. The actual session_id
-    will be created by the PDF extractor (based on file hash + timestamp).
+    Note: session_id is pre-generated and passed to the orchestrator.
+    Logging is already configured before this function is called.
     
     Args:
-        session_id: Temporary session identifier (will be replaced)
+        session_id: Pre-generated session identifier
         pdf_path: Path to PDF file
         max_pages: Maximum pages to analyze
     """
-    actual_session_id = None
-    actual_output_directory = None
-    
     try:
         # Import here to avoid circular dependencies
         from pdf_hunter.orchestrator.graph import orchestrator_graph
@@ -180,73 +184,43 @@ async def run_pdf_analysis(session_id: str, pdf_path: str, max_pages: int):
             max_pages=max_pages
         )
         
-        # Prepare initial state matching OrchestratorInputState schema
+        # Extract output directory from session_id (it was created in analyze_pdf)
+        output_directory = str(Path("output") / session_id)
+        
+        # Prepare initial state with pre-generated session_id
         initial_state: OrchestratorInputState = {
             "file_path": pdf_path,
-            "output_directory": "output",  # Base directory, session-specific will be created
+            "output_directory": output_directory,
             "number_of_pages_to_process": max_pages,
-            "additional_context": None
+            "additional_context": None,
+            "session_id": session_id  # Pass pre-generated session_id
         }
         
-        # Stream the orchestrator to get the real session_id from PDF extraction
-        async for event in orchestrator_graph.astream(initial_state, stream_mode="values"):
-            # After PDF extraction completes, we get the real session_id
-            if event.get('session_id') and not actual_session_id:
-                actual_session_id = event['session_id']
-                actual_output_directory = event.get('output_directory')
-                
-                # Update active_analyses with the real session_id
-                if session_id in active_analyses:
-                    # Copy entry to actual session_id
-                    active_analyses[actual_session_id] = active_analyses[session_id].copy()
-                    active_analyses[actual_session_id]["actual_session_id"] = actual_session_id
-                    
-                    # Keep temp session_id entry as a redirect/alias
-                    active_analyses[session_id]["actual_session_id"] = actual_session_id
-                    active_analyses[session_id]["status"] = "redirected"
-                    
-                    logger.info(
-                        f"📝 Real session_id created by PDF extractor",
-                        agent="api",
-                        node="run_pdf_analysis",
-                        temp_session_id=session_id,
-                        actual_session_id=actual_session_id
-                    )
-                    
-                    # Reconfigure logging to add session-specific log file
-                    setup_logging(
-                        session_id=actual_session_id,
-                        output_directory=actual_output_directory,
-                        enable_sse=True
-                    )
-            
-            final_result = event
+        # Run the orchestrator (no streaming needed since logging is already setup)
+        final_result = await orchestrator_graph.ainvoke(initial_state)
         
-        # Update status with actual session_id
-        final_session_id = actual_session_id or session_id
-        if final_session_id in active_analyses:
-            active_analyses[final_session_id]["status"] = "complete"
-            active_analyses[final_session_id]["actual_session_id"] = actual_session_id
+        # Update status
+        if session_id in active_analyses:
+            active_analyses[session_id]["status"] = "complete"
         
         logger.success(
             f"✅ PDF analysis complete",
             agent="api",
             node="run_pdf_analysis",
-            session_id=final_session_id,
+            session_id=session_id,
             errors=len(final_result.get("errors", [])) if final_result.get("errors") else 0
         )
         
     except Exception as e:
-        # Update status (use actual_session_id if available)
-        error_session_id = actual_session_id or session_id
-        if error_session_id in active_analyses:
-            active_analyses[error_session_id]["status"] = "failed"
+        # Update status
+        if session_id in active_analyses:
+            active_analyses[session_id]["status"] = "failed"
         
         logger.error(
             f"❌ PDF analysis failed: {e}",
             agent="api",
             node="run_pdf_analysis",
-            session_id=error_session_id,
+            session_id=session_id,
             exc_info=True
         )
 
@@ -358,50 +332,17 @@ async def get_session_status(session_id: str):
         analysis_info = active_analyses[session_id]
         status = analysis_info["status"]
         
-        # Handle redirected temp session_ids
-        if status == "redirected":
-            actual_session_id = analysis_info.get("actual_session_id")
-            if actual_session_id and actual_session_id in active_analyses:
-                # Return status from actual session with redirect info
-                actual_info = active_analyses[actual_session_id]
-                actual_status = actual_info["status"]
-                
-                # Check if final report exists
-                report_path = Path(f"output/{actual_session_id}/analysis_report_session_{actual_session_id}.json")
-                
-                return {
-                    "status": actual_status,
-                    "session_id": session_id,
-                    "actual_session_id": actual_session_id,
-                    "filename": actual_info.get("filename"),
-                    "started_at": actual_info.get("started_at"),
-                    "report_available": report_path.exists(),
-                    "stream_url": f"/api/sessions/{actual_session_id}/stream",
-                    "note": "Use actual_session_id for streaming logs"
-                }
-        
-        # Check if we have the actual session_id (after PDF extraction)
-        actual_session_id = analysis_info.get("actual_session_id")
-        
         # Check if final report exists for "complete" status
-        # Use actual_session_id if available, otherwise use provided session_id
-        check_session_id = actual_session_id or session_id
-        report_path = Path(f"output/{check_session_id}/analysis_report_session_{check_session_id}.json")
+        report_path = Path(f"output/{session_id}/analysis_report_session_{session_id}.json")
         
-        response = {
+        return {
             "status": status,
             "session_id": session_id,
             "filename": analysis_info.get("filename"),
             "started_at": analysis_info.get("started_at"),
-            "report_available": report_path.exists()
+            "report_available": report_path.exists(),
+            "stream_url": f"/api/sessions/{session_id}/stream"
         }
-        
-        # Include actual_session_id if different (after PDF extraction completes)
-        if actual_session_id and actual_session_id != session_id:
-            response["actual_session_id"] = actual_session_id
-            response["stream_url"] = f"/api/sessions/{actual_session_id}/stream"
-        
-        return response
     
     # Check if final report exists (completed before server started)
     report_path = Path(f"output/{session_id}/analysis_report_session_{session_id}.json")

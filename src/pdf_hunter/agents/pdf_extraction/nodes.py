@@ -22,19 +22,21 @@ from pdf_hunter.config import MAXIMUM_PAGES_TO_PROCESS
 def setup_session(state: PDFExtractionState):
     """
     Initializes the PDF extraction by validating paths, calculating hashes,
-    generating session_id, and creating session-specific directory structure.
+    generating session_id (or using provided one), and creating session-specific directory structure.
     """
     try:
         file_path = state['file_path']
         base_output_directory = state.get('output_directory', 'output')
         number_of_pages_to_process = state["number_of_pages_to_process"]
+        provided_session_id = state.get('session_id')
         
         # Agent start event
         logger.info(f"🚀 Starting PDF extraction session",
                     agent="PdfExtraction",
                     node="setup_session",
                     event_type="AGENT_START",
-                    file_path=file_path)
+                    file_path=file_path,
+                    provided_session_id=provided_session_id)
 
         # Validate inputs
         if not file_path:
@@ -56,13 +58,39 @@ def setup_session(state: PDFExtractionState):
                           node="setup_session")
             number_of_pages_to_process = MAXIMUM_PAGES_TO_PROCESS
 
-        # 1. Calculate file hashes first (needed for session_id)
+        # 1. Calculate file hashes (needed for validation and session_id generation)
         hashes = calculate_file_hashes(file_path)
         pdf_hash = PDFHashData(sha1=hashes["sha1"], md5=hashes["md5"])
 
-        # 2. Generate session_id using {sha1}_{timestamp}
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        session_id = f"{pdf_hash.sha1}_{timestamp}"
+        # 2. Use provided session_id or generate new one
+        if provided_session_id:
+            session_id = provided_session_id
+            logger.info(
+                f"📝 Using provided session_id",
+                agent="PdfExtraction",
+                node="setup_session",
+                session_id=session_id,
+                expected_sha1=pdf_hash.sha1[:16]
+            )
+            # Validate that provided session_id matches file hash
+            if not session_id.startswith(pdf_hash.sha1):
+                logger.warning(
+                    f"⚠️ Provided session_id doesn't match file SHA1 hash",
+                    agent="PdfExtraction",
+                    node="setup_session",
+                    session_id=session_id,
+                    file_sha1=pdf_hash.sha1[:16]
+                )
+        else:
+            # Generate new session_id using {sha1}_{timestamp}
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            session_id = f"{pdf_hash.sha1}_{timestamp}"
+            logger.info(
+                f"🆕 Generated new session_id",
+                agent="PdfExtraction",
+                node="setup_session",
+                session_id=session_id
+            )
 
         # 3. Create session-specific output directory
         session_output_directory = os.path.join(base_output_directory, session_id)
@@ -402,4 +430,55 @@ def scan_qr_codes(state: PDFExtractionState):
                         event_type="ERROR",
                         session_id=state.get('session_id'),
                         error=str(e))
+        return {"errors": [error_msg]}
+
+
+async def finalize_extraction(state: PDFExtractionState) -> dict:
+    """
+    Final node that logs completion of PDF extraction.
+    This ensures the frontend knows the agent has finished.
+    
+    Args:
+        state: Current extraction state
+        
+    Returns:
+        Empty dict (no state changes, just logging)
+    """
+    try:
+        session_id = state.get('session_id', 'unknown')
+        images_count = len(state.get('extracted_images', []))
+        urls_count = len(state.get('extracted_urls', []))
+        errors_count = len(state.get('errors', []))
+        
+        if errors_count > 0:
+            logger.warning(
+                f"⚠️ PDF Extraction complete with {errors_count} error(s)",
+                agent="PdfExtraction",
+                node="finalize_extraction",
+                event_type="EXTRACTION_COMPLETE_WITH_ERRORS",
+                session_id=session_id,
+                images_extracted=images_count,
+                urls_found=urls_count,
+                error_count=errors_count
+            )
+        else:
+            logger.success(
+                f"✅ PDF Extraction complete | Images: {images_count}, URLs: {urls_count}",
+                agent="PdfExtraction",
+                node="finalize_extraction",
+                event_type="EXTRACTION_COMPLETE",
+                session_id=session_id,
+                images_extracted=images_count,
+                urls_found=urls_count
+            )
+        
+        return {}
+        
+    except Exception as e:
+        error_msg = f"Error in finalize_extraction: {e}"
+        logger.error(error_msg,
+                    agent="PdfExtraction",
+                    node="finalize_extraction",
+                    session_id=state.get('session_id'),
+                    exc_info=True)
         return {"errors": [error_msg]}

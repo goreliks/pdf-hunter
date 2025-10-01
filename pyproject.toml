@@ -202,6 +202,10 @@ dev = [
     "ipykernel>=6.29.5",
     "jupyterlab>=4.4.4",
 ]
+api = [
+    "fastapi>=0.115.0",
+    "python-multipart>=0.0.9",
+]
 vllm = [
     "vllm>=0.8.4",  # Supports numpy 2.x (disabled on macOS)
     "numpy>=1.24,<2.3",  # Compatible range
