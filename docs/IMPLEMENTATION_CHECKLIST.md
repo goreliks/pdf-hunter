@@ -118,66 +118,98 @@
 
 ---
 
-## 📊 Phase 3: Frontend Dashboard (Days 6-10)
+## 📊 Phase 3: Dashboard (Already Implemented in Phase 2!)
 
-### Step 3.1: Dashboard Component (4-5 hours)
-- [ ] Create `src/components/Dashboard.tsx`
-- [ ] Add logs state (5 agents)
-- [ ] Add connected state
-- [ ] Create EventSource connection
-- [ ] Implement `onmessage` handler
-- [ ] Implement `onerror` handler
-- [ ] Add log routing logic (by agent field)
-- [ ] Create dashboard layout
-- [ ] Add spinning indicator
-- [ ] Add session header
-- [ ] Render 5 AgentPanel components
-- [ ] Test SSE connection establishes
-- [ ] Test logs route to correct panels
-- [ ] Test connection status updates
+### Step 3.1: Dashboard Component ✅ COMPLETE
+- [x] Create `src/components/Dashboard.jsx` (not .tsx - using plain React)
+- [x] Add logs state (5 agents)
+- [x] Add connected state (from useSSEStream hook)
+- [x] Create EventSource connection (via useSSEStream hook)
+- [x] Implement `onmessage` handler (in useSSEStream)
+- [x] Implement `onerror` handler (in useSSEStream)
+- [x] Add log routing logic (by agent field - via groupLogsByAgent)
+- [x] Create dashboard layout (grid layout with header)
+- [x] Add connection indicator (green/red dot with status text)
+- [x] Add session header
+- [x] Render 5 AgentPanel components
+- [x] Test SSE connection establishes
+- [x] Test logs route to correct panels
+- [x] Test connection status updates
 
-### Step 3.2: Agent Panel Component (5-6 hours)
-- [ ] Create `src/components/AgentPanel.tsx`
-- [ ] Add expanded state
-- [ ] Implement `getAgentStatus()` function
-- [ ] Create panel header
-- [ ] Create panel body
-- [ ] Show recent logs (last 5)
-- [ ] Add expand/collapse button
-- [ ] Show full history when expanded
-- [ ] Create `StatusBadge` component
-- [ ] Add status icons (⏳🔴✅❌)
-- [ ] Add auto-scroll to latest
-- [ ] Test status updates correctly
-- [ ] Test expand/collapse works
-- [ ] Test panels independent
+### Step 3.2: Agent Panel Component ✅ COMPLETE
+- [x] Create `src/components/AgentPanel.jsx`
+- [x] Add expanded state (useState with default true)
+- [x] Implement `getAgentStatus()` function (in logUtils.js)
+- [x] Create panel header (with icon, name, log count)
+- [x] Create panel body (collapsible)
+- [x] Show logs via LogViewer component
+- [x] Add expand/collapse button (chevron icon)
+- [x] Show full history when expanded
+- [x] Create StatusBadge component (inline in header)
+- [x] Add status colors (idle/running/complete/error with Tailwind classes)
+- [x] Add auto-scroll to latest (in LogViewer)
+- [x] Test status updates correctly
+- [x] Test expand/collapse works
+- [x] Test panels independent
 
-### Step 3.3: Log Entry Component (3-4 hours)
-- [ ] Create `src/components/LogEntry.tsx`
-- [ ] Import field extraction utilities
-- [ ] Call `extractFieldsFromLog()` for expanded view
-- [ ] Call `extractDisplayRows()` for compact view
-- [ ] Call `formatLogTimestamp()`
-- [ ] Call `getLogLevelColor()`
-- [ ] Create expanded layout
-- [ ] Create compact layout
-- [ ] Add log header (timestamp + message)
-- [ ] Add field rows
-- [ ] Test fields extracted correctly
-- [ ] Test format matches spec (node | event | field | value)
-- [ ] Test timestamps formatted (HH:MM:SS)
-- [ ] Test colors applied
-- [ ] Test compact vs expanded modes
+### Step 3.3: Log Entry Component ✅ COMPLETE (Simplified)
+- [x] Create `LogEntry` component (inline in LogViewer.jsx)
+- [x] Import field extraction utilities (getLogLevelColor from logUtils)
+- [x] Call `formatLogEntry()` for display
+- [x] Call `getLogLevelColor()` for color coding
+- [x] Create log layout (timestamp + level + node + message)
+- [x] Add log header (timestamp + message)
+- [x] Add metadata display (event_type, file_path, mission_id)
+- [x] Test timestamps formatted (HH:MM:SS)
+- [x] Test colors applied by level
+- [x] Test metadata display when present
 
-### Step 3.4: Connection Status (1 hour)
-- [ ] Create `src/components/ConnectionStatus.tsx`
-- [ ] Add status dot
-- [ ] Add status text
-- [ ] Add CSS animations
-- [ ] Test status updates
-- [ ] Test animation smooth
+**Note:** We implemented a simplified version focused on real-time streaming. 
+The advanced field extraction (extractFieldsFromLog) exists in utils but not yet used in UI.
 
-**Phase 3 Complete:** [ ] Dashboard displays all 5 agents with live updates
+### Step 3.4: Connection Status ✅ COMPLETE
+- [x] Connection status built into Dashboard header
+- [x] Add status dot (green/red based on isConnected)
+- [x] Add status text (Connected/Connecting/Reconnecting/Error/Failed)
+- [x] Connection states managed by useSSEStream hook
+- [x] Test status updates
+- [x] Visual feedback working
+
+**Phase 3 Complete:** [x] Dashboard displays all 5 agents with live updates
+
+**What's NOT Yet Implemented (Future Enhancements):**
+- [ ] Advanced field extraction UI (expandable log details)
+- [ ] Log filtering (by level, keyword)
+- [ ] Search functionality
+- [ ] Report download button
+- [ ] Copy log to clipboard
+- [ ] Export logs to file
+- [ ] Keyboard shortcuts
+- [ ] Mobile responsive optimizations
+
+---
+
+## 🎨 Phase 3.5: Structured Field Display (Next Priority)
+
+### Goal: Display log fields as structured data instead of raw text
+
+**Current State:** Logs displayed as formatted text strings  
+**Target State:** Each logged field shown as individual rows (node | event | field | value)
+
+### Implementation (3-4 hours)
+- [ ] Integrate `extractFieldsFromLog()` from `fieldExtractor.js` into LogViewer
+- [ ] Replace text-only display with structured field rows
+- [ ] Create field row component: `[node] [event] field: value`
+- [ ] Format values by type:
+  - [ ] Percentages: 0.95 → 95.0%
+  - [ ] URLs: Truncate long URLs with tooltip
+  - [ ] Booleans: Show as badges (✓/✗)
+  - [ ] Arrays: Show count + expandable list
+- [ ] Keep timestamp + message as header
+- [ ] Add expand/collapse for log entry details
+- [ ] Test with real PDF analysis logs from all 5 agents
+
+**Phase 3.5 Complete:** [ ] Logs display as structured fields instead of text
 
 ---
 
@@ -318,7 +350,8 @@
 |-------|--------|------------|-----------------|
 | Phase 1: Backend SSE | ✅ Complete | Oct 1, 2025 | Oct 1, 2025 |
 | Phase 2: Landing Page + Dashboard | ✅ Complete | Oct 1, 2025 | Oct 1, 2025 |
-| Phase 3: Advanced Dashboard Features | ⏳ Not Started | | |
+| Phase 3: Dashboard Components | ✅ Complete | Oct 1, 2025 | Oct 1, 2025 |
+| Phase 3.5: Advanced Features | ⏳ Not Started | | |
 | Phase 4: Testing | ⏳ Not Started | | |
 | Phase 5: Documentation | ⏳ Not Started | | |
 
@@ -334,21 +367,25 @@
 
 ✅ **Completed:**
 1. Phase 1: Backend SSE Infrastructure (committed: 9071ffb)
-2. Phase 2: Complete frontend with real-time dashboard
-3. Session ID architecture fix (pre-generation eliminates redirect pattern)
-4. PDF Extraction logging fix (logs now captured in session.jsonl)
-5. Frontend SSE connection fix (removed polling logic)
-6. Added finalize_extraction node for completion status
+2. Phase 2: Complete frontend with real-time dashboard (committed: 0f6b5ff)
+3. Phase 3: All dashboard components working (included in Phase 2)
+4. Session ID architecture fix (pre-generation eliminates redirect pattern)
+5. PDF Extraction logging fix (logs now captured in session.jsonl)
+6. Frontend SSE connection fix (removed polling logic)
+7. Added finalize_extraction node for completion status
 
-📦 **Ready to Commit:**
-- Backend changes: orchestrator schemas, PDF extraction nodes/graph, API server
-- Frontend: Complete Vite + React app with 8 components, SSE streaming, Tailwind styling
-- Documentation updates: IMPLEMENTATION_CHECKLIST.md
+📦 **Latest Commit:** 0f6b5ff - Phase 2 complete (40 files, 10,317 insertions)
 
 🎯 **Next Session:**
-- Phase 3: Advanced dashboard features (filters, search, download reports)
-- Phase 4: Comprehensive testing
-- Phase 5: Documentation and deployment
+- Phase 3.5: Structured field display (node | event | field | value)
+- Phase 4: Comprehensive end-to-end testing
+- Phase 5: Documentation and deployment prep
+
+**Future Enhancements (Not in Current Plan):**
+- Filtering & search
+- Report download
+- Keyboard shortcuts
+- Mobile optimizations
 
 ---
 
@@ -362,5 +399,5 @@
 ---
 
 **Last Updated:** October 1, 2025  
-**Current Phase:** Phase 2 Complete ✅  
-**Next Action:** Phase 3 - Advanced Dashboard Features (filters, search, reports)
+**Current Phase:** Phase 3 Complete ✅ (Dashboard fully functional)  
+**Next Action:** Phase 3.5 (Advanced Features - Optional) OR Phase 4 (Testing)
