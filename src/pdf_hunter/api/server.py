@@ -52,17 +52,37 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    """Health check endpoint."""
+    """Root endpoint with API information."""
     return {
         "name": "PDF Hunter API",
         "status": "operational",
         "version": "0.1.0",
         "endpoints": {
-            "health": "/",
+            "root": "/",
+            "health": "/health",
+            "status": "/api/status",
             "analyze": "/api/analyze",
             "stream": "/api/sessions/{session_id}/stream",
-            "status": "/api/sessions/{session_id}/status"
+            "session_status": "/api/sessions/{session_id}/status"
         }
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Simple health check endpoint."""
+    return {"status": "healthy", "service": "PDF Hunter API"}
+
+
+@app.get("/api/status")
+async def api_status():
+    """
+    Get API status and active analysis count.
+    """
+    return {
+        "status": "operational",
+        "active_analyses": len(active_analyses),
+        "version": "0.1.0"
     }
 
 
