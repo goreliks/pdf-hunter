@@ -4,20 +4,134 @@ This module configures Loguru with hybrid logging:
 - Terminal: Colorful, human-readable with emojis
 - Central JSON file: Structured JSONL for querying across sessions
 - Session JSON file: Isolated per-session logs (when output_directory provided)
+- SSE Sink: Real-time streaming to connected web clients (optional)
 """
 
 from loguru import logger
 import sys
 import os
-import logging
+import asyncio
+import json
+from collections import defaultdict
+from typing import Dict, Set
 
 
 from loguru import logger
 import sys
 import os
+import asyncio
+import json
+from collections import defaultdict
+from typing import Dict, Set
 
 
-def setup_logging(session_id: str | None = None, output_directory: str | None = None, debug_to_terminal: bool = False) -> None:
+# ============================================================================
+# SSE (Server-Sent Events) Support for Real-Time Web Streaming
+# ============================================================================
+
+# Global state: Map of session_id -> set of client queues
+connected_clients: Dict[str, Set[asyncio.Queue]] = defaultdict(set)
+
+# Maximum queue size to prevent memory issues with slow clients
+MAX_QUEUE_SIZE = 1000
+
+
+async def sse_sink(message: str) -> None:
+    """Async sink that routes log events to connected SSE clients.
+    
+    Parses the session_id from the log message and sends to all clients
+    watching that specific session.
+    
+    Args:
+        message: Serialized JSON log message from Loguru
+    """
+    try:
+        # Parse message to extract session_id
+        data = json.loads(message)
+        session_id = data.get("record", {}).get("extra", {}).get("session_id")
+        
+        if not session_id or session_id == "none":
+            return  # Skip messages without valid session_id
+        
+        # Send to all clients watching this session
+        if session_id in connected_clients:
+            for queue in list(connected_clients[session_id]):
+                try:
+                    # Non-blocking put with size check
+                    if queue.qsize() < MAX_QUEUE_SIZE:
+                        queue.put_nowait(message)
+                    else:
+                        # Queue full - client too slow, skip this message
+                        logger.warning(
+                            f"SSE queue full for session {session_id}, dropping message",
+                            agent="system",
+                            node="sse_sink"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to queue message for SSE client: {e}",
+                        agent="system",
+                        node="sse_sink"
+                    )
+    except json.JSONDecodeError:
+        # Invalid JSON - skip
+        pass
+    except Exception as e:
+        logger.error(
+            f"SSE sink error: {e}",
+            agent="system",
+            node="sse_sink"
+        )
+
+
+def add_sse_client(session_id: str, queue: asyncio.Queue) -> None:
+    """Register a new SSE client for a session.
+    
+    Args:
+        session_id: Session ID to watch
+        queue: Asyncio queue to receive log messages
+    """
+    connected_clients[session_id].add(queue)
+    logger.debug(
+        f"SSE client connected to session {session_id}",
+        agent="system",
+        node="add_sse_client",
+        session_id=session_id
+    )
+
+
+def remove_sse_client(session_id: str, queue: asyncio.Queue) -> None:
+    """Remove SSE client on disconnect.
+    
+    Args:
+        session_id: Session ID being watched
+        queue: Client queue to remove
+    """
+    if session_id in connected_clients:
+        connected_clients[session_id].discard(queue)
+        if not connected_clients[session_id]:
+            # No more clients for this session - clean up
+            del connected_clients[session_id]
+    
+    logger.debug(
+        f"SSE client disconnected from session {session_id}",
+        agent="system",
+        node="remove_sse_client",
+        session_id=session_id
+    )
+
+
+# ============================================================================
+# Main Logging Setup
+# ============================================================================
+
+
+def setup_logging(
+    session_id: str | None = None,
+    output_directory: str | None = None,
+    debug_to_terminal: bool = False,
+    enable_sse: bool = False
+) -> None:
     """Configure Loguru logging for PDF Hunter.
     
     Call this once at application startup (in orchestrator).
@@ -27,6 +141,7 @@ def setup_logging(session_id: str | None = None, output_directory: str | None = 
         output_directory: Optional session output directory (e.g., "output/abc123_20251001_143000")
                          If provided with session_id, creates session-specific log file
         debug_to_terminal: If True, show DEBUG logs in terminal (default: False, INFO+ only)
+        enable_sse: If True, enable SSE sink for real-time web streaming (default: False)
     
     Outputs:
         - Terminal (stderr): Colorful format with aligned columns
@@ -34,6 +149,7 @@ def setup_logging(session_id: str | None = None, output_directory: str | None = 
           * debug_to_terminal=True: DEBUG+ level (development/testing)
         - Central JSON file: logs/pdf_hunter_YYYYMMDD.jsonl (all sessions, DEBUG+)
         - Session JSON file: {output_directory}/logs/session.jsonl (when output_directory provided, DEBUG+)
+        - SSE sink: Real-time streaming to web clients (when enable_sse=True)
     
     Usage:
         from loguru import logger
@@ -43,6 +159,9 @@ def setup_logging(session_id: str | None = None, output_directory: str | None = 
         
         # Development mode (DEBUG+ in terminal)
         setup_logging(debug_to_terminal=True)
+        
+        # With SSE streaming for web dashboard
+        setup_logging(session_id="abc123", output_directory="...", enable_sse=True)
         
         # In any agent node
         logger.info("Starting extraction",
@@ -132,11 +251,30 @@ def setup_logging(session_id: str | None = None, output_directory: str | None = 
             enqueue=True,  # Thread-safe async writes
         )
     
+    # SSE sink handler (if enabled)
+    if enable_sse:
+        logger.add(
+            sse_sink,
+            format="{message}",
+            level="DEBUG",
+            serialize=True,  # Output as JSON
+            enqueue=True,  # Non-blocking async writes
+            backtrace=False,  # Minimal overhead for streaming
+            diagnose=False,
+        )
+        logger.info(
+            "✅ SSE sink enabled for real-time web streaming",
+            agent="system",
+            node="setup_logging"
+        )
+    
     # Log configuration summary
     mode = "DEBUG" if debug_to_terminal else "INFO"
     log_outputs = ["terminal", "central"]
     if output_directory and session_id:
         log_outputs.append("session")
+    if enable_sse:
+        log_outputs.append("sse")
     
     logger.info(
         f"🚀 Logging configured (terminal: {mode}+ level, outputs: {', '.join(log_outputs)})",
