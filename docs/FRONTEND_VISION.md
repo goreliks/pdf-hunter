@@ -220,29 +220,86 @@ Every log entry in `session.jsonl` follows this format:
 
 ## 🎨 Frontend Technical Requirements
 
-### **1. Data Source: JSONL Log Files**
+### **1. Data Source: Loguru Async Sink + SSE (Recommended)**
 
-The frontend reads from **existing log files** - no custom backend changes needed:
+The frontend receives logs via **Server-Sent Events (SSE)** streamed directly from Loguru's async sink - a single solution that works for both local and remote deployments.
 
-**File Location:**
+**Architecture:**
+
+```
+Backend Agents
+    ↓
+Structured Logging (Loguru)
+    ↓
+Async Sink (coroutine function) ──→ In-Memory Queues (per client)
+    ↓
+FastAPI SSE Endpoint (/api/sessions/{id}/logs)
+    ↓
+Frontend EventSource (Browser)
+    ↓
+Agent Panels (visual display)
+```
+
+**How It Works:**
+
+1. **Loguru Async Sink**: Configured as a coroutine function that pushes logs to client queues
+2. **FastAPI Server**: Provides SSE endpoint that yields logs from client queue
+3. **Frontend**: Subscribes via EventSource, receives logs in real-time
+
+**Key Advantages:**
+
+- ✅ **Single Solution**: Same setup works for local machine and remote deployment
+- ✅ **Zero File I/O**: No polling, logs pushed directly from memory (~0ms latency)
+- ✅ **Simple Deployment**: Just run FastAPI server (`uvicorn` command)
+- ✅ **Instant Streaming**: Logs appear in frontend immediately as agents execute
+- ✅ **Built-in Backpressure**: Queue-based design prevents memory issues
+- ✅ **Session Isolation**: Each client gets independent queue for clean separation
+
+**Configuration:**
+
+The SSE sink is **optionally enabled** via `enable_sse` parameter:
+
+```python
+# In logging_config.py
+def setup_logging(session_id, output_directory, enable_sse=False):
+    # Terminal and file sinks always enabled
+    logger.add(...)  # Terminal
+    logger.add(...)  # Files
+    
+    # SSE sink only when FastAPI server runs
+    if enable_sse:
+        logger.add(sse_sink, serialize=True, enqueue=True)
+```
+
+**Usage:**
+
+- **Local/Remote with FastAPI**: `setup_logging(enable_sse=True)` - SSE streaming active
+- **LangGraph Studio**: `setup_logging()` - SSE disabled, only terminal + files
+- **Testing/Debug**: `setup_logging()` - SSE disabled, no overhead
+
+**Alternative Approach (File Polling):**
+
+For desktop apps (Electron/Tauri) with filesystem access, you can skip FastAPI and poll JSONL files directly:
+- Frontend reads `output/{session_id}/logs/session.jsonl` every 100-500ms
+- Zero backend changes required
+- Simpler but ~100-500ms latency vs instant SSE streaming
+
+**Why SSE Over File Polling:**
+
+The async sink + SSE approach is recommended because:
+- Works identically on same machine and remote deployments (no code changes)
+- No filesystem access required (works in pure web apps)
+- Real-time updates without polling overhead
+- Production-grade solution with minimal implementation complexity
+
+**File Location (Persistent Backup):**
 ```
 output/{session_id}/logs/session.jsonl
 ```
-
-**Access Pattern - Option A: File Tailing (Simplest)**
-- Frontend polls the JSONL file every 100-500ms
-- Reads new lines since last read (track file position)
-- Parse each line as JSON event
-- Works even if backend restarts (file persists)
-- **Zero backend changes required**
-
-**Access Pattern - Option B: Server-Sent Events (Production)**
-- Backend adds async sink that streams log events over HTTP SSE
-- Frontend subscribes to `/api/sessions/{session_id}/events` endpoint
-- Receives events instantly as they occur (~0ms latency vs 100-500ms polling)
-- Requires minimal backend work (async handler + SSE endpoint)
-
-Both options use **the same JSONL schema** - only transport mechanism differs.
+Logs are **also saved to file** regardless of SSE configuration, providing:
+- Session replay capability
+- Debugging and audit trails  
+- Fallback if SSE unavailable
 
 ### **2. Agent-Aware Routing**
 - Each event has `record.extra.agent` field

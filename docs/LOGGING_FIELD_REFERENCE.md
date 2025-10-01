@@ -216,7 +216,7 @@ record.time         ← Timestamp
 | Event Type | Additional Fields | Field Types |
 |------------|------------------|-------------|
 | `VERDICT_DETERMINATION_START` | (none) | |
-| `VERDICT_DETERMINED` | `verdict`, `confidence` | string, float |
+| `VERDICT_DETERMINED` | `verdict`, `confidence`, `reasoning_preview`, `full_reasoning` | string, float, string (100 chars), string (full text) |
 
 **verdict values:** `"Benign"`, `"Suspicious"`, `"Malicious"`
 
@@ -226,7 +226,7 @@ record.time         ← Timestamp
 | Event Type | Additional Fields | Field Types |
 |------------|------------------|-------------|
 | `REPORT_GENERATION_START` | (none) | |
-| `REPORT_GENERATION_COMPLETE` | `report_length` | int |
+| `REPORT_GENERATION_COMPLETE` | `report_length`, `report_preview`, `markdown_report` | int, string (200 chars), string (full markdown) |
 
 ### Node: save_analysis_results
 **Events:** `SAVE_START`, `ANALYSIS_COMPLETE`

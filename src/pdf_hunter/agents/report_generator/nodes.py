@@ -55,7 +55,8 @@ async def determine_threat_verdict(state: OrchestratorState) -> dict:
             event_type="VERDICT_DETERMINED",
             verdict=response.verdict,
             confidence=response.confidence,
-            reasoning=response.reasoning  # Full text in JSON
+            reasoning_preview=reasoning_preview,
+            full_reasoning=response.reasoning  # Full text in JSON for streaming
         )
 
         return {"final_verdict": response}
@@ -89,18 +90,18 @@ async def generate_final_report(state: OrchestratorState):
         response = await report_generator_llm.ainvoke(messages)
         final_report = response.content
         
-        # Log report generation completion with metadata
+        # Log report generation completion with full markdown report for streaming
         report_snippet = final_report[:200] + "..." if len(final_report) > 200 else final_report
         logger.debug(f"Generated report snippet: {report_snippet}", agent="ReportGenerator", node="generate_final_report")
         
         logger.info(
-            f"📝 Report generated: {len(final_report)} chars | Preview: {report_snippet}",
+            f"📝 Report generated: {len(final_report)} chars",
             agent="ReportGenerator",
             node="generate_final_report",
             event_type="REPORT_GENERATION_COMPLETE",
             report_length=len(final_report),
             report_preview=report_snippet,
-            full_report=final_report  # Full content in JSON
+            markdown_report=final_report  # Full markdown report for frontend rendering
         )
         
         return {"final_report": final_report}
