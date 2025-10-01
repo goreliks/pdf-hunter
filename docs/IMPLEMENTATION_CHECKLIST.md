@@ -2,7 +2,8 @@
 
 **Start Date:** October 1, 2025  
 **Target Completion:** October 20-25, 2025  
-**Status:** 🟡 In Progress
+**Status:** 🟡 In Progress  
+**Current Branch:** `front_logs`
 
 ---
 
@@ -194,19 +195,30 @@ The advanced field extraction (extractFieldsFromLog) exists in utils but not yet
 ### Goal: Display log fields as structured data instead of raw text
 
 **Current State:** Logs displayed as formatted text strings  
-**Target State:** Each logged field shown as individual rows (node | event | field | value)
+**Target State:** Each logged field shown as individual rows in format: `timestamp | node | event | field | value`
+
+**Example:**
+```
+Current:
+[17:44:23 PM] INFO [scan_qr_codes] Found QR code on page 0
+
+Target:
+17:44:23 | scan_qr_codes | QR_SCAN_COMPLETE | page_number | 0
+17:44:23 | scan_qr_codes | QR_SCAN_COMPLETE | qr_url | https://docs.langchain.com/...
+17:44:23 | scan_qr_codes | QR_SCAN_COMPLETE | qr_count | 1
+```
 
 ### Implementation (3-4 hours)
 - [ ] Integrate `extractFieldsFromLog()` from `fieldExtractor.js` into LogViewer
-- [ ] Replace text-only display with structured field rows
-- [ ] Create field row component: `[node] [event] field: value`
+- [ ] Replace text-only display with field rows
+- [ ] Format: `timestamp | node | event | field | value` (one row per field)
+- [ ] Extract timestamp from log record (HH:MM:SS format)
 - [ ] Format values by type:
   - [ ] Percentages: 0.95 → 95.0%
-  - [ ] URLs: Truncate long URLs with tooltip
-  - [ ] Booleans: Show as badges (✓/✗)
-  - [ ] Arrays: Show count + expandable list
-- [ ] Keep timestamp + message as header
-- [ ] Add expand/collapse for log entry details
+  - [ ] URLs: Truncate long URLs (60 chars)
+  - [ ] Booleans: Show as ✓/✗
+  - [ ] Arrays: Show as comma-separated list
+- [ ] Add subtle styling (monospace font, muted colors for delimiters)
 - [ ] Test with real PDF analysis logs from all 5 agents
 
 **Phase 3.5 Complete:** [ ] Logs display as structured fields instead of text
