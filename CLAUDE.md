@@ -104,16 +104,26 @@ if THINKING_TOOL_ENABLED:
 
 ### Running the System
 
+**Command-Line Interface (CLI)**:
+All agents support CLI arguments for flexible testing and development. Each agent has a dedicated `cli.py` module that handles argument parsing and execution.
+
 ```bash
 # Run the complete orchestrator (coordinates all agents)
 uv run python -m pdf_hunter.orchestrator.graph
 
-# Run individual agents in isolation
-uv run python -m pdf_hunter.agents.pdf_extraction.graph
-uv run python -m pdf_hunter.agents.image_analysis.graph
-uv run python -m pdf_hunter.agents.file_analysis.graph
-uv run python -m pdf_hunter.agents.url_investigation.graph
-uv run python -m pdf_hunter.agents.report_generator.graph
+# With CLI options
+uv run python -m pdf_hunter.orchestrator.graph --file test_mal_one.pdf --pages 2 --debug
+
+# Run individual agents in isolation with CLI options
+uv run python -m pdf_hunter.agents.pdf_extraction.graph --file hello_qr_and_link.pdf --pages 1
+uv run python -m pdf_hunter.agents.image_analysis.graph --file test_mal_one.pdf --pages 3
+uv run python -m pdf_hunter.agents.file_analysis.graph --file suspicious.pdf --context "Email attachment"
+uv run python -m pdf_hunter.agents.url_investigation.graph --url https://example.com --url https://test.com
+uv run python -m pdf_hunter.agents.report_generator.graph --state /path/to/state.json
+
+# Get help for any agent
+uv run python -m pdf_hunter.orchestrator.graph --help
+uv run python -m pdf_hunter.agents.pdf_extraction.graph --help
 
 # LangGraph Platform deployment (all graphs available via API)
 langgraph up
@@ -121,6 +131,25 @@ langgraph up
 # Jupyter development environment
 jupyter lab notebooks/development/
 ```
+
+**CLI Architecture**:
+- **Individual CLI Modules**: Each agent has a `cli.py` file in its directory for clean separation of concerns
+- **Consistent Patterns**: All CLIs follow the same argument structure with agent-specific customizations
+- **Path Handling**: Supports both absolute and relative paths, auto-resolves test files from `tests/assets/pdfs/`
+- **Graph Simplicity**: `graph.py` files contain only graph definitions, `if __name__ == "__main__"` blocks call `cli.py`
+- **Help Documentation**: Each CLI includes examples and detailed help text accessible via `--help`
+
+**Common CLI Arguments**:
+- `--file/-f`: PDF file to analyze (relative or absolute path)
+- `--pages/-p`: Number of pages to process
+- `--output/-o`: Output directory for results
+- `--debug`: Enable debug logging to terminal
+- `--context/-c`: Additional context (orchestrator, file_analysis)
+- `--session/-s`: Custom session ID (file_analysis)
+- `--url/-u`: URL to investigate (url_investigation, can be specified multiple times)
+- `--state/-s`: Path to analysis state file (report_generator)
+- `--search-dir/-d`: Directory to search for state files (report_generator)
+
 
 ## Architecture Overview
 

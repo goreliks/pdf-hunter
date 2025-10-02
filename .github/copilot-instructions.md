@@ -35,17 +35,50 @@ class AgentState(TypedDict):
 ```bash
 # Primary development workflow
 uv sync --group dev           # Install with Jupyter support
-uv run python -m pdf_hunter.orchestrator.graph  # Run complete pipeline
 
-# Individual agent testing
-uv run python -m pdf_hunter.agents.pdf_extraction.graph
-uv run python -m pdf_hunter.agents.file_analysis.graph
+# Run complete pipeline with CLI arguments
+uv run python -m pdf_hunter.orchestrator.graph --file tests/assets/pdfs/test_mal_one.pdf --debug
+uv run python -m pdf_hunter.orchestrator.graph --file /path/to/pdf --pages 3 --context "Suspicious email attachment"
+
+# Individual agent testing with CLI
+uv run python -m pdf_hunter.agents.pdf_extraction.graph --file tests/assets/pdfs/hello_qr_and_link.pdf
+uv run python -m pdf_hunter.agents.image_analysis.graph --file /path/to/pdf --debug
+uv run python -m pdf_hunter.agents.file_analysis.graph --file /path/to/pdf --session test_session_001
+uv run python -m pdf_hunter.agents.url_investigation.graph --url "https://example.com" --url "https://suspicious.site"
+uv run python -m pdf_hunter.agents.report_generator.graph --state /path/to/state.json
 
 # LangGraph Platform deployment
 langgraph up                  # Deploy all graphs via API
 
 # Notebook development
 jupyter lab notebooks/development/
+```
+
+### CLI Architecture
+Each agent and the orchestrator have a dedicated `cli.py` module for command-line interface:
+- **Location**: `src/pdf_hunter/{orchestrator|agents/*}/cli.py`
+- **Pattern**: `parse_args()` function returns arguments, `main()` async function executes graph
+- **Invocation**: `if __name__ == "__main__": asyncio.run(main())`
+- **Path Resolution**: Supports both absolute and relative paths with automatic project root calculation
+
+**Common CLI Arguments:**
+- `--file PATH`: PDF file to analyze (supports relative/absolute paths)
+- `--pages N`: Number of pages to process (default varies by agent)
+- `--output DIR`: Output directory for results (default: project_root/output)
+- `--debug`: Enable debug-level logging to terminal
+- `--context TEXT`: Additional context about the PDF (orchestrator only)
+
+**Agent-Specific Arguments:**
+- `--session ID`: Session identifier for file_analysis
+- `--url URL`: URL to investigate (can be specified multiple times for url_investigation)
+- `--state PATH`: Path to state JSON file for report_generator
+- `--search-dir DIR`: Directory to search for state files (report_generator)
+
+**Help Text:**
+All CLI modules provide comprehensive help with examples:
+```bash
+uv run python -m pdf_hunter.orchestrator.graph --help
+uv run python -m pdf_hunter.agents.pdf_extraction.graph --help
 ```
 
 ### Model Configuration
@@ -129,7 +162,7 @@ logs/
 - `notebooks/development/*.ipynb`: Agent-specific development environments
 
 ### Cross-Platform Path Handling
-When referencing test files in modules:
+When referencing test files in modules or CLI:
 ```python
 import os
 
@@ -142,6 +175,12 @@ project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
 # Construct path to test file
 file_path = os.path.join(project_root, "tests", "assets", "pdfs", "test_file.pdf")
 ```
+
+**CLI Path Resolution:**
+- Relative paths are resolved against the project root
+- Absolute paths are used as-is
+- Default paths in CLI modules use project-relative resolution
+- Example: `--file tests/assets/pdfs/test.pdf` or `--file /absolute/path/to/test.pdf`
 
 ### State Persistence
 - All agents automatically save final state using `dump_state_to_file()`

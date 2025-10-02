@@ -31,56 +31,7 @@ preprocessing_graph = preprocessing_graph.with_config(PDF_EXTRACTION_CONFIG)
 
 
 if __name__ == "__main__":
-    import pprint
-    import os
+    from .cli import main
     import asyncio
-    from loguru import logger
-    from pdf_hunter.config.logging_config import setup_logging
-
-    # Configure logging for standalone execution with DEBUG output
-    setup_logging(debug_to_terminal=True)
-
-    async def run_extraction():
-        module_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
-        file_path = os.path.join(project_root, "tests", "assets", "pdfs", "hello_qr_and_link.pdf")
-        
-        output_directory = "output/pdf_extraction_results"
-
-        initial_state = {
-            "file_path": file_path,
-            "output_directory": output_directory,
-            "number_of_pages_to_process": 1,  # We want to process only the first page (page 0)
-        }
-
-        logger.info(f"Running PDF Extraction on: {file_path}",
-                    agent="pdf_extraction_test",
-                    test_file=file_path)
-
-        final_state = await preprocessing_graph.ainvoke(initial_state)
-
-        session_id = final_state.get('session_id', 'unknown')
-        logger.info("PDF Extraction Complete",
-                    agent="pdf_extraction_test",
-                    session_id=session_id)
-
-        # Verification
-        if final_state.get("errors"):
-            logger.warning(f"Completed with {len(final_state['errors'])} error(s)",
-                          agent="pdf_extraction_test",
-                          session_id=session_id,
-                          error_count=len(final_state["errors"]))
-            for error in final_state["errors"]:
-                logger.error(f"Error: {error}",
-                           agent="pdf_extraction_test",
-                           session_id=session_id)
-        else:
-            logger.success("✅ PDF Extraction completed successfully",
-                          agent="pdf_extraction_test",
-                          session_id=session_id,
-                          images_extracted=len(final_state.get('extracted_images', [])),
-                          urls_found=len(final_state.get('extracted_urls', [])))
-
-
-    # Run the async function
-    asyncio.run(run_extraction())
+    
+    asyncio.run(main())

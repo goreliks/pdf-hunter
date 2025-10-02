@@ -26,12 +26,6 @@ azure_openai_config = {
     "model_provider": "azure_openai"
     }
 
-azure_openai_config = {
-    "model": "gpt-4o",
-    "model_provider": "openai",
-    "temperature": 0.0
-    }
-
 
 # Option 3: Ollama (Local inference) - DISABLED
 # model = "qwen2.5vl:7b"
