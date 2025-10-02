@@ -138,7 +138,8 @@ async def main():
             else:
                 url = report.initial_url.url if hasattr(report, 'initial_url') else f"Report #{i}"
                 logger.info(f"Report for URL: {url}", agent="TestRunner", node="verify")
-                logger.debug(f"Report details: {report.model_dump_json(indent=2)}", agent="TestRunner", node="verify")
+                # Pass JSON as extra field to avoid format conflicts with {} in message string
+                logger.debug("Report details available", agent="TestRunner", node="verify", report_data=report.model_dump())
     else:
         logger.warning("No final report generated", agent="TestRunner", node="verify")
 

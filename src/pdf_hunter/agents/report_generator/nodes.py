@@ -5,14 +5,13 @@ from datetime import datetime
 from loguru import logger
 from langchain_core.messages import SystemMessage, HumanMessage
 from pdf_hunter.config import report_generator_llm, final_verdict_llm
-from pdf_hunter.orchestrator.schemas import OrchestratorState
+from .schemas import ReportGeneratorState, FinalVerdict
 from pdf_hunter.shared.utils.serializer import serialize_state_safely, dump_state_to_file
 from .prompts import REPORT_GENERATOR_SYSTEM_PROMPT, REPORT_GENERATOR_USER_PROMPT, REPORT_GENERATOR_VERDICT_SYSTEM_PROMPT, REPORT_GENERATOR_VERDICT_USER_PROMPT
-from .schemas import FinalVerdict
 from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 
 
-async def determine_threat_verdict(state: OrchestratorState) -> dict:
+async def determine_threat_verdict(state: ReportGeneratorState) -> dict:
     """
     Determine the overall security verdict based on all agent analyses.
     """
@@ -77,7 +76,7 @@ async def determine_threat_verdict(state: OrchestratorState) -> dict:
             timeout_seconds=LLM_TIMEOUT_TEXT,
             exc_info=True
         )
-        return {"errors": [error_msg]}
+        return {"errors": [[error_msg]]}
     except Exception as e:
         error_msg = f"Error in determine_threat_verdict: {type(e).__name__}: {e}"
         logger.error(
@@ -89,10 +88,10 @@ async def determine_threat_verdict(state: OrchestratorState) -> dict:
             event_type="ERROR",
             exc_info=True
         )
-        return {"errors": [error_msg]}
+        return {"errors": [[error_msg]]}
 
 
-async def generate_final_report(state: OrchestratorState):
+async def generate_final_report(state: ReportGeneratorState):
     """
     Generate a comprehensive final report summarizing all findings.
     Node to create a comprehensive Markdown report based on the full investigation state,
@@ -146,7 +145,7 @@ async def generate_final_report(state: OrchestratorState):
             timeout_seconds=LLM_TIMEOUT_TEXT,
             exc_info=True
         )
-        return {"errors": [error_msg]}
+        return {"errors": [[error_msg]]}
     except Exception as e:
         error_msg = f"Error in generate_final_report: {type(e).__name__}: {e}"
         logger.error(
@@ -158,11 +157,11 @@ async def generate_final_report(state: OrchestratorState):
             event_type="ERROR",
             exc_info=True
         )
-        return {"errors": [error_msg]}
+        return {"errors": [[error_msg]]}
 
 
 
-async def save_analysis_results(state: OrchestratorState):
+async def save_analysis_results(state: ReportGeneratorState):
     """
     Write the final report and state to files.
     """
@@ -234,4 +233,4 @@ async def save_analysis_results(state: OrchestratorState):
     except Exception as e:
         error_msg = f"Error in save_analysis_results: {e}"
         logger.error(error_msg, agent="ReportGenerator", node="save_analysis_results", event_type="ERROR", exc_info=True)
-        return {"errors": [error_msg]}
+        return {"errors": [[error_msg]]}
