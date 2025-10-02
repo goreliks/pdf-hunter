@@ -128,75 +128,7 @@ static_analysis_graph = static_analysis_builder.compile()
 static_analysis_graph = static_analysis_graph.with_config(FILE_ANALYSIS_CONFIG)
 
 if __name__ == "__main__":
-    import json
-    import os
-    import uuid
+    from .cli import main
     import asyncio
-    from datetime import datetime
     
-    # Loguru is already configured globally, no need to reconfigure here
-    
-    async def run_analysis():
-        module_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.abspath(os.path.join(module_dir, "../../../.."))
-        file_path = os.path.join(project_root, "tests", "assets", "pdfs", "87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf")
-        
-        output_directory = "output/file_analysis_results"
-        additional_context = "None"
-        session_id = "123"
-    
-        logger.info(
-            f"Running file analysis on: {file_path}",
-            agent="FileAnalysis",
-            session_id=session_id
-        )
-    
-        final_state = None
-        async for event in static_analysis_graph.astream({"file_path":file_path,"output_directory": output_directory, "additional_context": additional_context, "session_id": session_id}, stream_mode="values"):
-            # Don't log full event as it can be very large
-            event_keys = list(event.keys()) if isinstance(event, dict) else "Non-dict event"
-            logger.debug(f"Event received with keys: {event_keys}")
-            final_state = event
-            
-        # Save final state to JSON file if available
-        if final_state:
-            # Generate unique filename with timestamp
-            unique_id = uuid.uuid4().hex[:8]
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"analysis_report_session_{unique_id}_{timestamp}.json"
-            
-            # Convert final state to JSON-serializable format
-            def make_serializable(obj):
-                if hasattr(obj, 'model_dump'):
-                    return obj.model_dump()
-                elif isinstance(obj, dict):
-                    return {k: make_serializable(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [make_serializable(item) for item in obj]
-                else:
-                    return obj
-            
-            serializable_state = make_serializable(final_state)
-            
-            # Ensure output directory exists
-            await asyncio.to_thread(os.makedirs, output_directory, exist_ok=True)
-            
-            # Full path for the JSON file
-            json_path = os.path.join(output_directory, filename)
-            
-            # Save to JSON file
-            logger.info(f"Saving final state to {json_path}")
-            
-            # Define the function to be run in a thread
-            def write_json_file():
-                with open(json_path, 'w', encoding='utf-8') as f:
-                    json.dump(serializable_state, f, indent=2, ensure_ascii=False)
-            
-            # Run the file operation in a separate thread
-            await asyncio.to_thread(write_json_file)
-            logger.info(f"Final state saved to: {json_path}")
-        
-        return final_state
-        
-    # Run the async function
-    asyncio.run(run_analysis())
+    asyncio.run(main())

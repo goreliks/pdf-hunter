@@ -102,66 +102,7 @@ link_analysis_graph = pipeline.compile()
 link_analysis_graph = link_analysis_graph.with_config(URL_INVESTIGATION_CONFIG)
 
 if __name__ == "__main__":
-    from .schemas import PrioritizedURL
+    from .cli import main
     import asyncio
-    from pdf_hunter.config.logging_config import setup_logging
-
-    # Configure more detailed logging when running directly with DEBUG output
-    setup_logging(debug_to_terminal=True)
     
-    output_dir = "./output/test_url_analysis"
-    logger.info(f"Setting up test with output directory: {output_dir}", agent="TestRunner", node="setup")
-
-    test_state = {
-        "visual_analysis_report": {
-            "all_priority_urls": [
-                PrioritizedURL(
-                    url="https://www.qrcode-monkey.com/",
-                    reason="Example URL for testing",
-                    priority=1,
-                    page_number=0
-                ),
-                PrioritizedURL(
-                    url="https://docs.langchain.com/oss/python/langgraph/graph-api#command",
-                    reason="Test URL for testing",
-                    priority=2,
-                    page_number=1
-                )
-            ]
-        },
-        "output_directory": output_dir
-    }
-
-    async def main():
-        logger.info("Running the full URL Investigator -> Analyst pipeline", agent="TestRunner", node="main")
-        
-        try:
-            logger.debug("Invoking link analysis graph with test state", agent="TestRunner", node="main")
-            final_state = await link_analysis_graph.ainvoke(test_state)
-            logger.info("Link analysis graph execution complete", agent="TestRunner", node="main")
-        except Exception as e:
-            logger.error(f"Error during link analysis: {str(e)}", agent="TestRunner", node="main", exc_info=True)
-            raise
-        finally:
-            # Cleanup all MCP sessions when done
-            from ...shared.utils.mcp_client import cleanup_mcp_session
-            logger.debug("Cleaning up MCP sessions", agent="TestRunner", node="main")
-            await cleanup_mcp_session()  # This will cleanup all sessions
-        
-        logger.info("Generating final forensic report", agent="TestRunner", node="verify")
-        if final_state.get("link_analysis_final_reports"):
-            logger.info(f"Generated {len(final_state['link_analysis_final_reports'])} URL analysis reports", agent="TestRunner", node="verify")
-            for i, report in enumerate(final_state["link_analysis_final_reports"]):
-                # Handle both dict and Pydantic model formats
-                if isinstance(report, dict):
-                    url = report.get('initial_url', {}).get('url', f"Report #{i}")
-                    logger.info(f"Report for URL: {url}", agent="TestRunner", node="verify")
-                    logger.debug(f"Report verdict: {report.get('analyst_findings', {}).get('verdict', 'Unknown')}", agent="TestRunner", node="verify")
-                else:
-                    url = report.initial_url.url if hasattr(report, 'initial_url') else f"Report #{i}"
-                    logger.info(f"Report for URL: {url}", agent="TestRunner", node="verify")
-                    logger.debug(f"Report details: {report.model_dump_json(indent=2)}", agent="TestRunner", node="verify")
-        else:
-            logger.warning("No final report generated", agent="TestRunner", node="verify")
-
     asyncio.run(main())

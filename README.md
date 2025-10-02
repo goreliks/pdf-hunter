@@ -139,22 +139,67 @@ To switch between providers, update the LLM initializations in `src/pdf_hunter/c
 Analyze a PDF with the complete orchestrator:
 
 ```bash
-# Run full analysis pipeline
+# Run with defaults (hello_qr_and_link.pdf, 4 pages)
 uv run python -m pdf_hunter.orchestrator.graph
+
+# Analyze specific file with options
+uv run python -m pdf_hunter.orchestrator.graph --file test_mal_one.pdf --pages 2
+
+# With additional context
+uv run python -m pdf_hunter.orchestrator.graph --file suspicious.pdf --context "Received from unknown email"
+
+# Enable debug logging
+uv run python -m pdf_hunter.orchestrator.graph --debug
+
+# Get help
+uv run python -m pdf_hunter.orchestrator.graph --help
 ```
 
 ### Individual Agent Testing
 
-Run agents in isolation for development and testing:
+Run agents in isolation for development and testing. Each agent has a dedicated CLI module with specific options:
 
 ```bash
-# Test individual agents
-uv run python -m pdf_hunter.agents.pdf_extraction.graph
-uv run python -m pdf_hunter.agents.file_analysis.graph
-uv run python -m pdf_hunter.agents.image_analysis.graph
-uv run python -m pdf_hunter.agents.url_investigation.graph
-uv run python -m pdf_hunter.agents.report_generator.graph
+# PDF Extraction - Extract images, URLs, and QR codes
+uv run python -m pdf_hunter.agents.pdf_extraction.graph --file hello_qr_and_link.pdf --pages 1
+
+# Image Analysis - Visual deception analysis
+uv run python -m pdf_hunter.agents.image_analysis.graph --file test_mal_one.pdf --pages 3
+
+# File Analysis - Static analysis and threat investigation
+uv run python -m pdf_hunter.agents.file_analysis.graph --file suspicious.pdf --context "Phishing campaign"
+
+# URL Investigation - Test with custom URLs
+uv run python -m pdf_hunter.agents.url_investigation.graph --url https://example.com --url https://test.com
+
+# Report Generator - Generate reports from existing analysis
+uv run python -m pdf_hunter.agents.report_generator.graph --state /path/to/analysis_state.json
+
+# Get help for any agent
+uv run python -m pdf_hunter.agents.pdf_extraction.graph --help
 ```
+
+### CLI Arguments
+
+**Common arguments (available for most agents):**
+- `--file/-f`: PDF file to analyze (relative or absolute path)
+- `--pages/-p`: Number of pages to process
+- `--output/-o`: Output directory for results
+- `--debug`: Enable debug logging to terminal
+
+**Agent-specific arguments:**
+- **Orchestrator & File Analysis**: `--context/-c` - Additional context about the PDF
+- **File Analysis**: `--session/-s` - Custom session ID
+- **URL Investigation**: `--url/-u` - URL to investigate (can be specified multiple times)
+- **Report Generator**: 
+  - `--state/-s` - Path to analysis state JSON file
+  - `--search-dir/-d` - Directory to search for state files
+
+**Path Handling:**
+- Relative filenames automatically resolve to `tests/assets/pdfs/`
+- Absolute paths are used directly
+- Output paths support both relative and absolute paths
+
 
 ### LangGraph Platform Deployment
 
