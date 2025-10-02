@@ -51,7 +51,8 @@ async def conduct_link_analysis(state: dict):
         # We need to wrap it in a list so it gets aggregated via operator.add
         logger.info(f"✅ Link analysis complete for URL: {url}", agent="URLInvestigation", node="conduct_link_analysis_wrapper", event_type="WRAPPER_COMPLETE", url=url)
         return {
-            "link_analysis_final_reports": [result]  # This will be aggregated
+            "link_analysis_final_reports": [result["link_analysis_final_report"]],
+            "errors": result.get("errors", [])
         }
     
     except GraphRecursionError as e:

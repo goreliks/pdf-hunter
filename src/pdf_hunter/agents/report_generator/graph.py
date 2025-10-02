@@ -1,12 +1,10 @@
 from langgraph.graph import StateGraph, START, END
 from .nodes import generate_final_report, determine_threat_verdict, save_analysis_results
 from pdf_hunter.config import REPORT_GENERATION_CONFIG
+from .schemas import ReportGeneratorState, ReportGeneratorOutputState
 
-# The finalizer's state is the same as the Orchestrator's, so no need to redefine
-from ...orchestrator.schemas import OrchestratorState
-
-# We can use a simple builder here as the state is passed directly from the orchestrator
-report_generator_builder = StateGraph(OrchestratorState)
+# Report Generator with explicit output schema for state management
+report_generator_builder = StateGraph(ReportGeneratorState, output_schema=ReportGeneratorOutputState)
 
 report_generator_builder.add_node("generate_final_report", generate_final_report)
 report_generator_builder.add_node("determine_threat_verdict", determine_threat_verdict)

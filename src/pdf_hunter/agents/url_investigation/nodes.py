@@ -74,12 +74,7 @@ async def investigate_url(state: URLInvestigatorState):
         task_id = f"url_{abs(hash(url_task.url))}"
         logger.debug(f"Generated task ID: {task_id}", agent="URLInvestigation", node="investigate_url")
 
-        # Create task-specific investigation directory under url investigation
-        url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
-        task_investigation_dir = os.path.join(url_investigation_dir, task_id)
-        await asyncio.to_thread(os.makedirs, task_investigation_dir, exist_ok=True)
-        logger.debug(f"Created investigation directory: {task_investigation_dir}", agent="URLInvestigation", node="investigate_url")
-
+        # MCP Playwright will automatically create task_url_{task_id} directory for screenshots and traces
         # Get the task-specific MCP session and load tools fresh each time
         from ...shared.utils.mcp_client import get_mcp_session
         
@@ -98,8 +93,6 @@ async def investigate_url(state: URLInvestigatorState):
         messages = state.get("investigation_logs", [])
         if not messages:
             logger.info("🆕 Starting new investigation chain", agent="URLInvestigation", node="investigate_url", event_type="CHAIN_START")
-            # Get absolute path for the task investigation directory
-            abs_task_investigation_dir = await asyncio.to_thread(os.path.abspath, task_investigation_dir)
             # Build context information
             source_context = getattr(url_task, 'source_context', 'PDF document')
             extraction_method = getattr(url_task, 'extraction_method', 'unknown method')
@@ -179,10 +172,7 @@ async def execute_browser_tools(state: URLInvestigatorState):
         # Generate the same task ID as used in investigate_url for session consistency
         task_id = f"url_{abs(hash(url_task.url))}"
 
-        # Create task-specific investigation directory under url investigation
-        url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
-        task_investigation_dir = os.path.join(url_investigation_dir, task_id)
-        await asyncio.to_thread(os.makedirs, task_investigation_dir, exist_ok=True)
+        # MCP Playwright will automatically create task_url_{task_id} directory for screenshots and traces
 
         async def execute_tools():
             from langchain_core.tools.base import ToolException
@@ -433,14 +423,9 @@ async def filter_high_priority_urls(state: URLInvestigationState):
     logger.info("🔎 Filtering high priority URLs from visual analysis", agent="URLInvestigation", node="filter_high_priority_urls", event_type="FILTER_START")
     
     try:
-        # Create url investigation investigations directory
-        session_output_dir = state.get("output_directory")
         high_priority_urls = []
         
-        if session_output_dir:
-            url_investigation_dir = os.path.join(session_output_dir, "url_investigation", "investigations")
-            await asyncio.to_thread(os.makedirs, url_investigation_dir, exist_ok=True)
-            logger.debug(f"Created URL investigation directory: {url_investigation_dir}", agent="URLInvestigation", node="filter_high_priority_urls")
+        # MCP Playwright will automatically create url_investigation/task_url_* directories for each investigation
 
         if "visual_analysis_report" in state and state["visual_analysis_report"]:
             visual_report = state["visual_analysis_report"]

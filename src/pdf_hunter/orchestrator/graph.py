@@ -1,19 +1,19 @@
 from langgraph.graph import StateGraph, START, END
 
-from .schemas import OrchestratorState, OrchestratorInputState, OrchestratorOutputState
+from .schemas import OrchestratorState, OrchestratorInputState#, OrchestratorOutputState
+from .nodes import finalize_analysis
 from ..agents.pdf_extraction.graph import preprocessing_graph
 from ..agents.image_analysis.graph import visual_analysis_graph
 from ..agents.file_analysis.graph import static_analysis_graph
 from ..agents.url_investigation.graph import link_analysis_graph
 from ..agents.report_generator.graph import report_generator_graph
-from ..shared.utils.serializer import serialize_state_safely
 from ..config.logging_config import setup_logging
 from pdf_hunter.config import ORCHESTRATOR_CONFIG
 
 # Note: Logging will be configured in __main__ with session_id
 
 
-orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState, output_schema=OrchestratorOutputState)
+orchestrator_builder = StateGraph(OrchestratorState, input_schema=OrchestratorInputState)#, output_schema=OrchestratorOutputState)
 
 orchestrator_builder.add_node("PDF Extraction", preprocessing_graph)
 orchestrator_builder.add_node("File Analysis", static_analysis_graph)

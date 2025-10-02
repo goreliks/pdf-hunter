@@ -59,5 +59,5 @@ class OrchestratorInputState(TypedDict):
     session_id: NotRequired[Optional[str]]
 
 
-class OrchestratorOutputState(TypedDict):
-    final_verdict: NotRequired[FinalVerdict]
+# class OrchestratorOutputState(TypedDict):
+#     final_verdict: NotRequired[FinalVerdict]

@@ -133,6 +133,55 @@ NEW → IN_PROGRESS → {COMPLETED | FAILED | NOT_RELEVANT}
 - **Browser Tool Syntax**: Use arrow functions for browser_evaluate: `() => document.body.innerText` (NOT `return document.body.innerText;`)
 - **Session Isolation**: Task-specific directories under session paths
 - **Tool Binding**: URL investigation agent uses MCP tools for web reconnaissance
+- **Auto-Directory Creation**: MCP Playwright automatically creates `task_url_{task_id}` directories - DO NOT manually create them
+
+### Critical Fixes & Patterns (October 2025)
+
+**URL Investigation Double Nesting Fix:**
+- **Issue**: Wrapper function in `url_investigation/graph.py` was wrapping entire subgraph result, creating `link_analysis_final_reports[0].link_analysis_final_report` instead of `link_analysis_final_reports[0]`
+- **Fix**: Extract `result["link_analysis_final_report"]` before wrapping:
+  ```python
+  return {
+      "link_analysis_final_reports": [result["link_analysis_final_report"]],
+      "errors": result.get("errors", [])
+  }
+  ```
+- **Root Cause**: Subgraph's output_schema preserved key wrapper, then wrapper function added another layer
+
+**Loguru JSON Logging Pattern:**
+- **Issue**: Logging JSON directly in f-strings causes format errors: `logger.debug(f"Data: {json_str}")` fails because Loguru treats `{}` as format placeholders
+- **Fix**: Pass JSON as extra fields, not in message string:
+  ```python
+  # ❌ WRONG - Causes format errors
+  logger.debug(f"Report: {report.model_dump_json(indent=2)}")
+  
+  # ✅ CORRECT - Pass as extra field
+  logger.debug("Report available", report_data=report.model_dump())
+  ```
+- **Rule**: Never log raw JSON/dicts in message strings with Loguru
+
+**Report Generator State Schema:**
+- **Issue**: Report Generator was using OrchestratorState directly, lacking proper input/output separation
+- **Fix**: Created dedicated `ReportGeneratorState` (full input) and `ReportGeneratorOutputState` (filtered output)
+- **Pattern**: All agents should have dedicated state schemas even when similar to orchestrator state
+
+**Pydantic Model Access Pattern:**
+- **Issue**: `final_verdict.get("verdict")` fails because `final_verdict` is a Pydantic model, not a dict
+- **Fix**: Access Pydantic model attributes directly:
+  ```python
+  # ❌ WRONG
+  verdict = state.get("final_verdict", {}).get("verdict", "Unknown")
+  
+  # ✅ CORRECT
+  final_verdict = state.get("final_verdict")
+  verdict = final_verdict.verdict if final_verdict else "Unknown"
+  ```
+
+**LangGraph Studio UI Limitation:**
+- **Known Issue**: Subgraph nodes returning large state values (~11KB markdown reports) may not display properly in Studio execution trace
+- **Behavior**: Graph executes correctly, state is correct, but UI can't render node name in trace
+- **Workaround**: Accept as cosmetic issue or reduce output schema to exclude large strings
+- **Not a Bug**: Functional behavior is 100% correct, only Studio UI rendering affected
 
 ### File Organization by Session
 ```
