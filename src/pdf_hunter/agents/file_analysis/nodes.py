@@ -39,10 +39,15 @@ async def identify_suspicious_elements(state: FileAnalysisState):
     
     try:
         file_path = state.get('file_path')
+        output_directory = state.get('output_directory', 'output')
         
         # Validate required inputs
         if not file_path:
             raise ValueError("file_path is required")
+        
+        # Ensure the file_analysis subdirectory exists for evidence preservation
+        file_analysis_dir = os.path.join(output_directory, "file_analysis")
+        await asyncio.to_thread(os.makedirs, file_analysis_dir, exist_ok=True)
         
         logger.info(
             f"🔍 Starting PDF triage analysis",
@@ -59,7 +64,7 @@ async def identify_suspicious_elements(state: FileAnalysisState):
         pdf_parser_output = await run_pdf_parser_full_statistical_analysis(file_path)
         
         logger.debug("Running peepdf analysis", agent="FileAnalysis", node="identify_suspicious_elements")
-        peepdf_output = await run_peepdf(file_path)
+        peepdf_output = await run_peepdf(file_path, output_directory=output_directory)
         
         structural_summary = {"pdfid": pdfid_output, "pdf_parser": pdf_parser_output, "peepdf": peepdf_output}
         additional_context = state.get('additional_context', "None")
@@ -67,9 +72,11 @@ async def identify_suspicious_elements(state: FileAnalysisState):
         logger.debug("Static analysis tools completed", agent="FileAnalysis", node="identify_suspicious_elements")
 
         system_prompt = file_analysis_triage_system_prompt
+        # Escape curly braces in JSON to prevent .format() errors
+        safe_structural_summary = json.dumps(structural_summary).replace('{', '{{').replace('}', '}}')
         user_prompt = file_analysis_triage_user_prompt.format(
             additional_context=additional_context,
-            structural_summary=json.dumps(structural_summary)
+            structural_summary=safe_structural_summary
         )
 
         messages = [
@@ -113,8 +120,10 @@ async def identify_suspicious_elements(state: FileAnalysisState):
             )
             # Log each mission for visibility
             for idx, mission in enumerate(result.mission_list):
+                # Escape curly braces in entry point description to prevent logger.format() errors
+                safe_entry = mission.entry_point_description[:50].replace('{', '{{').replace('}', '}}')
                 logger.info(
-                    f"📋 Mission {idx+1}: {mission.threat_type} - {mission.entry_point_description[:50]}...",
+                    f"📋 Mission {idx+1}: {mission.threat_type} - {safe_entry}...",
                     agent="FileAnalysis",
                     node="identify_suspicious_elements",
                     event_type="MISSION_CREATED",
@@ -271,11 +280,14 @@ async def assign_analysis_tasks(state: FileAnalysisState):
                 threat_type=mission.threat_type
             )
         
+        output_directory = state.get('output_directory', 'output')
+        
         return [
             Send(
                 "run_file_analysis",
                 {
                     "file_path": file_path,
+                    "output_directory": output_directory,
                     "mission": mission,
                     "structural_summary": structural_summary,
                     "messages": []
@@ -338,14 +350,26 @@ async def file_analyzer(state: InvestigatorState):
                 file_path=file_path
             )
             
+            output_directory = state.get('output_directory', 'output')
+            
+            # Escape curly braces in LLM-generated strings to prevent .format() errors
+            # (e.g., if mission description contains JavaScript like "{ cName: 'pd.doc' }")
+            safe_entry_point = mission.entry_point_description.replace('{', '{{').replace('}', '}}')
+            safe_reasoning = mission.reasoning.replace('{', '{{').replace('}', '}}')
+            
+            # Also escape curly braces in JSON to prevent .format() from interpreting them
+            safe_structural_summary = json.dumps(structural_summary).replace('{', '{{').replace('}', '}}')
+            safe_tool_manifest = json.dumps(pdf_parser_tools_manifest).replace('{', '{{').replace('}', '}}')
+            
             user_prompt = file_analysis_investigator_user_prompt.format(
                 file_path=file_path,
+                output_directory=output_directory,
                 mission_id=mission_id,
-                threat_type=mission.threat_type,
-                entry_point_description=mission.entry_point_description,
-                reasoning=mission.reasoning,
-                structural_summary=json.dumps(structural_summary),
-                tool_manifest=json.dumps(pdf_parser_tools_manifest)
+                threat_type=str(mission.threat_type).replace('{', '{{').replace('}', '}}'),
+                entry_point_description=safe_entry_point,
+                reasoning=safe_reasoning,
+                structural_summary=safe_structural_summary,
+                tool_manifest=safe_tool_manifest
             )
             messages = [
                 SystemMessage(content=file_analysis_investigator_system_prompt),
@@ -369,6 +393,18 @@ async def file_analyzer(state: InvestigatorState):
 
         # --- LLM with Tools Call ---
         llm_with_tools = llm_investigator_with_tools
+        
+        # DEBUG: Log message sizes before LLM call
+        total_chars = sum(len(str(m.content)) for m in messages if hasattr(m, 'content'))
+        logger.debug(
+            f"🔍 Calling LLM with {len(messages)} messages, ~{total_chars:,} chars total",
+            agent="FileAnalysis",
+            node="file_analyzer",
+            mission_id=mission_id,
+            message_count=len(messages),
+            total_chars=total_chars
+        )
+        
         # Add timeout protection to prevent infinite hangs on investigator LLM calls
         result = await asyncio.wait_for(
             llm_with_tools.ainvoke(messages),
@@ -404,8 +440,10 @@ async def file_analyzer(state: InvestigatorState):
             validated_report = MissionReport.model_validate(mission_report_obj)
             
             findings_count = len(validated_report.mission_subgraph.nodes)
+            # Escape curly braces in summary to prevent logger.format() errors
+            safe_summary = validated_report.summary_of_findings[:100].replace('{', '{{').replace('}', '}}')
             logger.info(
-                f"📋 Report: {validated_report.summary_of_findings[:100]}...",
+                f"📋 Report: {safe_summary}...",
                 agent="FileAnalysis",
                 node="file_analyzer",
                 event_type="REPORT_GENERATED",
@@ -432,8 +470,10 @@ async def file_analyzer(state: InvestigatorState):
                     tool_args = tool_call.get("args") if isinstance(tool_call, dict) else getattr(tool_call, "args", {})
                     reflection_text = tool_args.get("reflection", "") if isinstance(tool_args, dict) else ""
                     if reflection_text:
+                        # Escape curly braces in reflection to prevent logger.format() errors
+                        safe_reflection = reflection_text.replace('{', '{{').replace('}', '}}')
                         logger.info(
-                            f"💭 Strategic Reflection: {reflection_text}",
+                            f"💭 Strategic Reflection: {safe_reflection}",
                             agent="FileAnalysis",
                             node="file_analyzer",
                             event_type="STRATEGIC_REFLECTION",
@@ -465,15 +505,19 @@ async def file_analyzer(state: InvestigatorState):
         )
         return {"errors": [error_msg]}
     except Exception as e:
+        import traceback
         error_msg = f"Error in file_analyzer: {type(e).__name__}: {e}"
+        full_traceback = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
         logger.error(
-            "Error in file_analyzer: {}: {}",
+            "Error in file_analyzer: {}: {}\n\nFull traceback:\n{}",
             type(e).__name__,
             str(e),
+            full_traceback,
             agent="FileAnalysis",
             node="file_analyzer",
             event_type="ERROR",
-            exc_info=True
+            mission_id=mission_id if 'mission_id' in locals() else "unknown",
+            step=len(messages)//2 if 'messages' in locals() else 0
         )
         return {"errors": [error_msg]}
     
@@ -499,9 +543,13 @@ async def merge_evidence_graphs(current_master: EvidenceGraph, new_subgraphs: Li
         current_master_json = current_master.model_dump_json(indent=2)
         new_subgraphs_json = json.dumps([g.model_dump() for g in new_subgraphs], indent=2)
         
+        # Escape curly braces in JSON to prevent .format() errors
+        safe_current_master = current_master_json.replace('{', '{{').replace('}', '}}')
+        safe_new_subgraphs = new_subgraphs_json.replace('{', '{{').replace('}', '}}')
+        
         user_prompt = file_analysis_graph_merger_user_prompt.format(
-            current_master_json=current_master_json,
-            new_subgraphs_json=new_subgraphs_json
+            current_master_json=safe_current_master,
+            new_subgraphs_json=safe_new_subgraphs
         )
 
         # Add timeout protection to prevent infinite hangs on graph merger LLM calls
@@ -709,11 +757,17 @@ async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["
             transcripts_size=len(investigation_transcripts_text)
         )
 
+        # Escape curly braces in JSON and transcripts to prevent .format() errors
+        safe_master_graph = master_graph_json.replace('{', '{{').replace('}', '}}')
+        safe_mission_reports = mission_reports_json.replace('{', '{{').replace('}', '}}')
+        safe_mission_list = mission_list_json.replace('{', '{{').replace('}', '}}')
+        safe_transcripts = investigation_transcripts_text.replace('{', '{{').replace('}', '}}')
+        
         user_prompt = file_analysis_reviewer_user_prompt.format(
-            master_evidence_graph=master_graph_json,
-            mission_reports=mission_reports_json,
-            mission_list=mission_list_json,
-            investigation_transcripts=investigation_transcripts_text
+            master_evidence_graph=safe_master_graph,
+            mission_reports=safe_mission_reports,
+            mission_list=safe_mission_list,
+            investigation_transcripts=safe_transcripts
         )
         
         logger.debug(
@@ -737,8 +791,10 @@ async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["
             node="review_analysis_results"
         )
 
+        # Escape curly braces in strategic summary to prevent logger.format() errors
+        safe_strategic_summary = result.strategic_summary[:150].replace('{', '{{').replace('}', '}}')
         logger.info(
-            f"💡 Strategic summary: {result.strategic_summary[:150]}...",
+            f"💡 Strategic summary: {safe_strategic_summary}...",
             agent="FileAnalysis",
             node="review_analysis_results",
             event_type="STRATEGIC_REVIEW_COMPLETE",
@@ -872,10 +928,15 @@ async def summarize_file_analysis(state: FileAnalysisState):
         
         completed_investigations_text = "\n\n".join(investigation_transcripts)
 
+        # Escape curly braces in JSON and transcripts to prevent .format() errors
+        safe_master_graph = master_graph_json.replace('{', '{{').replace('}', '}}')
+        safe_mission_reports = mission_reports_json.replace('{', '{{').replace('}', '}}')
+        safe_completed_investigations = completed_investigations_text.replace('{', '{{').replace('}', '}}')
+
         user_prompt = file_analysis_finalizer_user_prompt.format(
-            master_evidence_graph=master_graph_json,
-            mission_reports=mission_reports_json,
-            completed_investigations=completed_investigations_text
+            master_evidence_graph=safe_master_graph,
+            mission_reports=safe_mission_reports,
+            completed_investigations=safe_completed_investigations
         )
 
         # Add timeout protection to prevent infinite hangs on finalizer LLM calls
@@ -910,9 +971,10 @@ async def summarize_file_analysis(state: FileAnalysisState):
             attack_chain_steps=attack_chain_count
         )
         
-        # Log executive summary
+        # Log executive summary with escaped curly braces to prevent logger.format() errors
+        safe_exec_summary = static_analysis_final_report.executive_summary[:150].replace('{', '{{').replace('}', '}}')
         logger.info(
-            f"📝 Executive Summary: {static_analysis_final_report.executive_summary[:150]}...",
+            f"📝 Executive Summary: {safe_exec_summary}...",
             agent="FileAnalysis",
             node="summarize_file_analysis",
             event_type="EXECUTIVE_SUMMARY",

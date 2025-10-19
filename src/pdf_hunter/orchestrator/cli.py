@@ -73,9 +73,8 @@ async def main():
     """Main entry point for the orchestrator CLI."""
     args = parse_args()
     
-    # Reconfigure logging if debug flag is set
-    if args.debug:
-        setup_logging(debug_to_terminal=True)
+    # Configure logging with consistent format from the start
+    setup_logging(debug_to_terminal=args.debug)
     
     # Determine file path - if absolute path provided, use it directly
     # Otherwise, look in tests/assets/pdfs/
@@ -116,13 +115,14 @@ async def main():
                 output_directory = event['output_directory']
                 
                 # Reconfigure logging to add session-specific log file
+                # (Initial setup at startup uses generic config; now we have session context)
                 logger.info("📝 Adding session-specific log file",
                            agent="Orchestrator",
                            session_id=session_id,
                            output_directory=output_directory)
                 setup_logging(session_id=session_id, 
                              output_directory=output_directory,
-                             debug_to_terminal=True)
+                             debug_to_terminal=args.debug)
             
             final_state = event
             

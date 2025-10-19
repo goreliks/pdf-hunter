@@ -73,3 +73,6 @@ logs/
 
 # Node
 node_modules/
+
+# peepdf artifacts
+peepdf_jserrors-*.txt

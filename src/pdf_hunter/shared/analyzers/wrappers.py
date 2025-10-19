@@ -81,10 +81,41 @@ async def run_pdf_parser_full_statistical_analysis(pdf_filename: str) -> str:
     return result['stdout'] or f"Tool executed with no output. Stderr: {result['stderr']}"
 
 
-async def run_peepdf(pdf_filename: str) -> str:
-    """Runs the peepdf.py tool with the correct flags."""
+async def run_peepdf(pdf_filename: str, output_directory: Optional[str] = None) -> str:
+    """
+    Runs the peepdf.py tool with the correct flags.
+    
+    Note: peepdf creates 'peepdf_jserrors-<timestamp>.txt' files in the current directory
+    when it encounters JavaScript execution errors. If output_directory is provided,
+    these files are moved to {output_directory}/file_analysis/ for preservation.
+    """
+    import glob
+    import shutil
+    from datetime import datetime
+    
+    # Get current working directory to look for jserrors files
+    cwd = os.getcwd()
+    
+    # Note files before running peepdf
+    before_files = set(glob.glob(os.path.join(cwd, "peepdf_jserrors-*.txt")))
+    
+    # Run peepdf
     command_parts = ["peepdf", "-f", pdf_filename]
     result = await _run_shell_command(command_parts)
+    
+    # Check for new jserrors files created by peepdf
+    after_files = set(glob.glob(os.path.join(cwd, "peepdf_jserrors-*.txt")))
+    new_files = after_files - before_files
+    
+    # Move new jserrors files to session output directory if provided
+    if output_directory and new_files:
+        file_analysis_dir = os.path.join(output_directory, "file_analysis")
+        os.makedirs(file_analysis_dir, exist_ok=True)
+        
+        for jserrors_file in new_files:
+            dest_path = os.path.join(file_analysis_dir, os.path.basename(jserrors_file))
+            shutil.move(jserrors_file, dest_path)
+    
     return result['stdout'] or f"Tool executed with no output. Stderr: {result['stderr']}"
 
 

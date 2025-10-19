@@ -211,6 +211,7 @@ class InvestigatorState(TypedDict):
     The state object for the investigator node.
     """
     file_path: str
+    output_directory: str
     mission: InvestigationMission
     mission_report: NotRequired[MissionReport]
     errors: Annotated[List[str], operator.add]

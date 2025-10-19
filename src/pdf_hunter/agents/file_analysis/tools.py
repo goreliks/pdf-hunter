@@ -56,6 +56,31 @@ def identify_file_type(file_path: str) -> str:
     return _run_command(f"file {file_path}")
 
 @tool
+def analyze_rtf_objects(file_path: str) -> str:
+    """
+    Analyze RTF files for embedded objects and OLE packages using rtfobj from oletools.
+    This is a READ-ONLY analysis tool that identifies malicious objects in RTF files.
+    
+    CRITICAL: Use this tool ONCE after extracting any file identified as 
+    'Rich Text Format' by identify_file_type. 
+    
+    What this tool DOES:
+    - Identifies embedded OLE objects and their class names (e.g., EqUatiON.3)
+    - Shows data sizes and MD5 hashes
+    - Flags known exploit indicators (e.g., CVE-2017-11882)
+    
+    What this tool CANNOT DO:
+    - Extract or save the OLE payload to disk (not supported by rtfobj)
+    - Provide more details than shown in the output
+    - Return different results if called multiple times on the same file
+    
+    IMPORTANT: Once you see the exploit indicator (e.g., "Equation Editor vulnerability"),
+    you have ALL the information available. DO NOT call this tool again on the same file.
+    Write your MissionReport with the CVE, MD5 hash, and class name provided.
+    """
+    return _run_command(f"rtfobj {file_path}")
+
+@tool
 def search_file_for_pattern(pattern: str, file_path: str) -> str:
     """
     Searches for a specific keyword or pattern within any file, treating it as text.
@@ -170,10 +195,25 @@ def _looks_like_filtered_stream_needed(text: str) -> bool:
     """
     Heuristic to determine whether we should re-run with --filter:
     - Output mentions 'Contains stream' AND a /Filter key, but no filtered bytes shown yet.
+    - IMPORTANT: Skip auto-filter if stream is too large (> 100KB compressed)
     """
     has_stream = "Contains stream" in text
     has_filter_key = "/Filter" in text
-    return bool(has_stream and has_filter_key)
+    
+    if not (has_stream and has_filter_key):
+        return False
+    
+    # Check stream size to avoid decompressing huge files
+    # Look for /Length in the output (e.g., "/Length 2004304")
+    length_match = re.search(r'/Length\s+(\d+)', text)
+    if length_match:
+        stream_size = int(length_match.group(1))
+        MAX_AUTO_FILTER_SIZE = 100000  # 100KB compressed - reasonable limit
+        if stream_size > MAX_AUTO_FILTER_SIZE:
+            # Don't auto-filter large streams - agent should use dump_object_stream instead
+            return False
+    
+    return True
 
 
 def _safe_preview_bytes(b: bytes, max_len: int = 256) -> str:
@@ -272,8 +312,10 @@ def _decode_text(b: bytes) -> str:
         return b.decode("latin-1", errors="replace")
 
 
-def _write_temp(prefix: str, data: bytes, suffix: str = ".bin") -> str:
-    with tempfile.NamedTemporaryFile(prefix=prefix, suffix=suffix, delete=False, dir="/tmp") as f:
+def _write_temp(prefix: str, data: bytes, suffix: str = ".bin", output_dir: Optional[str] = None) -> str:
+    """Write bytes to a temp file. If output_dir is provided, use it; otherwise use system temp."""
+    target_dir = output_dir if output_dir else "/tmp"
+    with tempfile.NamedTemporaryFile(prefix=prefix, suffix=suffix, delete=False, dir=target_dir) as f:
         f.write(data)
         return f.name
 
@@ -405,18 +447,46 @@ def parse_objstm(pdf_file_path: str, object_id: int, filtered: bool = True, use_
 @tool
 def get_object_content(pdf_file_path: str, object_id: int, filter_stream: bool = False, use_objstm: bool = True) -> str:
     """
-    Retrieve an object by ID; auto-runs --filter for streams and also dumps the containing /ObjStm body if present.
+    Retrieve an object by ID; auto-runs --filter for SMALL streams (< 100KB compressed).
     Stateless. -O is injected by default so inner objects are visible.
+    
+    IMPORTANT: For large streams (> 100KB), this tool shows METADATA only. 
+    If you need the actual content of a large stream, use dump_object_stream with 
+    the output_file parameter to save it to disk instead.
     """
     base_opts = ["--object", str(object_id)]
-    if filter_stream:
-        base_opts.append("--filter")
-
+    
+    # First, get metadata without filtering to check stream size
     out = run_pdf_parser(pdf_file_path, options=base_opts, use_objstm=use_objstm)
+    
+    # Check stream size BEFORE filtering (even if explicitly requested)
+    if "Contains stream" in out and "/Filter" in out:
+        length_match = re.search(r'/Length\s+(\d+)', out)
+        if length_match:
+            stream_size = int(length_match.group(1))
+            MAX_FILTER_SIZE = 100000  # 100KB compressed
+            if stream_size > MAX_FILTER_SIZE and filter_stream:
+                # Refuse to filter large streams even if explicitly requested
+                out += f"\n\n[ERROR: Stream is {stream_size:,} bytes compressed (> 100KB). Cannot filter - would exceed context limits.]"
+                out += f"\n[Use dump_object_stream with output_file parameter to save it to disk instead.]"
+                filter_stream = False  # Override the request
+    
+    # Now apply filtering only if approved
+    if filter_stream:
+        out = run_pdf_parser(pdf_file_path, options=base_opts + ["--filter"], use_objstm=use_objstm)
 
+    # Check if we should auto-filter this stream (skips large streams automatically)
     if (not filter_stream) and _looks_like_filtered_stream_needed(out):
         out2 = run_pdf_parser(pdf_file_path, options=["--object", str(object_id), "--filter"], use_objstm=use_objstm)
         out = f"{out}\n\n[auto --filter re-run]\n{out2}"
+    elif (not filter_stream) and "Contains stream" in out and "/Filter" in out:
+        # Large stream was skipped - add helpful message
+        length_match = re.search(r'/Length\s+(\d+)', out)
+        if length_match:
+            stream_size = int(length_match.group(1))
+            if stream_size > 100000:
+                out += f"\n\n[NOTE: Stream is {stream_size:,} bytes compressed (> 100KB). Auto-filter skipped to prevent context overflow.]"
+                out += f"\n[To analyze this stream, use dump_object_stream with output_file parameter to save it to disk.]"
 
     objstm_id = _extract_objstm_id(out)
     if objstm_id is not None:
@@ -528,12 +598,14 @@ def b64_decode(
     strings_on_output: bool = False,
     strings_min_len: int = 4,
     strings_utf16: bool = True,
+    output_directory: Optional[str] = None,
 ) -> str:
     """
     Base64-decode a string or file.
     - text_mode=True: if decoded bytes are mostly printable, return plaintext.
-    - make_temp_file=True: write decoded bytes to /tmp and show the path.
+    - make_temp_file=True: write decoded bytes to output_directory (or /tmp if not specified).
     - strings_on_output=True: run strings on the decoded BYTES ONLY (never on the PDF).
+    - output_directory: Target directory for temp files (e.g., session file_analysis/ dir).
     """
     import base64
     try:
@@ -552,7 +624,7 @@ def b64_decode(
         if output_file:
             wrote = _write_bytes(output_file, decoded)
         elif make_temp_file:
-            tmp = _write_temp("decoded_b64_", decoded)
+            tmp = _write_temp("decoded_b64_", decoded, output_dir=output_directory)
             wrote = f"[WRITE] {len(decoded)} bytes → {tmp}"
 
         if text_mode and _is_mostly_printable(decoded):
@@ -587,6 +659,7 @@ def hex_decode(
     strings_on_output: bool = False,
     strings_min_len: int = 4,
     strings_utf16: bool = True,
+    output_directory: Optional[str] = None,
 ) -> str:
     """
     Decode hex-encoded data (e.g., PDF <...> payloads or hex strings).
@@ -594,8 +667,9 @@ def hex_decode(
     New:
     - prefer_text=True: if decoded bytes are "mostly printable", return PLAINTEXT instead of a base64 preview.
       Tunable via text_threshold and max_plaintext_chars.
-    - strings_on_output=True: run strings on the decoded BYTES ONLY (not the whole PDF). Writes a temp file and
-      includes its path for follow-up tooling.
+    - strings_on_output=True: run strings on the decoded BYTES ONLY (not the whole PDF). Writes a temp file to
+      output_directory (or system temp if not specified) and includes its path for follow-up tooling.
+    - output_directory: Target directory for temp files (e.g., session file_analysis/ dir).
 
     Returns a PLAINTEXT block when applicable or a short Base64 preview; optionally writes bytes to output_file.
     """
@@ -626,7 +700,8 @@ def hex_decode(
         temp_path = None
         strings_block = None
         if strings_on_output:
-            fd, temp_path = tempfile.mkstemp(prefix="decoded_", suffix=".bin")
+            target_dir = output_directory if output_directory else None
+            fd, temp_path = tempfile.mkstemp(prefix="decoded_", suffix=".bin", dir=target_dir)
             os.close(fd)
             wrote_lines.append(_write_bytes(temp_path, data))
             strings_block = _extract_strings_from_bytes(data, min_len=strings_min_len, utf16=strings_utf16)
@@ -838,6 +913,7 @@ pdf_parser_tools = [
     file_info,
     view_file_as_hex,
     identify_file_type,
+    analyze_rtf_objects,
     search_file_for_pattern,
     view_full_text_file,
     list_directory_contents,
