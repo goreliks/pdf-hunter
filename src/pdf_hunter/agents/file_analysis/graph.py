@@ -93,9 +93,11 @@ async def run_file_analysis(state: dict):
         }
     
     except Exception as e:
-        error_msg = f"Error in run_file_analysis: {e}"
+        error_msg = f"Error in run_file_analysis: {type(e).__name__}: {str(e)}"
         logger.error(
-            error_msg,
+            "Error in run_file_analysis: {}: {}",
+            type(e).__name__,
+            str(e),
             agent="FileAnalysis",
             node="run_file_analysis",
             event_type="ERROR",

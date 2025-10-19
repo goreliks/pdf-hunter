@@ -228,13 +228,17 @@ async def execute_browser_tools(state: URLInvestigatorState):
                 except ToolException as e:
                     # Handle tool exceptions gracefully (e.g., network errors, invalid URLs)
                     error_msg = f"Tool execution failed: {str(e)}"
-                    logger.warning(f"⚠️ Tool {tool_name} execution failed: {str(e)}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_FAILURE", tool_name=tool_name)
+                    # Escape HTML/XML tags to prevent Loguru colorizer errors
+                    safe_error = str(e).replace('<', '{{').replace('>', '}}')
+                    logger.warning(f"⚠️ Tool {tool_name} execution failed: {safe_error}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_FAILURE", tool_name=tool_name)
                     observations.append(error_msg)
                     
                 except Exception as e:
                     # Handle any other unexpected errors
                     error_msg = f"Unexpected error in tool '{tool_name}': {str(e)}"
-                    logger.error(f"Unexpected error in tool {tool_name}: {str(e)}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_ERROR", tool_name=tool_name, exc_info=True)
+                    # Escape HTML/XML tags to prevent Loguru colorizer errors
+                    safe_error = str(e).replace('<', '{{').replace('>', '}}')
+                    logger.error(f"Unexpected error in tool {tool_name}: {safe_error}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_ERROR", tool_name=tool_name, exc_info=True)
                     observations.append(error_msg)
 
             tool_outputs = [

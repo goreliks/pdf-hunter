@@ -137,6 +137,56 @@ NEW → IN_PROGRESS → {COMPLETED | FAILED | NOT_RELEVANT}
 
 ### Critical Fixes & Patterns (October 2025)
 
+**LLM Output Escaping for String Formatting (October 2025):**
+- **Issue**: LLM-generated content containing `{`, `}`, `<`, `>` causes crashes in `.format()` calls and Loguru logger
+- **Root Cause**: Python's `.format()` interprets `{}` as placeholders; Loguru's colorizer interprets `<>` as markup tags
+- **Fix Pattern**: Escape braces and tags before formatting or logging:
+  ```python
+  # Escape before .format()
+  safe_json = json.dumps(data).replace('{', '{{').replace('}', '}}')
+  prompt = template.format(data=safe_json)
+  
+  # Escape before logger calls (prevents colorizer errors)
+  safe_text = llm_output.replace('{', '{{').replace('}', '}}').replace('<', '{{').replace('>', '}}')
+  logger.info(f"Result: {safe_text}", agent="Agent", node="node")
+  ```
+- **Applies To**: All LLM outputs before `.format()` calls; Playwright errors before logging
+- **Critical Locations**: Mission descriptions, evidence graphs, error messages, HTML in Playwright errors
+
+**Session-Specific File Paths (October 2025):**
+- **Issue**: Decoded/extracted files saved to `/tmp` or `/private/tmp` instead of session directory
+- **Root Cause**: Tools lacked `output_directory` parameter; prompts didn't specify full paths
+- **Fix Pattern**:
+  1. Add `output_directory` parameter to tools that write temp files (`hex_decode`, `b64_decode`)
+  2. Pass `output_directory` through state to all investigator nodes
+  3. Update prompts with explicit path examples: `"{output_directory}/file_analysis/obj_18_malicious.js"`
+  4. Ensure `file_analysis/` subdirectory created early in workflow
+- **Benefits**: All forensic artifacts preserved in session directory for audit trail
+
+**Context Overflow Prevention (October 2025):**
+- **Issue**: Large decompressed streams (>1MB) caused `context_length_exceeded` errors
+- **Root Cause**: `get_object_content` auto-filtered large streams, returning full decompressed content to LLM
+- **Fix Pattern**:
+  ```python
+  # Check compressed stream size BEFORE filtering
+  stream_size = int(length_match.group(1))
+  MAX_FILTER_SIZE = 100000  # 100KB
+  if stream_size > MAX_FILTER_SIZE:
+      return metadata_only  # Don't decompress, guide agent to use dump_object_stream
+  ```
+- **Critical**: Size check must happen before `filter_stream=True` processing
+- **Guidance**: Add helpful message telling agent to use `dump_object_stream` for large files
+
+**RTF Analysis Tool Pattern (October 2025):**
+- **Issue**: Agent called `analyze_rtf_objects` repeatedly, hitting recursion limit
+- **Root Cause**: Tool returns all available info in one call, but agent kept searching for more
+- **Fix Pattern**:
+  1. Add "KNOW WHEN TO STOP" guidance to tool docstring and agent prompt
+  2. Explicitly state when tool is READ-ONLY and cannot extract payloads
+  3. List what tool CAN and CANNOT do to prevent unrealistic expectations
+  4. Add stopping criteria: "If you see CVE indicator, you have sufficient evidence → STOP"
+- **Applies To**: Any analysis tool that provides complete results in one call
+
 **URL Investigation Double Nesting Fix:**
 - **Issue**: Wrapper function in `url_investigation/graph.py` was wrapping entire subgraph result, creating `link_analysis_final_reports[0].link_analysis_final_report` instead of `link_analysis_final_reports[0]`
 - **Fix**: Extract `result["link_analysis_final_report"]` before wrapping:

@@ -837,3 +837,132 @@ See `docs/LOGGING_FIELD_REFERENCE.md` for complete field mappings and event type
 - **Maintain agent isolation** - each agent should be runnable independently
 - **Follow LangGraph patterns** - use proper state management and edge definitions
 - **Use proper logging** - leverage the logging system instead of print statements
+
+## Critical Development Patterns (October 2025)
+
+### Escaping LLM Output for String Operations
+
+**Problem**: LLM-generated content containing `{`, `}`, `<`, `>` causes `ValueError` in `.format()` calls and Loguru logging.
+
+**Solution**: Always escape special characters before string formatting or logging:
+
+```python
+# Escape curly braces before .format()
+safe_json = json.dumps(llm_data).replace('{', '{{').replace('}', '}}')
+safe_text = llm_output.replace('{', '{{').replace('}', '}}')
+prompt = template.format(data=safe_json, text=safe_text)
+
+# Escape HTML/XML tags before logging (Loguru colorizer)
+safe_error = str(error).replace('<', '{{').replace('>', '}}')
+logger.warning(f"Tool failed: {safe_error}", agent="Agent", node="node")
+```
+
+**Critical Locations**:
+- Mission descriptions (may contain JavaScript like `{ cName: "file" }`)
+- Evidence graphs and structural summaries
+- Tool error messages (may contain HTML from Playwright)
+- Any LLM output passed to `.format()` or logger
+
+### Session-Specific File Path Management
+
+**Problem**: Forensic artifacts (decoded payloads, extracted files) saved to `/tmp` instead of session directory.
+
+**Solution**: Pass `output_directory` through state and tool parameters:
+
+```python
+# 1. Add output_directory to state schemas
+class InvestigatorState(TypedDict):
+    file_path: str
+    output_directory: str  # Session-specific directory
+    ...
+
+# 2. Add output_directory parameter to tools
+@tool
+def hex_decode(hex_string: str, output_directory: Optional[str] = None, ...):
+    """Decode hex data. If output_directory provided, writes temp files there."""
+    target_dir = output_directory if output_directory else "/tmp"
+    ...
+
+# 3. Update prompts with explicit path examples
+"""
+**Evidence Preservation:**
+Save malicious artifacts to: "{output_directory}/file_analysis/obj_18_malicious.js"
+
+Example tool call:
+hex_decode(
+    hex_string="2F63...",
+    strings_on_output=True,
+    output_directory="{output_directory}/file_analysis"
+)
+"""
+
+# 4. Create file_analysis/ subdirectory early
+file_analysis_dir = os.path.join(output_directory, "file_analysis")
+await asyncio.to_thread(os.makedirs, file_analysis_dir, exist_ok=True)
+```
+
+**Benefits**: All forensic artifacts preserved in session directory for complete audit trail.
+
+### Context Overflow Prevention
+
+**Problem**: Large decompressed streams (>1MB) exceed LLM context limits causing `BadRequestError: context_length_exceeded`.
+
+**Solution**: Check compressed stream size before filtering:
+
+```python
+# In get_object_content tool
+if "Contains stream" in output and "/Filter" in output:
+    length_match = re.search(r'/Length\s+(\d+)', output)
+    if length_match:
+        stream_size = int(length_match.group(1))
+        MAX_FILTER_SIZE = 100000  # 100KB compressed
+        
+        if stream_size > MAX_FILTER_SIZE:
+            # Don't decompress - return metadata only
+            output += f"\n\n[NOTE: Stream is {stream_size:,} bytes (>100KB). "
+            output += "Auto-filter skipped. Use dump_object_stream to save to disk.]"
+            return output  # Return early without filtering
+```
+
+**Critical**: Size check must happen BEFORE applying `filter_stream=True`, even if explicitly requested by agent.
+
+### Agent Loop Prevention
+
+**Problem**: Agent calls same read-only tool repeatedly (e.g., `analyze_rtf_objects`), hitting recursion limits.
+
+**Solution**: Add explicit stopping criteria to tool docstrings and agent prompts:
+
+```python
+@tool
+def analyze_rtf_objects(file_path: str) -> str:
+    """
+    Analyze RTF files for embedded objects using rtfobj.
+    This is a READ-ONLY analysis tool.
+    
+    What this tool DOES:
+    - Identifies embedded OLE objects and class names
+    - Shows MD5 hashes and exploit indicators (e.g., CVE-2017-11882)
+    
+    What this tool CANNOT DO:
+    - Extract OLE payloads to disk (not supported by rtfobj)
+    - Provide more details than shown in output
+    - Return different results if called multiple times
+    
+    IMPORTANT: Once you see the exploit indicator, you have ALL the 
+    information available. DO NOT call this tool again on the same file.
+    """
+    ...
+```
+
+**Agent Prompt Guidance**:
+```python
+"""
+**KNOW WHEN TO STOP:**
+- If you identify a known exploit (e.g., CVE), you have SUFFICIENT EVIDENCE → STOP
+- If a tool says it CANNOT do something, ACCEPT IT → STOP trying
+- If calling same tool twice returns identical results, DO NOT CALL IT AGAIN
+- Your goal is IDENTIFICATION, not extraction of every byte
+"""
+```
+
+**Applies To**: Any tool that provides complete results in one call (RTF analysis, file type identification, domain WHOIS, etc.)
