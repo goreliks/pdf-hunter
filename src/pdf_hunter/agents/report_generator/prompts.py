@@ -43,7 +43,11 @@ Your final output must be a single, self-contained Markdown document based on th
     - This is the most critical part of your synthesis. Analyze the connections **between** the findings of the different agents. For example, did the visual analysis of a deceptive button correlate with a malicious URL found by the link analysis? Did the static analysis reveal a script that was visually hidden? Highlight these cross-domain confirmations.
 
 ## 6. Evidence & Indicators of Compromise (IoCs)
-    - **Evidence Log:** Create a list of all collected evidentiary artifacts. This includes the file paths of any screenshots or saved files.
+    - **Evidence Log:** Scan the `master_evidence_graph` for all nodes containing properties with keys like `extracted_file_path`, `file_path`, `saved_to`, or `artifact_path`, or any property value containing `/file_analysis/`. Create a comprehensive list of all collected evidentiary artifacts, including:
+      - Full file paths of any extracted/decoded files (e.g., decoded payloads, scripts)
+      - Screenshot file paths from URL investigations
+      - Any other preserved artifacts
+      - If no extracted files are found in the evidence graph, state this clearly
     - **Actionable IoCs:** Compile a definitive, de-duplicated list of all Indicators of Compromise. This should include malicious/suspicious URLs, domains, and any file hashes of dropped payloads. If no IoCs were found, state that clearly.
 
 **Formatting Requirements:**

@@ -138,20 +138,22 @@ BEFORE you can mark your mission as complete, you MUST:
      ```
    
 2. File naming convention:
-   - ALWAYS use the session directory: "{output_directory}/file_analysis/"
-   - NEVER save to /tmp or /private/tmp - these are NOT preserved
-   - Format: "{{output_directory}}/file_analysis/obj_{{object_id}}_{{threat_type}}_malicious.{{ext}}"
+   - Files are automatically saved to: "{output_directory}/file_analysis/" subdirectory
+   - Tools (hex_decode, b64_decode) handle directory creation automatically
+   - For dump_object_stream, use format: "{{output_directory}}/file_analysis/obj_{{object_id}}_{{threat_type}}_malicious.{{ext}}"
    - Example for this session: "{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js"
    - After saving, you MAY use identify_file_type to document the actual type in your evidence graph
-3. After saving, verify the file was written by checking for confirmation in the tool output
-4. Add the saved file path as a property in your mission_subgraph evidence nodes:
+3. After decoding/saving, extract the file path from the tool's output:
+   - Look for "[TEMP FILE]" or "[WRITE]" lines in the tool response
+   - Example: "[TEMP FILE] /path/to/output/file_analysis/decoded_xyz.bin"
+4. Add the extracted file path as a property in your mission_subgraph evidence nodes:
    ```json
    {{
      "key": "extracted_file_path",
-     "value": "{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js"
+     "value": "/full/path/from/tool/output"
    }}
    ```
-   (Use the EXACT path you passed to dump_file_path - do NOT use /tmp paths)
+   (Extract the path from the tool's output - do NOT construct it yourself)
 5. ONLY AFTER completing steps 1-4 can you proceed to write your final MissionReport
 
 CRITICAL: If you complete your investigation without saving malicious artifacts to disk, you have violated evidence preservation protocols and your investigation is INCOMPLETE.

@@ -315,7 +315,12 @@ def _decode_text(b: bytes) -> str:
 
 def _write_temp(prefix: str, data: bytes, suffix: str = ".bin", output_dir: Optional[str] = None) -> str:
     """Write bytes to a temp file. If output_dir is provided, use it; otherwise use system temp."""
-    target_dir = output_dir if output_dir else "/tmp"
+    if output_dir:
+        # Create file_analysis subdirectory within output_dir
+        target_dir = os.path.join(output_dir, "file_analysis")
+        os.makedirs(target_dir, exist_ok=True)
+    else:
+        target_dir = "/tmp"
     with tempfile.NamedTemporaryFile(prefix=prefix, suffix=suffix, delete=False, dir=target_dir) as f:
         f.write(data)
         return f.name
@@ -750,7 +755,12 @@ def hex_decode(
         temp_path = None
         strings_block = None
         if strings_on_output:
-            target_dir = output_directory if output_directory else None
+            # Create file_analysis subdirectory if output_directory is provided
+            if output_directory:
+                target_dir = os.path.join(output_directory, "file_analysis")
+                os.makedirs(target_dir, exist_ok=True)
+            else:
+                target_dir = None
             fd, temp_path = tempfile.mkstemp(prefix="decoded_", suffix=".bin", dir=target_dir)
             os.close(fd)
             wrote_lines.append(_write_bytes(temp_path, data))
