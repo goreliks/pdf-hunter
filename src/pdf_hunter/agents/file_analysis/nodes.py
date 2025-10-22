@@ -7,7 +7,7 @@ from .prompts import file_analysis_triage_system_prompt, file_analysis_triage_us
 import json
 from langgraph.types import Command
 from langchain_core.messages import SystemMessage, HumanMessage
-from langgraph.constants import Send
+from langgraph.types import Send
 from langchain_core.messages.utils import get_buffer_string
 from .tools import pdf_parser_tools_manifest, pdf_parser_tools
 from .schemas import EvidenceGraph, MergedEvidenceGraph
@@ -623,12 +623,12 @@ async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["
         # --- Part 1: PROCESS raw investigation results (The Reducer's Logic) ---
         
         # Initialize or get copies of the data we will be modifying
-        current_master_graph = state.get('master_evidence_graph', EvidenceGraph()).copy(deep=True)
+        current_master_graph = state.get('master_evidence_graph', EvidenceGraph()).model_copy(deep=True)
         mission_reports = state.get('mission_reports', {}).copy()
         mission_list = state.get('mission_list', [])
         
         # Create a mutable map of missions from the current state's mission list
-        mission_map = {m.mission_id: m.copy(deep=True) for m in mission_list}
+        mission_map = {m.mission_id: m.model_copy(deep=True) for m in mission_list}
 
         # The `completed_investigations` list is our raw input, automatically populated by LangGraph.
         # We must only process investigations that we haven't seen before to avoid errors on the second loop.
@@ -880,8 +880,6 @@ async def review_analysis_results(state: FileAnalysisState) -> Command[Literal["
         # On error, proceed to summarize to complete the flow
         return Command(goto="summarize_file_analysis", update={"errors": [error_msg]})
 
-
-from langchain_core.messages.utils import get_buffer_string
 
 async def summarize_file_analysis(state: FileAnalysisState):
     

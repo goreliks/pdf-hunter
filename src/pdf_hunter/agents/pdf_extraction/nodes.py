@@ -5,7 +5,7 @@ import pathlib
 import os
 import inspect
 from datetime import datetime
-
+import asyncio
 from loguru import logger
 
 from .schemas import PDFExtractionState, PDFHashData, ExtractedImage, ExtractedURL
@@ -16,6 +16,7 @@ from pdf_hunter.shared.utils.image_extraction import extract_pages_as_base64_ima
 from pdf_hunter.shared.utils.url_extraction import extract_urls_from_pdf
 from pdf_hunter.shared.utils.file_operations import ensure_output_directory
 from pdf_hunter.shared.utils.qr_extraction import process_pdf_for_qr_codes
+from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from pdf_hunter.config import MAXIMUM_PAGES_TO_PROCESS
 
 
@@ -457,6 +458,15 @@ async def finalize_extraction(state: PDFExtractionState) -> dict:
         images_count = len(state.get('extracted_images', []))
         urls_count = len(state.get('extracted_urls', []))
         errors_count = len(state.get('errors', []))
+
+        # Save the final state to a JSON file for debugging and records
+        session_output_directory = state.get("output_directory", "output")
+        session_id = state.get("session_id", "unknown_session")
+        finalizer_directory = os.path.join(session_output_directory, "pdf_extraction")
+        await asyncio.to_thread(os.makedirs, finalizer_directory, exist_ok=True)
+        json_filename = f"pdf_extraction_final_state_session_{session_id}.json"
+        json_path = os.path.join(finalizer_directory, json_filename)
+        await dump_state_to_file(state, json_path)
         
         if errors_count > 0:
             logger.warning(

@@ -97,6 +97,18 @@ file_analysis_investigator_user_prompt = """Dr. Reed, you are being deployed on 
 {output_directory}
 ```
 
+**⚠️ CRITICAL - FILE PATH MUST BE COPIED EXACTLY:**
+
+The PDF file path is VERY LONG (100+ characters). DO NOT attempt to retype it from memory.
+ALWAYS copy-paste this EXACT path character-for-character when making tool calls:
+
+```
+{file_path}
+```
+
+**COMMON ERROR:** LLMs often truncate or mistype long file paths, causing "File not found" errors.
+**SOLUTION:** Copy the entire path above - every single character matters.
+
 **MANDATORY RULE:** When calling ANY tool that requires a `pdf_file_path` parameter, you MUST use the EXACT path shown above. DO NOT use any other path. DO NOT make up paths. DO NOT use paths from your training data.
 
 ═══════════════════════════════════════════════════════════════
@@ -168,7 +180,9 @@ CRITICAL: If you complete your investigation without saving malicious artifacts 
 
 **CRITICAL REMINDERS:**
 1. Use think_tool after each step to reflect on results and plan next steps
-2. **ALWAYS use this exact pdf_file_path in ALL tool calls:** `{file_path}`
+2. **⚠️ COPY-PASTE THIS EXACT FILE PATH (100+ chars, easy to mistype):** `{file_path}`
+   - DO NOT retype from memory - copy the entire string character-for-character
+   - Missing even one character will cause "File not found" errors
 3. Save malicious artifacts to: `{output_directory}/file_analysis/`
 
 Begin your investigation. State your initial hypothesis and select the first tool you will use to pursue this mission.
