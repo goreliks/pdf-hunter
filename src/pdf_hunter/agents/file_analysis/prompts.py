@@ -97,7 +97,10 @@ file_analysis_investigator_user_prompt = """Dr. Reed, you are being deployed on 
 {output_directory}
 ```
 
-**MANDATORY RULE:** When calling ANY tool that requires a `pdf_file_path` parameter, you MUST use the EXACT path shown above. DO NOT use any other path. DO NOT make up paths. DO NOT use paths from your training data.
+**AUTOMATED FILE PATH INJECTION:**
+
+The PDF file path and output directory are automatically provided to all tools that require them.
+You do NOT need to specify `pdf_file_path` or `output_directory` parameters in your tool calls.
 
 ═══════════════════════════════════════════════════════════════
 
@@ -115,10 +118,9 @@ BEFORE you can mark your mission as complete, you MUST:
    
    **For PDF streams:**
    - Use dump_object_stream with the dump_file_path parameter set to the FULL session-specific path
-   - Example tool call:
+   - Example tool call (pdf_file_path is auto-injected):
      ```
      dump_object_stream(
-       pdf_file_path="{file_path}",
        object_id=18,
        dump_file_path="{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js",
        filter_stream=True
@@ -126,31 +128,32 @@ BEFORE you can mark your mission as complete, you MUST:
      ```
    
    **For hex/base64 decoding:**
-   - ALWAYS pass output_directory parameter to hex_decode and b64_decode when using strings_on_output or make_temp_file
-   - Example tool call:
+   - Tools automatically receive output_directory - no need to specify it
+   - Example tool call (output_directory is auto-injected):
      ```
      hex_decode(
        hex_string="2F63206563686F...",
-       strings_on_output=True,
-       output_directory="{output_directory}/file_analysis"
+       strings_on_output=True
      )
      ```
    
 2. File naming convention:
-   - ALWAYS use the session directory: "{output_directory}/file_analysis/"
-   - NEVER save to /tmp or /private/tmp - these are NOT preserved
-   - Format: "{{output_directory}}/file_analysis/obj_{{object_id}}_{{threat_type}}_malicious.{{ext}}"
+   - Files are automatically saved to: "{output_directory}/file_analysis/" subdirectory
+   - Tools (hex_decode, b64_decode) handle directory creation automatically
+   - For dump_object_stream, use format: "{{output_directory}}/file_analysis/obj_{{object_id}}_{{threat_type}}_malicious.{{ext}}"
    - Example for this session: "{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js"
    - After saving, you MAY use identify_file_type to document the actual type in your evidence graph
-3. After saving, verify the file was written by checking for confirmation in the tool output
-4. Add the saved file path as a property in your mission_subgraph evidence nodes:
+3. After decoding/saving, extract the file path from the tool's output:
+   - Look for "[TEMP FILE]" or "[WRITE]" lines in the tool response
+   - Example: "[TEMP FILE] /path/to/output/file_analysis/decoded_xyz.bin"
+4. Add the extracted file path as a property in your mission_subgraph evidence nodes:
    ```json
    {{
      "key": "extracted_file_path",
-     "value": "{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js"
+     "value": "/full/path/from/tool/output"
    }}
    ```
-   (Use the EXACT path you passed to dump_file_path - do NOT use /tmp paths)
+   (Extract the path from the tool's output - do NOT construct it yourself)
 5. ONLY AFTER completing steps 1-4 can you proceed to write your final MissionReport
 
 CRITICAL: If you complete your investigation without saving malicious artifacts to disk, you have violated evidence preservation protocols and your investigation is INCOMPLETE.
@@ -168,7 +171,9 @@ CRITICAL: If you complete your investigation without saving malicious artifacts 
 
 **CRITICAL REMINDERS:**
 1. Use think_tool after each step to reflect on results and plan next steps
-2. **ALWAYS use this exact pdf_file_path in ALL tool calls:** `{file_path}`
+2. **⚠️ COPY-PASTE THIS EXACT FILE PATH (100+ chars, easy to mistype):** `{file_path}`
+   - DO NOT retype from memory - copy the entire string character-for-character
+   - Missing even one character will cause "File not found" errors
 3. Save malicious artifacts to: `{output_directory}/file_analysis/`
 
 Begin your investigation. State your initial hypothesis and select the first tool you will use to pursue this mission.

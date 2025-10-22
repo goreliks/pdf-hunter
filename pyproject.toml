@@ -152,6 +152,7 @@ dependencies = [
     "requests-toolbelt==1.0.0",
     "rfc3339-validator==0.1.4",
     "rfc3986-validator==0.1.1",
+    "rich>=14.1.0",
     "rpds-py==0.26.0",
     "scipy==1.16.0",
     "send2trash==1.8.3",

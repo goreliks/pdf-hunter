@@ -1,5 +1,4 @@
 from langchain.tools import tool
-import asyncio
 import whois
 from whois.parser import PywhoisError
 import datetime

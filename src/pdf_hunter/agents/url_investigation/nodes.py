@@ -8,7 +8,7 @@ from typing import Literal
 from pdf_hunter.agents.image_analysis.schemas import URLMissionStatus
 from .tools import domain_whois
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
-from langgraph.constants import Send
+from langgraph.types import Send
 from langgraph.graph import END
 from pdf_hunter.config import THINKING_TOOL_ENABLED
 from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT

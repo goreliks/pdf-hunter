@@ -137,6 +137,39 @@ NEW → IN_PROGRESS → {COMPLETED | FAILED | NOT_RELEVANT}
 
 ### Critical Fixes & Patterns (October 2025)
 
+**InjectedToolArg Pattern for File Path Management (October 2025):**
+- **Issue**: LLM truncated 100+ character file paths when generating tool calls, causing "File not found" errors
+- **Root Cause**: LLM saw full session paths in tool schema (e.g., `/output/87c740d2b7c22f9c.../166733d4.../pdf_extraction/file.pdf`), tried to generate from memory, made truncation errors
+- **Fix Pattern**:
+  ```python
+  from langchain_core.tools import InjectedToolArg
+  from typing_extensions import Annotated
+  
+  # 1. Hide parameters from LLM schema with InjectedToolArg
+  @tool
+  def get_pdf_stats(
+      pdf_file_path: Annotated[str, InjectedToolArg],  # Hidden from LLM
+      output_directory: Annotated[Optional[str], InjectedToolArg]  # Hidden from LLM
+  ) -> str:
+      """Get PDF statistics."""
+      ...
+  
+  # 2. Create custom injection wrapper (ToolNode does NOT auto-inject)
+  async def inject_and_call_tools(state: InvestigatorState) -> dict:
+      from langgraph.prebuilt import ToolNode
+      tool_calls = state["messages"][-1].tool_calls
+      # Inject values from state into each tool call
+      for tc in tool_calls:
+          tc["args"]["pdf_file_path"] = state["file_path"]
+          tc["args"]["output_directory"] = state.get("output_directory")
+      return await ToolNode(tools).ainvoke(state)
+  
+  # 3. Use wrapper in graph builder
+  graph.add_node("tools", inject_and_call_tools)
+  ```
+- **Benefits**: LLM only sees/generates visible parameters (e.g., `{"object_id": 2}`), wrapper injects full paths before execution
+- **Critical**: Must manually create injection wrapper - ToolNode does NOT auto-inject InjectedToolArg parameters
+
 **LLM Output Escaping for String Formatting (October 2025):**
 - **Issue**: LLM-generated content containing `{`, `}`, `<`, `>` causes crashes in `.format()` calls and Loguru logger
 - **Root Cause**: Python's `.format()` interprets `{}` as placeholders; Loguru's colorizer interprets `<>` as markup tags
@@ -153,15 +186,34 @@ NEW → IN_PROGRESS → {COMPLETED | FAILED | NOT_RELEVANT}
 - **Applies To**: All LLM outputs before `.format()` calls; Playwright errors before logging
 - **Critical Locations**: Mission descriptions, evidence graphs, error messages, HTML in Playwright errors
 
-**Session-Specific File Paths (October 2025):**
-- **Issue**: Decoded/extracted files saved to `/tmp` or `/private/tmp` instead of session directory
-- **Root Cause**: Tools lacked `output_directory` parameter; prompts didn't specify full paths
+**Artifact Preservation with Auto-Subdirectory Creation (October 2025):**
+- **Issue**: Decoded/extracted files saved to `/tmp` instead of session-specific `file_analysis/` subdirectory
+- **Root Cause**: Tools received base `output_directory` but didn't create subdirectory; LLM didn't extract file paths from tool output
 - **Fix Pattern**:
-  1. Add `output_directory` parameter to tools that write temp files (`hex_decode`, `b64_decode`)
-  2. Pass `output_directory` through state to all investigator nodes
-  3. Update prompts with explicit path examples: `"{output_directory}/file_analysis/obj_18_malicious.js"`
-  4. Ensure `file_analysis/` subdirectory created early in workflow
-- **Benefits**: All forensic artifacts preserved in session directory for audit trail
+  ```python
+  # 1. Tool auto-creates file_analysis/ subdirectory
+  @tool
+  def hex_decode(
+      hex_string: str,
+      strings_on_output: bool = False,
+      output_directory: Annotated[Optional[str], InjectedToolArg] = None
+  ) -> str:
+      if strings_on_output and output_directory:
+          target_dir = os.path.join(output_directory, "file_analysis")
+          os.makedirs(target_dir, exist_ok=True)
+          fd, temp_path = tempfile.mkstemp(prefix="decoded_", suffix=".bin", dir=target_dir)
+          return f"[TEMP FILE] {temp_path}\n..."  # Path in output
+  
+  # 2. Investigator prompt: extract path from tool output
+  """Extract file path from tool output lines starting with [TEMP FILE] or [WRITE]
+     and add to evidence graph with key 'extracted_file_path'"""
+  
+  # 3. Report generator prompt: search multiple property keys
+  """Scan master_evidence_graph for properties with keys: extracted_file_path,
+     file_path, saved_to, artifact_path, or any value containing /file_analysis/"""
+  ```
+- **Benefits**: All forensic artifacts preserved in session directory; report generator reliably finds files regardless of property key name
+- **Pattern**: Base `output_directory` injected → tools append `/file_analysis/` → tools return path in output → LLM extracts and logs → report scans flexibly
 
 **Context Overflow Prevention (October 2025):**
 - **Issue**: Large decompressed streams (>1MB) caused `context_length_exceeded` errors

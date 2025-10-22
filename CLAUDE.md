@@ -840,6 +840,60 @@ See `docs/LOGGING_FIELD_REFERENCE.md` for complete field mappings and event type
 
 ## Critical Development Patterns (October 2025)
 
+### InjectedToolArg Pattern for File Path Management
+
+**Problem**: LLMs truncate 100+ character file paths when generating tool calls, causing "File not found" errors.
+
+**Solution**: Use LangChain's `InjectedToolArg` to hide parameters from LLM while injecting them at runtime:
+
+```python
+# 1. Import InjectedToolArg
+from langchain_core.tools import InjectedToolArg
+from typing import Annotated
+
+# 2. Mark parameters for injection (move to end, set default=None)
+@tool
+def get_pdf_stats(
+    use_objstm: bool = True,  # Visible to LLM
+    pdf_file_path: Annotated[str, InjectedToolArg] = None  # Hidden from LLM
+) -> str:
+    """Display PDF statistics.
+    
+    Args:
+        use_objstm: Enable ObjStm resolution (default: True)
+        pdf_file_path: PDF file path (injected at runtime)
+    """
+    return run_pdf_parser(pdf_file_path, options=["--stats"], use_objstm=use_objstm)
+
+# 3. Create custom injection wrapper in graph.py
+async def inject_and_call_tools(state: InvestigatorState) -> dict:
+    """Inject file_path and output_directory before tool execution."""
+    last_message = state["messages"][-1]
+    
+    for tool_call in last_message.tool_calls:
+        # Inject runtime arguments from state
+        if "pdf_file_path" not in tool_call["args"]:
+            tool_call["args"]["pdf_file_path"] = state["file_path"]
+        if "output_directory" not in tool_call["args"]:
+            tool_call["args"]["output_directory"] = state["output_directory"]
+    
+    # Execute tools with injected arguments
+    tool_node = ToolNode(pdf_parser_tools)
+    result = await tool_node.ainvoke({"messages": [last_message]})
+    return {"messages": result["messages"]}
+
+# 4. Use injection wrapper in graph builder
+investigator_builder.add_node("tools", inject_and_call_tools)
+```
+
+**Benefits**:
+- ✅ LLM never sees or generates file paths (eliminates truncation)
+- ✅ Reduced context window usage (paths hidden from tool schema)
+- ✅ Args injected automatically from state at runtime
+- ✅ Prompts simplified (no file path copy-paste warnings needed)
+
+**Important**: `ToolNode` does NOT auto-inject - you must manually inject before calling `ToolNode.ainvoke()`.
+
 ### Escaping LLM Output for String Operations
 
 **Problem**: LLM-generated content containing `{`, `}`, `<`, `>` causes `ValueError` in `.format()` calls and Loguru logging.
@@ -863,32 +917,62 @@ logger.warning(f"Tool failed: {safe_error}", agent="Agent", node="node")
 - Tool error messages (may contain HTML from Playwright)
 - Any LLM output passed to `.format()` or logger
 
-### Session-Specific File Path Management
+### Artifact Preservation with Auto-Subdirectory Creation
 
-**Problem**: Forensic artifacts (decoded payloads, extracted files) saved to `/tmp` instead of session directory.
+**Problem**: Forensic artifacts (decoded payloads, extracted files) must be saved to session-specific `file_analysis/` subdirectory, not base output directory or `/tmp`.
 
-**Solution**: Pass `output_directory` through state and tool parameters:
+**Solution**: Tools automatically create and use `file_analysis/` subdirectory when `output_directory` is injected:
 
 ```python
-# 1. Add output_directory to state schemas
-class InvestigatorState(TypedDict):
-    file_path: str
-    output_directory: str  # Session-specific directory
-    ...
-
-# 2. Add output_directory parameter to tools
+# 1. Mark output_directory for injection (used with InjectedToolArg pattern)
 @tool
-def hex_decode(hex_string: str, output_directory: Optional[str] = None, ...):
-    """Decode hex data. If output_directory provided, writes temp files there."""
-    target_dir = output_directory if output_directory else "/tmp"
+def hex_decode(
+    hex_string: str,
+    strings_on_output: bool = False,
+    output_directory: Annotated[Optional[str], InjectedToolArg] = None
+) -> str:
+    """Decode hex data and optionally save to disk.
+    
+    Args:
+        hex_string: Hex string to decode
+        strings_on_output: Extract strings and save temp file
+        output_directory: Base session directory (injected at runtime)
+    """
+    # Tool automatically creates file_analysis/ subdirectory
+    if strings_on_output and output_directory:
+        target_dir = os.path.join(output_directory, "file_analysis")
+        os.makedirs(target_dir, exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(prefix="decoded_", suffix=".bin", dir=target_dir)
+        os.close(fd)
+        # Write file and return path in output
+        return f"[OK] Decoded {len(data)} bytes.\n[TEMP FILE] {temp_path}\n..."
     ...
 
-# 3. Update prompts with explicit path examples
-"""
-**Evidence Preservation:**
-Save malicious artifacts to: "{output_directory}/file_analysis/obj_18_malicious.js"
+# 2. LLM extracts file path from tool output
+# Tool returns: "[TEMP FILE] /path/to/output/session_id/file_analysis/decoded_abc.bin"
+# LLM adds to evidence graph:
+{
+    "key": "extracted_file_path",
+    "value": "/path/to/output/session_id/file_analysis/decoded_abc.bin"
+}
 
-Example tool call:
+# 3. Report generator searches for preserved artifacts
+# Scans evidence graph for properties: extracted_file_path, file_path, saved_to, artifact_path
+# Or any value containing "/file_analysis/"
+```
+
+**Benefits**: 
+- ✅ All artifacts automatically saved to correct subdirectory
+- ✅ LLM extracts paths from tool output (doesn't construct them)
+- ✅ Report generator can reliably find files regardless of property key name
+- ✅ Complete forensic audit trail preserved in session directory
+
+**Pattern**:
+1. Base `output_directory` injected from state (e.g., `output/session_id`)
+2. Tools append `/file_analysis/` and create subdirectory
+3. Tools return file path in output: `[TEMP FILE] <full_path>`
+4. LLM extracts path and adds to evidence graph
+5. Report generator searches multiple property keys + `/file_analysis/` pattern
 hex_decode(
     hex_string="2F63...",
     strings_on_output=True,
