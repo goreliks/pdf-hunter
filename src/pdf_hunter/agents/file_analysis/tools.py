@@ -1,4 +1,5 @@
 from langchain.tools import tool
+from langchain_core.tools import InjectedToolArg
 import subprocess
 import json
 import os
@@ -7,7 +8,7 @@ import hashlib
 import binascii
 import tempfile
 import shlex
-from typing import Optional
+from typing import Optional, Annotated
 import sys
 from importlib.resources import files
 
@@ -324,7 +325,10 @@ def _write_temp(prefix: str, data: bytes, suffix: str = ".bin", output_dir: Opti
 # =========================
 
 @tool
-def get_pdf_stats(pdf_file_path: str, use_objstm: bool = True) -> str:
+def get_pdf_stats(
+    use_objstm: bool = True,
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
+) -> str:
     """
     Display statistics about the PDF (counts per object type, unreferenced objects, suspicious keywords, etc).
 
@@ -333,7 +337,8 @@ def get_pdf_stats(pdf_file_path: str, use_objstm: bool = True) -> str:
     Disable with use_objstm=False if you explicitly don't want to synthesize objects from streams.
 
     Args:
-        pdf_file_path: Absolute path to the PDF.
+        use_objstm: Enable ObjStm resolution (default: True)
+        pdf_file_path: Absolute path to the PDF (injected at runtime)
 
     Returns:
         Raw string output of pdf-parser --stats (with -O enabled by default).
@@ -343,13 +348,13 @@ def get_pdf_stats(pdf_file_path: str, use_objstm: bool = True) -> str:
 
 @tool
 def search_pdf_content(
-    pdf_file_path: str,
     search_string: str,
     case_sensitive: bool = False,
     regex: bool = False,
     in_streams: bool = False,
     use_objstm: bool = True,
     filtered_streams: bool = True,
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
 ) -> str:
     """
     Search for a string/regex in objects or streams (ideal for IOCs: /JavaScript, /OpenAction, /Launch, etc).
@@ -360,13 +365,13 @@ def search_pdf_content(
     - For stream searches, `filtered_streams=True` searches decompressed content (adds --filter); set False to search raw.
 
     Args:
-        pdf_file_path: Absolute path to the PDF.
         search_string: String or regex to search for.
         case_sensitive: Case-sensitive search in streams (default False).
         regex: Treat search_string as regex (default False).
         in_streams: True to search streams (--searchstream), False to search in objects (--search).
         use_objstm: Include -O for this call (default True).
         filtered_streams: When in_streams=True, search filtered (decompressed) data (default True).
+        pdf_file_path: Absolute path to the PDF (injected at runtime)
 
     Returns:
         Raw output listing matching objects/streams.
@@ -389,11 +394,11 @@ def search_pdf_content(
 
 @tool
 def dump_object_stream(
-    pdf_file_path: str,
     object_id: int,
     dump_file_path: str,
     filter_stream: bool = False,
     use_objstm: bool = True,
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
 ) -> str:
     """
     Dump the content of a specific object's STREAM to a file for further analysis.
@@ -402,11 +407,11 @@ def dump_object_stream(
     - Stateless. ObjStm (-O) is enabled by default so you can dump streams that live inside /ObjStm containers.
 
     Args:
-        pdf_file_path: Absolute path to the PDF file.
         object_id: Object number to dump.
         dump_file_path: Destination path for the dumped bytes.
         filter_stream: Decompress before dumping.
         use_objstm: Include -O on this call (default True).
+        pdf_file_path: Absolute path to the PDF file (injected at runtime)
 
     Returns:
         pdf-parser output + write confirmation/error.
@@ -418,7 +423,12 @@ def dump_object_stream(
 
 
 @tool
-def parse_objstm(pdf_file_path: str, object_id: int, filtered: bool = True, use_objstm: bool = True) -> str:
+def parse_objstm(
+    object_id: int,
+    filtered: bool = True,
+    use_objstm: bool = True,
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
+) -> str:
     """
     Parse a specific /ObjStm container by its ID and (optionally) print the DECOMPRESSED body.
 
@@ -430,10 +440,10 @@ def parse_objstm(pdf_file_path: str, object_id: int, filtered: bool = True, use_
     - -O is enabled by default on this call. Disable with use_objstm=False.
 
     Args:
-        pdf_file_path: Absolute path to the PDF.
         object_id: The ID of the /ObjStm container (NOT an inner object).
         filtered: When True (default), pass --filter to show the decompressed stream body.
         use_objstm: Include -O on this call (default True).
+        pdf_file_path: Absolute path to the PDF (injected at runtime)
 
     Returns:
         Raw output showing the /ObjStm dictionary and, if filtered=True, the decompressed concatenation of inner objects.
@@ -445,7 +455,12 @@ def parse_objstm(pdf_file_path: str, object_id: int, filtered: bool = True, use_
 
 
 @tool
-def get_object_content(pdf_file_path: str, object_id: int, filter_stream: bool = False, use_objstm: bool = True) -> str:
+def get_object_content(
+    object_id: int,
+    filter_stream: bool = False,
+    use_objstm: bool = True,
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
+) -> str:
     """
     Retrieve an object by ID; auto-runs --filter for SMALL streams (< 100KB compressed).
     Stateless. -O is injected by default so inner objects are visible.
@@ -453,6 +468,12 @@ def get_object_content(pdf_file_path: str, object_id: int, filter_stream: bool =
     IMPORTANT: For large streams (> 100KB), this tool shows METADATA only. 
     If you need the actual content of a large stream, use dump_object_stream with 
     the output_file parameter to save it to disk instead.
+    
+    Args:
+        object_id: Object number to retrieve.
+        filter_stream: Decompress stream content (default False).
+        use_objstm: Include -O on this call (default True).
+        pdf_file_path: Absolute path to the PDF (injected at runtime)
     """
     base_opts = ["--object", str(object_id)]
     
@@ -497,7 +518,11 @@ def get_object_content(pdf_file_path: str, object_id: int, filter_stream: bool =
 
 
 @tool
-def get_objects_by_type(pdf_file_path: str, object_type: str, use_objstm: bool = True) -> str:
+def get_objects_by_type(
+    object_type: str,
+    use_objstm: bool = True,
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
+) -> str:
     """
     List all objects of a given /Type (e.g., '/JavaScript', '/Launch', '/XObject', '/Annot').
 
@@ -506,8 +531,9 @@ def get_objects_by_type(pdf_file_path: str, object_type: str, use_objstm: bool =
     - -O is enabled by default so objects living inside /ObjStm are included.
 
     Args:
-        pdf_file_path: Absolute path to the PDF file.
         object_type: The name (e.g., '/JavaScript', '/Launch').
+        use_objstm: Include -O on this call (default True).
+        pdf_file_path: Absolute path to the PDF file (injected at runtime)
 
     Returns:
         Raw output listing objects of the specified type.
@@ -518,12 +544,12 @@ def get_objects_by_type(pdf_file_path: str, object_type: str, use_objstm: bool =
 
 @tool
 def get_object_stream_only(
-    pdf_file_path: str,
     object_id: int,
     filtered: bool = True,
     base64_output: bool = True,
     output_file: Optional[str] = None,
     use_objstm: bool = True,
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
 ) -> str:
     """
     Return ONLY the stream bytes of an object (ideal for /ObjStm dumps), optionally as Base64.
@@ -533,12 +559,12 @@ def get_object_stream_only(
       stream content for objects that have a stream. We extract the first item.
 
     Args:
-        pdf_file_path: Absolute path to the PDF.
         object_id: Object number.
         filtered: Decompress via --filter (default True).
         base64_output: When True, return a JSON string with {"b64": "..."}; otherwise return a short diagnostic string.
         output_file: If provided, write raw bytes to this path.
         use_objstm: Include -O on this call (default True).
+        pdf_file_path: Absolute path to the PDF (injected at runtime)
 
     Returns:
         JSON string with fields:
@@ -598,14 +624,26 @@ def b64_decode(
     strings_on_output: bool = False,
     strings_min_len: int = 4,
     strings_utf16: bool = True,
-    output_directory: Optional[str] = None,
+    output_directory: Annotated[Optional[str], InjectedToolArg] = None
 ) -> str:
     """
     Base64-decode a string or file.
     - text_mode=True: if decoded bytes are mostly printable, return plaintext.
     - make_temp_file=True: write decoded bytes to output_directory (or /tmp if not specified).
     - strings_on_output=True: run strings on the decoded BYTES ONLY (never on the PDF).
-    - output_directory: Target directory for temp files (e.g., session file_analysis/ dir).
+    
+    Args:
+        input_string: Base64 string to decode (mutually exclusive with input_file)
+        input_file: File containing base64 data (mutually exclusive with input_string)
+        output_file: Specific output file path
+        urlsafe: Use URL-safe Base64 variant
+        strict: Strict validation mode
+        text_mode: Return as text if mostly printable (default True)
+        make_temp_file: Create temp file in output_directory
+        strings_on_output: Extract strings from decoded bytes
+        strings_min_len: Minimum string length for extraction (default 4)
+        strings_utf16: Include UTF-16 strings (default True)
+        output_directory: Target directory for temp files (injected at runtime)
     """
     import base64
     try:
@@ -659,7 +697,7 @@ def hex_decode(
     strings_on_output: bool = False,
     strings_min_len: int = 4,
     strings_utf16: bool = True,
-    output_directory: Optional[str] = None,
+    output_directory: Annotated[Optional[str], InjectedToolArg] = None
 ) -> str:
     """
     Decode hex-encoded data (e.g., PDF <...> payloads or hex strings).
@@ -669,7 +707,19 @@ def hex_decode(
       Tunable via text_threshold and max_plaintext_chars.
     - strings_on_output=True: run strings on the decoded BYTES ONLY (not the whole PDF). Writes a temp file to
       output_directory (or system temp if not specified) and includes its path for follow-up tooling.
-    - output_directory: Target directory for temp files (e.g., session file_analysis/ dir).
+
+    Args:
+        hex_string: Hex string to decode (mutually exclusive with input_file)
+        input_file: File containing hex data (mutually exclusive with hex_string)
+        output_file: Specific output file path
+        ignore_whitespace: Strip whitespace before decoding (default True)
+        prefer_text: Return plaintext if mostly printable (default True)
+        text_threshold: Printability threshold for text mode (default 0.85)
+        max_plaintext_chars: Max characters to return in text mode (default 2000)
+        strings_on_output: Extract strings from decoded bytes
+        strings_min_len: Minimum string length for extraction (default 4)
+        strings_utf16: Include UTF-16 strings (default True)
+        output_directory: Target directory for temp files (injected at runtime)
 
     Returns a PLAINTEXT block when applicable or a short Base64 preview; optionally writes bytes to output_file.
     """

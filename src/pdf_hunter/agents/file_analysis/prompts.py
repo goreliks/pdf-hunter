@@ -97,19 +97,10 @@ file_analysis_investigator_user_prompt = """Dr. Reed, you are being deployed on 
 {output_directory}
 ```
 
-**⚠️ CRITICAL - FILE PATH MUST BE COPIED EXACTLY:**
+**AUTOMATED FILE PATH INJECTION:**
 
-The PDF file path is VERY LONG (100+ characters). DO NOT attempt to retype it from memory.
-ALWAYS copy-paste this EXACT path character-for-character when making tool calls:
-
-```
-{file_path}
-```
-
-**COMMON ERROR:** LLMs often truncate or mistype long file paths, causing "File not found" errors.
-**SOLUTION:** Copy the entire path above - every single character matters.
-
-**MANDATORY RULE:** When calling ANY tool that requires a `pdf_file_path` parameter, you MUST use the EXACT path shown above. DO NOT use any other path. DO NOT make up paths. DO NOT use paths from your training data.
+The PDF file path and output directory are automatically provided to all tools that require them.
+You do NOT need to specify `pdf_file_path` or `output_directory` parameters in your tool calls.
 
 ═══════════════════════════════════════════════════════════════
 
@@ -127,10 +118,9 @@ BEFORE you can mark your mission as complete, you MUST:
    
    **For PDF streams:**
    - Use dump_object_stream with the dump_file_path parameter set to the FULL session-specific path
-   - Example tool call:
+   - Example tool call (pdf_file_path is auto-injected):
      ```
      dump_object_stream(
-       pdf_file_path="{file_path}",
        object_id=18,
        dump_file_path="{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js",
        filter_stream=True
@@ -138,13 +128,12 @@ BEFORE you can mark your mission as complete, you MUST:
      ```
    
    **For hex/base64 decoding:**
-   - ALWAYS pass output_directory parameter to hex_decode and b64_decode when using strings_on_output or make_temp_file
-   - Example tool call:
+   - Tools automatically receive output_directory - no need to specify it
+   - Example tool call (output_directory is auto-injected):
      ```
      hex_decode(
        hex_string="2F63206563686F...",
-       strings_on_output=True,
-       output_directory="{output_directory}/file_analysis"
+       strings_on_output=True
      )
      ```
    

@@ -10,11 +10,35 @@ from loguru import logger
 from pdf_hunter.config import FILE_ANALYSIS_CONFIG, FILE_ANALYSIS_INVESTIGATOR_CONFIG
 
 
+async def inject_and_call_tools(state: InvestigatorState) -> dict:
+    """
+    Inject pdf_file_path and output_directory into tool calls before execution.
+    
+    This prevents LLM from having to generate 100+ character file paths, eliminating
+    truncation errors. Arguments are injected from state at runtime.
+    """
+    last_message = state["messages"][-1]
+    
+    # Inject runtime arguments into each tool call
+    for tool_call in last_message.tool_calls:
+        # Inject pdf_file_path if tool accepts it
+        if "pdf_file_path" not in tool_call["args"]:
+            tool_call["args"]["pdf_file_path"] = state["file_path"]
+        
+        # Inject output_directory if tool accepts it
+        if "output_directory" not in tool_call["args"]:
+            tool_call["args"]["output_directory"] = state["output_directory"]
+    
+    # Execute tools with injected arguments
+    tool_node = ToolNode(pdf_parser_tools)
+    result = await tool_node.ainvoke({"messages": [last_message]})
+    return {"messages": result["messages"]}
+
 
 investigator_builder = StateGraph(InvestigatorState, output_schema=InvestigatorOutputState)
 
 investigator_builder.add_node("investigation", file_analyzer)
-investigator_builder.add_node("tools", ToolNode(pdf_parser_tools))
+investigator_builder.add_node("tools", inject_and_call_tools)
 
 investigator_builder.add_edge(START, "investigation")
 investigator_builder.add_edge("tools", "investigation")
