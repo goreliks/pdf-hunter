@@ -83,27 +83,6 @@ You are a precise and methodical field agent. You will use your tools to follow 
 
 file_analysis_investigator_user_prompt = """Dr. Reed, you are being deployed on a new mission.
 
-═══════════════════════════════════════════════════════════════
-⚠️  CRITICAL: FILE PATH CONFIGURATION (READ THIS FIRST!)
-═══════════════════════════════════════════════════════════════
-
-**PDF FILE PATH (USE THIS EXACT PATH IN ALL TOOL CALLS):**
-```
-{file_path}
-```
-
-**SESSION OUTPUT DIRECTORY:**
-```
-{output_directory}
-```
-
-**AUTOMATED FILE PATH INJECTION:**
-
-The PDF file path and output directory are automatically provided to all tools that require them.
-You do NOT need to specify `pdf_file_path` or `output_directory` parameters in your tool calls.
-
-═══════════════════════════════════════════════════════════════
-
 **Your Assigned Mission:**
 - **Mission ID:** {mission_id}
 - **Threat Type:** {threat_type}
@@ -112,51 +91,65 @@ You do NOT need to specify `pdf_file_path` or `output_directory` parameters in y
 
 **Evidence Preservation Protocol (MANDATORY - DO NOT SKIP):**
 
-BEFORE you can mark your mission as complete, you MUST:
+BEFORE you can mark your mission as complete, you MUST save malicious artifacts to disk.
 
-1. When you identify malicious scripts, payloads, or suspicious content, you MUST save them to disk in the session output directory.
-   
-   **For PDF streams:**
-   - Use dump_object_stream with the dump_file_path parameter set to the FULL session-specific path
-   - Example tool call (pdf_file_path is auto-injected):
-     ```
-     dump_object_stream(
-       object_id=18,
-       dump_file_path="{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js",
-       filter_stream=True
-     )
-     ```
-   
-   **For hex/base64 decoding:**
-   - Tools automatically receive output_directory - no need to specify it
-   - Example tool call (output_directory is auto-injected):
-     ```
-     hex_decode(
-       hex_string="2F63206563686F...",
-       strings_on_output=True
-     )
-     ```
-   
-2. File naming convention:
-   - Files are automatically saved to: "{output_directory}/file_analysis/" subdirectory
-   - Tools (hex_decode, b64_decode) handle directory creation automatically
-   - For dump_object_stream, use format: "{{output_directory}}/file_analysis/obj_{{object_id}}_{{threat_type}}_malicious.{{ext}}"
-   - Example for this session: "{output_directory}/file_analysis/obj_18_ThreatType.JAVASCRIPT_malicious.js"
-   - After saving, you MAY use identify_file_type to document the actual type in your evidence graph
-3. After decoding/saving, extract the file path from the tool's output:
-   - Look for "[TEMP FILE]" or "[WRITE]" lines in the tool response
-   - Example: "[TEMP FILE] /path/to/output/file_analysis/decoded_xyz.bin"
-4. Add the extracted file path as a property in your mission_subgraph evidence nodes:
-   ```json
-   {{
-     "key": "extracted_file_path",
-     "value": "/full/path/from/tool/output"
-   }}
-   ```
-   (Extract the path from the tool's output - do NOT construct it yourself)
-5. ONLY AFTER completing steps 1-4 can you proceed to write your final MissionReport
+**Important: Automatic Parameter Injection**
+- Tools automatically receive `pdf_file_path` and `output_directory` - you NEVER specify these parameters
+- You ONLY specify the visible parameters shown in each tool's schema
 
-CRITICAL: If you complete your investigation without saving malicious artifacts to disk, you have violated evidence preservation protocols and your investigation is INCOMPLETE.
+**1. Saving PDF Streams to Disk:**
+
+Use `dump_object_stream` with the `dump_file_path` parameter (the full path where you want to save):
+
+```
+dump_object_stream(
+  object_id=18,
+  dump_file_path="{output_directory}/file_analysis/obj_18_javascript_malicious.js",
+  filter_stream=True
+)
+```
+
+Note: `pdf_file_path` is auto-injected - you only specify `object_id`, `dump_file_path`, and `filter_stream`.
+
+**2. Decoding and Saving Hex/Base64 Data:**
+
+For `hex_decode` or `b64_decode`, enable automatic file saving with `strings_on_output=True`:
+
+```
+hex_decode(
+  hex_string="2F63206563686F...",
+  strings_on_output=True
+)
+```
+
+Note: `output_directory` is auto-injected. Files are automatically saved to `{output_directory}/file_analysis/` subdirectory.
+
+**3. Extracting File Paths from Tool Output:**
+
+After saving files, extract the path from the tool's response:
+- Look for lines starting with `[TEMP FILE]` or `[WRITE]`
+- Example: `[TEMP FILE] /path/to/output/session_id/file_analysis/decoded_xyz.bin`
+
+**4. Recording File Paths in Evidence Graph:**
+
+Add the extracted file path to your mission_subgraph:
+
+```json
+{{
+  "key": "extracted_file_path",
+  "value": "/full/path/from/tool/output"
+}}
+```
+
+**IMPORTANT:** Extract the path from the tool's output - do NOT construct it yourself.
+
+**5. File Naming Convention:**
+
+For `dump_object_stream`, use format:
+- `{{output_directory}}/file_analysis/obj_{{object_id}}_{{threat_type}}_malicious.{{ext}}`
+- Example: `{output_directory}/file_analysis/obj_18_javascript_malicious.js`
+
+CRITICAL: If you identify malicious content but don't save it to disk, your investigation is INCOMPLETE.
 
 **Case File Context:**
 - **Initial Anatomical Report (for contextual foraging if you get stuck):**
@@ -169,12 +162,7 @@ CRITICAL: If you complete your investigation without saving malicious artifacts 
 {tool_manifest}
 ```
 
-**CRITICAL REMINDERS:**
-1. Use think_tool after each step to reflect on results and plan next steps
-2. **⚠️ COPY-PASTE THIS EXACT FILE PATH (100+ chars, easy to mistype):** `{file_path}`
-   - DO NOT retype from memory - copy the entire string character-for-character
-   - Missing even one character will cause "File not found" errors
-3. Save malicious artifacts to: `{output_directory}/file_analysis/`
+**Remember:** Use think_tool after each step to reflect on results and plan next steps.
 
 Begin your investigation. State your initial hypothesis and select the first tool you will use to pursue this mission.
 """
