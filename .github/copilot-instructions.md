@@ -54,6 +54,10 @@ langgraph up                  # Deploy all graphs via API
 jupyter lab notebooks/development/
 ```
 
+Installation script note:
+
+- Use `./install.sh` for a non-interactive developer install. The script will install system libraries (OpenCV, zbar), ensure `uv` is on PATH (`$HOME/.local/bin`), install Node 20.x on Linux when needed, and install Playwright browsers. If Playwright prints host-dependency warnings, run `npx playwright install-deps` or install the packages listed in the warning for your distro.
+
 ### CLI Architecture
 Each agent and the orchestrator have a dedicated `cli.py` module for command-line interface:
 - **Location**: `src/pdf_hunter/{orchestrator|agents/*}/cli.py`
@@ -527,6 +531,77 @@ All agents use **PascalCase** for the `agent` field:
 - `logger.warning()` - Warning conditions
 - `logger.error()` - Error events
 - `logger.critical()` - Critical system failures
+
+## Docker Deployment
+
+### Architecture
+PDF Hunter includes Docker deployment with:
+- **Backend**: FastAPI on port 8000 (PDF analysis + SSE streaming)
+- **Frontend**: Nginx on port 80 (React/Vite UI + reverse proxy)
+- **Nginx Routes**: `/api/*` and `/stream/*` → backend:8000
+
+### Critical Implementation Details
+
+**1. peepdf-3 Installation (October 2025)**
+- **Issue**: stpyv8 (V8 JavaScript engine) is a transitive dependency of peepdf-3 but causes Docker build failures
+- **Solution**: Install peepdf-3 with `--no-deps` flag
+- **Rationale**: PDF Hunter only parses PDF structure, doesn't execute JavaScript
+- **Implementation**:
+  ```dockerfile
+  # Dockerfile (backend)
+  RUN uv sync --frozen --group api
+  RUN /root/.local/bin/uv pip install --system --no-deps peepdf-3==5.1.1
+  ```
+  ```bash
+  # install.sh
+  uv sync --group dev --group api
+  uv pip install --no-deps peepdf-3==5.1.1
+  ```
+
+**2. API Dependencies**
+- Backend requires `--group api` to include FastAPI, Uvicorn, SSE-Starlette
+- DON'T use `--no-dev` (excludes API group)
+- DO use `--group api` explicitly
+
+**3. Frontend Build Configuration**
+- **Critical**: Set `VITE_API_BASE_URL=/api` BEFORE `npm run build`
+- Vite embeds env vars at build time, not runtime
+- ```dockerfile
+  ENV VITE_API_BASE_URL=/api
+  RUN npm run build
+  ```
+
+**4. Dev Mode Support**
+- Frontend includes `/dev/mock-session.jsonl` for UI development without backend
+- Must copy in Dockerfile: `COPY --from=builder /app/dev /usr/share/nginx/html/dev`
+
+**5. Azure OpenAI Configuration**
+- **Critical**: `AZURE_OPENAI_DEPLOYMENT_NAME` MUST be set in environment
+- Missing this causes: `TypeError: _init_chat_model_helper() missing 1 required positional argument: 'model'`
+- Required in both `.env` and `docker-compose.yml`:
+  ```yaml
+  environment:
+    - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-}
+  ```
+
+**6. Agent Status Display (October 2025)**
+- Frontend `getAgentStatus()` checks ALL logs for error/critical levels, not just last log
+- Prevents status showing "complete" when errors occurred mid-execution
+- Graph structure continues to next node even after errors (no conditional edges)
+
+### Deployment Commands
+```bash
+# Build and start
+docker-compose up -d --build
+
+# Verify health
+docker ps --filter "name=pdf-hunter"
+# Expected: backend (healthy), frontend (up)
+
+# Access
+# - Web UI: http://localhost
+# - API: http://localhost/api/health
+```
 
 ## Common Pitfalls
 

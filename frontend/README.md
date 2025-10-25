@@ -92,6 +92,7 @@ src/
 ### Prerequisites
 
 - **Node.js** 18+ (LTS recommended)
+# **Node.js** 20+ (LTS recommended)
 - **npm** 9+ or **pnpm** 8+
 - **Backend Server** running on port 8000 (see main project README)
 
@@ -123,6 +124,10 @@ Create a `.env` file in the frontend directory (optional):
 ```bash
 # API Base URL (defaults to http://localhost:8000)
 VITE_API_BASE_URL=http://localhost:8000
+
+# Notes:
+# - In Docker/production the frontend is served with `VITE_API_BASE_URL=/api` so the UI routes requests to the backend proxy.
+# - The repo includes `frontend/dev/mock-session.jsonl` which the built frontend copies into `/dev` for a developer mock mode (the install script copies this into built assets when requested).
 ```
 
 ## Development

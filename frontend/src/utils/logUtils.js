@@ -58,15 +58,19 @@ export function getAgentStatus(agentLogs) {
     return 'idle';
   }
 
-  const lastLog = agentLogs[agentLogs.length - 1];
-  const level = lastLog.record?.level?.name?.toLowerCase();
+  // Check ALL logs for error/critical level - errors should persist in status
+  const hasErrors = agentLogs.some(log => {
+    const level = log.record?.level?.name?.toLowerCase();
+    return level === 'error' || level === 'critical';
+  });
 
-  // Check for completion or error keywords in message
-  const message = (lastLog.record?.message || lastLog.text || '').toLowerCase();
-  
-  if (level === 'error' || level === 'critical') {
+  if (hasErrors) {
     return 'error';
   }
+
+  // Check last log for completion
+  const lastLog = agentLogs[agentLogs.length - 1];
+  const message = (lastLog.record?.message || lastLog.text || '').toLowerCase();
   
   if (message.includes('complete') || message.includes('finished')) {
     return 'complete';

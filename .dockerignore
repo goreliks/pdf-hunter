@@ -1,0 +1,58 @@
+# Docker ignore file for PDF Hunter
+# Exclude files that shouldn't be copied into the Docker image
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Development
+.env
+.env.local
+*.log
+.DS_Store
+
+# Output directories (will be mounted as volumes)
+output/
+logs/
+input/
+
+# Node modules (will be installed in container)
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Documentation (but keep README.md for package metadata)
+docs/
+# *.md  - Commented out to allow README.md which is required by pyproject.toml
+!README.md
+
+# Frontend (if building backend only)
+frontend/
+
+# Lock files (copied separately)
+# uv.lock
+# package-lock.json

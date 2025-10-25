@@ -26,6 +26,16 @@ uv sync --group vllm
 npm install
 ```
 
+Developer install notes:
+
+- The repository includes `install.sh` for a non-interactive developer install. Key behaviors:
+  - Ensures `uv` is installed and updates PATH to include `$HOME/.local/bin` so `uv` commands are available in-shell.
+  - Installs Node 20.x on Linux when system Node is older than required for Playwright.
+  - Installs common system libraries needed for OpenCV and zbar on Debian/Ubuntu (libgl1-mesa-glx, libglib2.0-0, libzbar0, libzbar-dev).
+  - Installs `peepdf-3` with `--no-deps` to avoid the native `stpyv8` dependency which is not needed for static analysis in this project.
+  - Installs Playwright browsers; if Playwright reports missing host dependencies run `npx playwright install-deps` or install the recommended packages for your distro.
+
+
 ### Development Environment
 
 The project uses:
@@ -148,6 +158,59 @@ jupyter lab notebooks/development/
 - `--session/-s`: Custom session ID (file_analysis)
 - `--url/-u`: URL to investigate (url_investigation, can be specified multiple times)
 - `--state/-s`: Path to analysis state file (report_generator)
+
+### Docker Deployment
+
+PDF Hunter includes a complete Docker deployment with multi-service architecture (backend + frontend):
+
+```bash
+# Build and start all services
+docker-compose up -d --build
+
+# Check container health
+docker ps --filter "name=pdf-hunter"
+
+# View logs
+docker logs pdf-hunter-backend -f
+docker logs pdf-hunter-frontend -f
+
+# Stop services
+docker-compose down
+```
+
+**Architecture**:
+- **Backend** (FastAPI server on port 8000): Handles PDF analysis with real-time SSE streaming
+- **Frontend** (Nginx on port 80): React/Vite dashboard with reverse proxy to backend
+- **Nginx Proxy**: Routes `/api/*` → backend:8000 and `/stream/*` → backend:8000 (SSE)
+
+**Key Implementation Details**:
+1. **peepdf-3 Installation**: Installed with `--no-deps` flag to skip stpyv8 (V8 JavaScript engine bindings not needed - we only parse PDF structure, don't execute JavaScript)
+2. **API Dependencies**: Backend uses `uv sync --group api` to include FastAPI and server dependencies
+3. **Frontend Build**: `VITE_API_BASE_URL=/api` set before build to use Nginx proxy paths
+4. **Dev Mode**: Frontend includes `/dev/mock-session.jsonl` for UI development without backend
+
+**Environment Variables** (required in `.env` and `docker-compose.yml`):
+```bash
+# Azure OpenAI (recommended for production)
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your_key_here
+AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment_name  # CRITICAL - required for model initialization
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+
+# Or OpenAI
+OPENAI_API_KEY=your_key_here
+```
+
+**Access Points**:
+- Web UI: http://localhost
+- API: http://localhost/api/health
+- SSE Stream: http://localhost/stream/
+
+**Troubleshooting**:
+- If backend unhealthy: Check `AZURE_OPENAI_DEPLOYMENT_NAME` is set in `docker-compose.yml` environment
+- If frontend can't upload: Verify `VITE_API_BASE_URL=/api` in `frontend/Dockerfile` before build
+- If dev mode fails: Verify `/dev/` directory copied in `frontend/Dockerfile`
+
 - `--search-dir/-d`: Directory to search for state files (report_generator)
 
 
@@ -417,9 +480,12 @@ All agent modules use cross-platform path handling to reference these test files
 
 ### Notebook Development
 
-- `notebooks/development/static_analysis.ipynb`: File analysis agent development
-- `notebooks/development/preprocessing.ipynb`: PDF extraction development  
-- `notebooks/development/link_analysis_agent.ipynb`: URL investigation development
+- `notebooks/development/file_analysis.ipynb`: File analysis agent development
+- `notebooks/development/image_analysis.ipynb`: Image analysis agent development
+- `notebooks/development/orchestrator.ipynb`: Orchestrator development
+- `notebooks/development/pdf_extraction.ipynb`: PDF extraction development
+- `notebooks/development/report_generator.ipynb`: Report generator development
+- `notebooks/development/url_investigation.ipynb`: URL investigation development
 - Step-by-step agent execution and debugging capabilities
 - Prototype new features before integration
 
@@ -480,9 +546,12 @@ src/
 
 notebooks/                   # Jupyter development environment
 ├── development/             # Main development notebooks
-│   ├── preprocessing.ipynb  # PDF extraction agent development
-│   ├── static_analysis.ipynb # File analysis agent development
-│   └── link_analysis_agent.ipynb # URL investigation development
+│   ├── file_analysis.ipynb  # File analysis agent development
+│   ├── image_analysis.ipynb # Image analysis agent development
+│   ├── orchestrator.ipynb   # Orchestrator development
+│   ├── pdf_extraction.ipynb # PDF extraction agent development
+│   ├── report_generator.ipynb # Report generator development
+│   └── url_investigation.ipynb # URL investigation development
 ├── examples/                # Example usage
 └── experiments/             # Experimental features
 

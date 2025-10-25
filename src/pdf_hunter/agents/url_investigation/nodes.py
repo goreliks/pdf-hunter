@@ -10,7 +10,7 @@ from .tools import domain_whois
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
 from langgraph.types import Send
 from langgraph.graph import END
-from pdf_hunter.config import THINKING_TOOL_ENABLED
+from pdf_hunter.config import THINKING_TOOL_ENABLED, URL_INVESTIGATION_PRIORITY_LEVEL
 from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 
 
@@ -448,7 +448,7 @@ async def filter_high_priority_urls(state: URLInvestigationState):
                 low_priority_count = 0
                 
                 for url in all_priority_urls:
-                    if url.priority <= 5:
+                    if url.priority <= URL_INVESTIGATION_PRIORITY_LEVEL:
                         url.mission_status = URLMissionStatus.IN_PROGRESS
                         high_priority_urls.append(url)
                         high_priority_count += 1
