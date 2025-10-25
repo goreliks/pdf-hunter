@@ -16,16 +16,7 @@ The system operates under three core principles:
 
 PDF Hunter uses a sophisticated 5-agent pipeline orchestrated via LangGraph:
 
-```mermaid
-graph TD
-    A[📄 PDF Input] --> B[🔍 PDF Extraction Agent]
-    B --> C[🧬 File Analysis Agent]
-    B --> D[👁️ Image Analysis Agent]
-    C --> E[🌐 URL Investigation Agent]
-    D --> E
-    E --> F[📊 Report Generator Agent]
-    F --> G[📋 Final Report]
-```
+![PDF Hunter Agents](docs/assets/pdf-hunter.png)
 
 ### Agent Capabilities
 

@@ -480,9 +480,12 @@ All agent modules use cross-platform path handling to reference these test files
 
 ### Notebook Development
 
-- `notebooks/development/static_analysis.ipynb`: File analysis agent development
-- `notebooks/development/preprocessing.ipynb`: PDF extraction development  
-- `notebooks/development/link_analysis_agent.ipynb`: URL investigation development
+- `notebooks/development/file_analysis.ipynb`: File analysis agent development
+- `notebooks/development/image_analysis.ipynb`: Image analysis agent development
+- `notebooks/development/orchestrator.ipynb`: Orchestrator development
+- `notebooks/development/pdf_extraction.ipynb`: PDF extraction development
+- `notebooks/development/report_generator.ipynb`: Report generator development
+- `notebooks/development/url_investigation.ipynb`: URL investigation development
 - Step-by-step agent execution and debugging capabilities
 - Prototype new features before integration
 
@@ -543,9 +546,12 @@ src/
 
 notebooks/                   # Jupyter development environment
 ├── development/             # Main development notebooks
-│   ├── preprocessing.ipynb  # PDF extraction agent development
-│   ├── static_analysis.ipynb # File analysis agent development
-│   └── link_analysis_agent.ipynb # URL investigation development
+│   ├── file_analysis.ipynb  # File analysis agent development
+│   ├── image_analysis.ipynb # Image analysis agent development
+│   ├── orchestrator.ipynb   # Orchestrator development
+│   ├── pdf_extraction.ipynb # PDF extraction agent development
+│   ├── report_generator.ipynb # Report generator development
+│   └── url_investigation.ipynb # URL investigation development
 ├── examples/                # Example usage
 └── experiments/             # Experimental features
 
