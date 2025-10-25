@@ -1,0 +1,74 @@
+services:
+  # Backend - FastAPI + LangGraph agents
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pdf-hunter-backend
+    volumes:
+      # Mount directories for input/output
+      - ./input:/app/input              # Place PDFs to analyze here
+      - ./output:/app/output            # Analysis results saved here
+      - ./logs:/app/logs                # Logs saved here
+      
+      # Optional: Mount source code for development
+      # - ./src:/app/src
+    
+    environment:
+      # API Keys (set these in your .env file)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-}
+      
+      # Configuration
+      - OUTPUT_DIR=/app/output
+      - LOG_DIR=/app/logs
+    
+    # Expose FastAPI port (internal to Docker network)
+    expose:
+      - "8000"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    networks:
+      - pdf-hunter-network
+
+  # Frontend - React/Vite app served by Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pdf-hunter-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"  # Access app at http://localhost
+    
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    networks:
+      - pdf-hunter-network
+
+# Network for service communication
+networks:
+  pdf-hunter-network:
+    driver: bridge
+
+# Optional: Named volumes for persistence
+# volumes:
+#   pdf-hunter-output:
+#   pdf-hunter-logs:

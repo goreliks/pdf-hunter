@@ -67,6 +67,153 @@ This is a **React 19.1.1 + Vite 7.1.7 + Tailwind CSS 3.4.17** single-page applic
 6. Performance metrics dashboard
 7. WebSocket alternative to SSE
 
+## Deployment & Configuration
+
+### Development Mode
+```bash
+npm run dev
+# Runs on http://localhost:5173
+# API calls go to http://localhost:8000 (or VITE_API_BASE_URL)
+```
+
+### Production Build
+```bash
+npm run build
+# Outputs to /dist directory
+# Static files ready for Nginx/Apache serving
+```
+
+### Environment Variables
+
+**VITE_API_BASE_URL** - Critical for production deployment
+- **Development**: Defaults to `http://localhost:8000` (direct backend connection)
+- **Production (Docker)**: Must be set to `/api` (Nginx proxy path)
+- **Build-time**: Set BEFORE `npm run build` - Vite embeds at build time, not runtime!
+
+```dockerfile
+# CORRECT - Set before build
+ENV VITE_API_BASE_URL=/api
+RUN npm run build
+
+# WRONG - Won't work after build
+RUN npm run build
+ENV VITE_API_BASE_URL=/api
+```
+
+### Docker Deployment
+
+**Architecture**:
+- Nginx serves static files from `/usr/share/nginx/html/`
+- Reverse proxy: `/api/*` → backend:8000
+- Reverse proxy: `/stream/*` → backend:8000 (SSE with special config)
+
+**Dockerfile Key Points** (October 2025):
+1. Multi-stage build: Node (build) → Nginx (serve)
+2. `VITE_API_BASE_URL=/api` set before build
+3. `/dev/` directory copied for Dev Mode mock data
+
+```dockerfile
+# Stage 1: Build
+FROM node:20-alpine as builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+ENV VITE_API_BASE_URL=/api  # ← Critical for production
+RUN npm run build
+
+# Stage 2: Serve
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/dev /usr/share/nginx/html/dev  # ← For Dev Mode
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+```
+
+**Nginx Configuration** (`nginx.conf`):
+```nginx
+# API proxy
+location /api/ {
+    proxy_pass http://backend:8000/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    # ... other headers
+}
+
+# SSE proxy (special handling for streaming)
+location /stream/ {
+    proxy_pass http://backend:8000/stream/;
+    proxy_buffering off;  # ← Critical for SSE
+    proxy_cache off;
+    proxy_read_timeout 86400s;
+    chunked_transfer_encoding on;
+}
+
+# React Router fallback
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+### Dev Mode
+
+**Purpose**: Frontend development without running backend
+
+**How it Works**:
+1. Toggle "Dev Mode" button on landing page
+2. Frontend loads `/dev/mock-session.jsonl` (335KB real session data)
+3. Simulates SSE streaming by replaying logs with 100ms delays
+4. All 5 agents appear with realistic data
+
+**Mock Data**:
+- Location: `frontend/dev/mock-session.jsonl`
+- Format: JSONL (one JSON log object per line)
+- Content: Real logs from successful PDF analysis
+- Update: See `frontend/dev/README.md` for instructions
+
+**Implementation** (`mockDataLoader.js`):
+```javascript
+// Loads JSONL and parses into array of log objects
+export async function loadMockSession() {
+  const response = await fetch('/dev/mock-session.jsonl');
+  const text = await response.text();
+  return text.split('\n').filter(line => line.trim()).map(JSON.parse);
+}
+
+// Simulates streaming with delays
+export async function simulateStreaming(logs, onLog, delayMs = 100) {
+  for (const log of logs) {
+    onLog(log);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+}
+```
+
+### Agent Status Display (October 2025 Fix)
+
+**Issue**: Agents showed "complete" status even when errors occurred mid-execution
+
+**Root Cause**: 
+- Graphs have no conditional edges - continue to next node even after errors
+- Frontend checked only LAST log for error level
+- If last log was success (e.g., "compilation complete"), status showed "complete"
+
+**Fix** (`logUtils.js` → `getAgentStatus()`):
+```javascript
+// OLD - Only checked last log
+const lastLog = agentLogs[agentLogs.length - 1];
+if (lastLog.level === 'error') return 'error';
+
+// NEW - Check ALL logs for errors
+const hasErrors = agentLogs.some(log => {
+  const level = log.record?.level?.name?.toLowerCase();
+  return level === 'error' || level === 'critical';
+});
+if (hasErrors) return 'error';  // Persists even if later logs succeed
+```
+
+**Impact**: Agent status now correctly shows "error" when ANY error occurred during execution
+
 ## Architecture Deep Dive
 
 ### State Management

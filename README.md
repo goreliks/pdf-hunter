@@ -45,13 +45,131 @@ graph TD
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Installation Options
 
-- **Python**: 3.11+ (required, <3.12)
+Choose the installation method that works best for you:
+
+#### Option 1: Docker (Recommended - Production Ready) 🐳
+
+**Complete web application with one command - no manual setup required!**
+
+```bash
+# Clone, configure, and start
+git clone https://github.com/goreliks/pdf-hunter.git
+cd pdf-hunter
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+docker-compose up -d
+
+# Access the web dashboard at:
+# http://localhost
+```
+
+**What you get:**
+- ✅ Backend (FastAPI + LangGraph agents) on port 8000
+- ✅ Frontend (React web dashboard) on port 80
+- ✅ Real-time analysis streaming via SSE
+- ✅ Zero configuration - everything just works!
+
+**Docker Management:**
+```bash
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up -d --build
+```
+
+---
+
+#### Option 2: Automated Installation Script (macOS/Linux Development)
+
+**For local development with manual control over services:**
+
+```bash
+# Clone the repository
+git clone https://github.com/goreliks/pdf-hunter.git
+cd pdf-hunter
+
+# Run the installation script
+./install.sh
+```
+
+**The script will:**
+- ✅ Check Python 3.11.x version
+- ✅ Offer to install zbar (QR code detection library)
+- ✅ Install backend dependencies (Python packages via uv)
+- ✅ Install Playwright browsers
+- ✅ Install frontend dependencies (React/Vite)
+- ✅ Optionally build frontend for production
+- ✅ Run verification to confirm everything works
+
+Note (developer-friendly install details):
+- The installer will ensure `uv` is available and updates PATH to include `$HOME/.local/bin` so subsequent `uv` commands work in the same shell.
+- Node.js: the installer prefers Node 20.x (LTS). If your system Node is older (<18) it will install Node 20.x via NodeSource on Linux. Please keep Node >= 18 for Playwright compatibility.
+- System libraries: for OpenCV/QR code support the script installs common system libs on Debian/Ubuntu (libgl1-mesa-glx, libglib2.0-0, libzbar0, libzbar-dev). On macOS it suggests `brew install zbar`.
+- peepdf-3: we install peepdf-3 without native stpyv8 (using `--no-deps`) to avoid pulling problematic native V8 bindings — this is intentional because we only need peepdf's static parsing features.
+- Playwright: browsers are installed automatically, but Playwright may warn about additional host libraries on some Linux distributions. If that happens run `npx playwright install-deps` or install the listed host packages (libnss3, libatk-bridge2.0-0, libxkbcommon0, libgbm1, libasound2, etc.).
+
+**After installation, start the services manually:**
+
+Open two terminal windows:
+
+```bash
+# Terminal 1 - Start Backend (FastAPI server)
+uv run python -m pdf_hunter.api.server
+
+# Terminal 2 - Start Frontend (Vite dev server)
+cd frontend && npm run dev
+```
+
+**Access the web dashboard:**
+```
+http://localhost:5173
+```
+
+**To stop services:**
+- Press `Ctrl+C` in each terminal window
+
+---
+
+#### Option 3: Manual Installation (Full Control)
+
+**Prerequisites:**
+- **Python**: 3.11.x (strictly required, Python 3.12+ not supported)
 - **Node.js**: 16+ (for Playwright MCP server)
 - **uv**: Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
 
-### Installation
+**System Dependencies (Required):**
+
+**macOS:**
+```bash
+brew install zbar  # Required for QR code detection
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install libzbar0 libzbar-dev  # Required for QR code detection
+sudo apt-get install libgl1-mesa-glx libglib2.0-0  # Required for OpenCV
+```
+
+**RHEL/CentOS/Fedora:**
+```bash
+sudo dnf install zbar zbar-devel  # Required for QR code detection
+sudo dnf install mesa-libGL glib2  # Required for OpenCV
+```
+
+**Windows:**
+```powershell
+# Using vcpkg
+vcpkg install zbar:x64-windows
+```
+
+**Installation Steps:**
 
 1. **Clone the repository**
    ```bash
@@ -61,26 +179,51 @@ graph TD
 
 2. **Install Python dependencies**
    ```bash
-   # Basic installation
+   # Recommended: Install with all features
+   uv sync --group dev --group api
+   
+   # Or basic installation only
    uv sync
    
-   # With development tools (Jupyter notebooks)
-   uv sync --group dev
-   
-   # Optional: vLLM support (Linux/Windows only)
-   uv sync --group vllm
+   # Install peepdf-3 without dependencies (skip stpyv8 which isn't needed)
+   uv pip install --no-deps peepdf-3==5.1.1
    ```
 
 3. **Install Node.js dependencies** 
    ```bash
+   # Install Playwright MCP server
    npm install
+   
+   # Install Playwright browser (REQUIRED)
+   npx playwright install chromium
    ```
 
 4. **Configure environment variables**
    ```bash
-   cp .env-example .env
+   cp .env.example .env
    # Edit .env with your API keys
    ```
+
+5. **Verify installation**
+   ```bash
+   # Run verification script (recommended)
+   uv run python verify_installation.py
+   ```
+
+### Verify Your Installation
+
+After installation (any method), run the verification script:
+
+```bash
+uv run python verify_installation.py
+```
+
+This checks:
+- ✅ Python version (3.11.x)
+- ✅ All Python packages installed correctly
+- ✅ System libraries (zbar) accessible
+- ✅ Playwright browsers installed
+- ✅ MCP server configuration
 
 ### Environment Configuration
 
@@ -465,6 +608,7 @@ This approach ensures the code works consistently on Windows, Linux, and macOS e
    ```bash
    uv sync --all-groups
    uv pip install -e .[dev]
+   uv pip install --no-deps peepdf-3==5.1.1
    ```
 
 2. **Use Jupyter notebooks for prototyping**
