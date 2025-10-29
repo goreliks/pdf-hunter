@@ -11,15 +11,65 @@ from .prompts import REPORT_GENERATOR_SYSTEM_PROMPT, REPORT_GENERATOR_USER_PROMP
 from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 
 
+def _strip_base64_from_state(state: ReportGeneratorState) -> dict:
+    """
+    Strip base64_data from extracted_images to reduce token usage.
+
+    The report generator doesn't need to see the actual images - it synthesizes
+    findings from the image analysis agent. Keeping only metadata reduces
+    token usage by ~80-90% on image-heavy PDFs.
+
+    Args:
+        state: The full report generator state
+
+    Returns:
+        A copy of the state with base64_data removed from extracted_images
+    """
+    import copy
+
+    # Deep copy to avoid mutating original state
+    sanitized_state = copy.deepcopy(dict(state))
+
+    # Strip base64_data from each extracted image
+    if "extracted_images" in sanitized_state and sanitized_state["extracted_images"]:
+        sanitized_images = []
+        for image in sanitized_state["extracted_images"]:
+            # Convert Pydantic model to dict if needed
+            image_dict = image.model_dump() if hasattr(image, 'model_dump') else dict(image)
+
+            # Create new dict without base64_data, keeping only metadata
+            sanitized_image = {
+                "page_number": image_dict.get("page_number"),
+                "image_format": image_dict.get("image_format"),
+                "phash": image_dict.get("phash"),
+                "saved_path": image_dict.get("saved_path"),
+                "image_sha1": image_dict.get("image_sha1")
+            }
+            sanitized_images.append(sanitized_image)
+
+        sanitized_state["extracted_images"] = sanitized_images
+
+        logger.debug(
+            f"Stripped base64 data from {len(sanitized_images)} images for token optimization",
+            agent="ReportGenerator",
+            node="_strip_base64_from_state",
+            image_count=len(sanitized_images)
+        )
+
+    return sanitized_state
+
+
 async def determine_threat_verdict(state: ReportGeneratorState) -> dict:
     """
     Determine the overall security verdict based on all agent analyses.
     """
     logger.info("🎯 Starting final verdict determination", agent="ReportGenerator", node="determine_threat_verdict", event_type="VERDICT_DETERMINATION_START")
-    
+
     try:
         logger.debug("Serializing state for verdict determination", agent="ReportGenerator", node="determine_threat_verdict")
-        serialized_state = serialize_state_safely(state)
+        # Strip base64 image data before serialization to reduce token usage
+        sanitized_state = _strip_base64_from_state(state)
+        serialized_state = serialize_state_safely(sanitized_state)
         
         # Log key state information for debugging
         logger.debug(
@@ -102,7 +152,9 @@ async def generate_final_report(state: ReportGeneratorState):
     try:
         # The state now contains the 'final_verdict' from the previous node.
         logger.debug("Serializing full state for report generation", agent="ReportGenerator", node="generate_final_report")
-        serialized_state = serialize_state_safely(state)
+        # Strip base64 image data before serialization to reduce token usage
+        sanitized_state = _strip_base64_from_state(state)
+        serialized_state = serialize_state_safely(sanitized_state)
 
         logger.debug("Creating report generator prompt", agent="ReportGenerator", node="generate_final_report")
         messages = [
