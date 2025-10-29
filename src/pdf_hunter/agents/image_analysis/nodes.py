@@ -127,10 +127,18 @@ async def analyze_pdf_images(state: ImageAnalysisState):
             )
 
             urls_for_this_page = [url for url in all_urls if url.page_number == page_num]
+
+            # Build element map with page-specific URLs
             element_map = {
                 "page_number": page_num,
                 "interactive_elements": [url.model_dump() for url in urls_for_this_page]
             }
+
+            # Add metadata URLs on page 0 (document-level XMP metadata)
+            if page_num == 0:
+                metadata_urls = [url for url in all_urls if url.page_number is None and url.url_type == "metadata"]
+                if metadata_urls:
+                    element_map["metadata_urls"] = [url.model_dump() for url in metadata_urls]
 
             # Format the user prompt with the context and element map.
             formatted_user_prompt = IMAGE_ANALYSIS_USER_PROMPT.format(

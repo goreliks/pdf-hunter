@@ -952,6 +952,119 @@ def file_info(input_file: str, hash_algos: str = "md5,sha1,sha256", max_bytes: i
         return f"[ERROR] file_info: {e}"
 
 
+@tool
+def get_xmp_metadata(
+    pdf_file_path: Annotated[str, InjectedToolArg] = None
+) -> str:
+    """
+    Extract XMP metadata from PDF for document provenance analysis.
+
+    XMP metadata reveals document creation history:
+    - Creator tool (e.g., "PDFescape Online - https://www.pdfescape.com")
+    - Producer tool (e.g., "RAD PDF 3.15.0.0 - https://www.radpdf.com")
+    - Creation and modification timestamps
+    - Document ID and version information
+
+    Use this to detect suspicious patterns:
+    - Multiple online editors used (possible evasion tactic)
+    - Rapid tool switching (< 1 minute between modifications)
+    - Unusual tool combinations (obfuscation)
+    - Automated malware generation indicators
+
+    Returns:
+        XMP XML content with creator, producer, timestamps, and tool chain information
+    """
+    try:
+        # First, search for /Metadata object to get its ID
+        search_result = run_pdf_parser(pdf_file_path, options=["-s", "/Metadata"], use_objstm=True)
+
+        if "obj" not in search_result.lower():
+            return "[INFO] No XMP metadata object found in PDF (no /Metadata objects)"
+
+        # Extract metadata object ID from Referencing line (e.g., "Referencing: 6 0 R, 9 0 R")
+        # The /Metadata reference is typically the second reference in /Catalog
+        ref_match = re.search(r'Referencing:.*?(\d+)\s+0\s+R,\s+(\d+)\s+0\s+R', search_result)
+        if ref_match:
+            # Try the second reference first (usually /Metadata)
+            metadata_obj_id = int(ref_match.group(2))
+        else:
+            # Fallback: look for "obj X 0" pattern (but this might match the Catalog)
+            obj_match = re.search(r'obj\s+(\d+)\s+\d+', search_result)
+            if not obj_match:
+                return "[INFO] Could not parse /Metadata object ID from search results"
+            metadata_obj_id = int(obj_match.group(1))
+
+        # Get the metadata object stream content (--content dumps the stream)
+        metadata_content = run_pdf_parser(
+            pdf_file_path,
+            options=["--object", str(metadata_obj_id), "--content"],
+            use_objstm=True
+        )
+
+        if not metadata_content or len(metadata_content) < 50:
+            return f"[INFO] Metadata object {metadata_obj_id} found but contains no XMP data"
+
+        # Extract the XML portion (starts with <?xpacket and ends with <?xpacket end)
+        xml_start = metadata_content.find("<?xpacket")
+        xml_end = metadata_content.find("<?xpacket end")
+
+        if xml_start == -1:
+            # No XML found, return raw content
+            return f"[INFO] Metadata object {metadata_obj_id} content (not XML format):\n{metadata_content}"
+
+        if xml_end != -1:
+            xml_end = metadata_content.find("?>", xml_end) + 2
+            xmp_xml = metadata_content[xml_start:xml_end]
+        else:
+            xmp_xml = metadata_content[xml_start:]
+
+        # Parse key provenance fields for easy reading
+        provenance_info = []
+
+        # Extract Creator
+        creator_match = re.search(r'<xmp:CreatorTool>(.+?)</xmp:CreatorTool>', xmp_xml, re.DOTALL)
+        if creator_match:
+            provenance_info.append(f"Creator Tool: {creator_match.group(1).strip()}")
+
+        # Extract Producer
+        producer_match = re.search(r'<pdf:Producer>(.+?)</pdf:Producer>', xmp_xml, re.DOTALL)
+        if producer_match:
+            provenance_info.append(f"Producer: {producer_match.group(1).strip()}")
+
+        # Extract Creation Date
+        create_date_match = re.search(r'<xmp:CreateDate>(.+?)</xmp:CreateDate>', xmp_xml, re.DOTALL)
+        if create_date_match:
+            provenance_info.append(f"Created: {create_date_match.group(1).strip()}")
+
+        # Extract Modification Date
+        mod_date_match = re.search(r'<xmp:ModifyDate>(.+?)</xmp:ModifyDate>', xmp_xml, re.DOTALL)
+        if mod_date_match:
+            provenance_info.append(f"Modified: {mod_date_match.group(1).strip()}")
+
+        # Extract DynaPDF toolkit info (from xmptk attribute)
+        toolkit_match = re.search(r'x:xmptk="(.+?)"', xmp_xml)
+        if toolkit_match:
+            provenance_info.append(f"XMP Toolkit: {toolkit_match.group(1).strip()}")
+
+        # Build the output
+        result_parts = []
+        result_parts.append(f"=== XMP Metadata from Object {metadata_obj_id} ===\n")
+
+        if provenance_info:
+            result_parts.append("Document Provenance:")
+            for info in provenance_info:
+                result_parts.append(f"  • {info}")
+            result_parts.append("")
+
+        result_parts.append("Full XMP XML:")
+        result_parts.append(xmp_xml)
+
+        return "\n".join(result_parts)
+
+    except Exception as e:
+        return f"[ERROR] get_xmp_metadata: {e}"
+
+
 # =========================
 # Tool registry & manifest
 # =========================
@@ -964,6 +1077,7 @@ pdf_parser_tools = [
     get_object_content,
     get_objects_by_type,
     get_object_stream_only,
+    get_xmp_metadata,  # NEW: Document provenance analysis
     # niceties
     b64_decode,
     hex_decode,

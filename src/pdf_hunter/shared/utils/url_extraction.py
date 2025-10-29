@@ -136,6 +136,119 @@ def extract_urls_from_pdf(
     return final_urls
 
 
+def extract_urls_from_xmp_metadata(pdf_path: Union[str, pathlib.Path]) -> List[Dict[str, Any]]:
+    """
+    Extracts URLs from PDF XMP metadata (XML-based metadata stream).
+
+    XMP metadata often contains:
+    - XML namespace declarations (xmlns attributes)
+    - Creator/Producer tool URLs
+    - Document metadata URLs
+
+    Args:
+        pdf_path: Path to the PDF file.
+
+    Returns:
+        A list of dictionaries with URL findings from metadata.
+    """
+    pdf_path = pathlib.Path(pdf_path)
+    if not pdf_path.is_file():
+        raise FileNotFoundError(f"PDF file not found at: {pdf_path}")
+
+    # URL pattern for finding URLs in text/XML
+    url_pattern = re.compile(
+        r'(?:https?|ftp)://[^\s<>"{}|\\^`\[\]]+',
+        re.IGNORECASE
+    )
+
+    findings = []
+
+    try:
+        with pymupdf.open(pdf_path) as doc:
+            # Try to get XMP metadata
+            xmp_metadata = doc.get_xml_metadata()
+
+            if xmp_metadata:
+                # Extract all URLs from the XMP XML content
+                for match in url_pattern.finditer(xmp_metadata):
+                    url = match.group(0)
+                    cleaned_url = _clean_and_validate_url(url)
+                    if cleaned_url:
+                        findings.append({
+                            "url": cleaned_url,
+                            "source": "xmp_metadata",
+                            "url_type": "metadata"
+                        })
+
+            # Also check standard metadata dictionary
+            metadata = doc.metadata
+            if metadata:
+                for key, value in metadata.items():
+                    if value and isinstance(value, str):
+                        for match in url_pattern.finditer(value):
+                            url = match.group(0)
+                            cleaned_url = _clean_and_validate_url(url)
+                            if cleaned_url:
+                                findings.append({
+                                    "url": cleaned_url,
+                                    "source": f"metadata_field_{key}",
+                                    "url_type": "metadata"
+                                })
+
+    except Exception as e:
+        raise RuntimeError(f"Error extracting URLs from XMP metadata in {pdf_path}: {e}")
+
+    # Deduplicate findings
+    unique_findings = []
+    seen_urls = set()
+
+    for finding in findings:
+        if finding["url"] not in seen_urls:
+            seen_urls.add(finding["url"])
+            unique_findings.append(finding)
+
+    return unique_findings
+
+
+def extract_all_urls_from_pdf(
+    pdf_path: Union[str, pathlib.Path],
+    specific_pages: List[int] = None,
+    include_metadata: bool = True
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Comprehensive URL extraction from both content and metadata.
+
+    Args:
+        pdf_path: Path to the PDF file.
+        specific_pages: List of 0-based page numbers to process (if None, process all pages).
+        include_metadata: Whether to extract URLs from XMP metadata.
+
+    Returns:
+        Dictionary with keys 'content_urls' and 'metadata_urls'.
+    """
+    pdf_path = pathlib.Path(pdf_path)
+
+    result = {
+        "content_urls": [],
+        "metadata_urls": []
+    }
+
+    # Extract from content (annotations and text)
+    if specific_pages is not None:
+        result["content_urls"] = extract_urls_from_pdf(pdf_path, specific_pages)
+    else:
+        # Process all pages if not specified
+        with pymupdf.open(pdf_path) as doc:
+            all_pages = list(range(doc.page_count))
+        result["content_urls"] = extract_urls_from_pdf(pdf_path, all_pages)
+
+    # Extract from metadata
+    if include_metadata:
+        result["metadata_urls"] = extract_urls_from_xmp_metadata(pdf_path)
+
+    return result
+
+
 if __name__ == "__main__":
     file_path = "/Users/gorelik/Courses/pdf-hunter/tests/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13.pdf"
     specific_pages = [0, 1, 2, 3]

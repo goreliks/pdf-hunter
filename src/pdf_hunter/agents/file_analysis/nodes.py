@@ -1,5 +1,6 @@
 import os
 import asyncio
+import re
 from loguru import logger
 from .schemas import FileAnalysisState, MissionStatus, InvestigatorState
 from pdf_hunter.shared.analyzers.wrappers import run_pdfid, run_pdf_parser_full_statistical_analysis, run_peepdf
@@ -9,9 +10,9 @@ from langgraph.types import Command
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.types import Send
 from langchain_core.messages.utils import get_buffer_string
-from .tools import pdf_parser_tools_manifest, pdf_parser_tools
+from .tools import pdf_parser_tools_manifest, pdf_parser_tools, run_pdf_parser, get_xmp_metadata
 from .schemas import EvidenceGraph, MergedEvidenceGraph
-from typing import List, Literal
+from typing import List, Literal, Optional, Dict
 from .prompts import file_analysis_graph_merger_system_prompt, file_analysis_graph_merger_user_prompt
 from .prompts import file_analysis_reviewer_system_prompt, file_analysis_reviewer_user_prompt
 from .prompts import file_analysis_finalizer_system_prompt, file_analysis_finalizer_user_prompt
@@ -20,6 +21,7 @@ from pdf_hunter.config import THINKING_TOOL_ENABLED
 from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 from .schemas import TriageReport,MissionReport, ReviewerReport,FinalReport
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
+from datetime import datetime
 
 if THINKING_TOOL_ENABLED:
     from pdf_hunter.shared.tools.think_tool import think_tool
@@ -59,16 +61,44 @@ async def identify_suspicious_elements(state: FileAnalysisState):
 
         logger.debug("Running pdfid analysis", agent="FileAnalysis", node="identify_suspicious_elements")
         pdfid_output = await run_pdfid(file_path)
-        
+
         logger.debug("Running pdf-parser statistical analysis", agent="FileAnalysis", node="identify_suspicious_elements")
         pdf_parser_output = await run_pdf_parser_full_statistical_analysis(file_path)
-        
+
         logger.debug("Running peepdf analysis", agent="FileAnalysis", node="identify_suspicious_elements")
         peepdf_output = await run_peepdf(file_path, output_directory=output_directory)
-        
-        structural_summary = {"pdfid": pdfid_output, "pdf_parser": pdf_parser_output, "peepdf": peepdf_output}
+
+        # Extract XMP metadata for document provenance analysis
+        logger.debug("Extracting XMP metadata", agent="FileAnalysis", node="identify_suspicious_elements")
+        xmp_metadata = await asyncio.to_thread(
+            get_xmp_metadata.invoke,
+            {"pdf_file_path": file_path}
+        )
+        # Only include if XMP data was found (not an error/info message)
+        if xmp_metadata and "[INFO]" not in xmp_metadata and "[ERROR]" not in xmp_metadata:
+            xmp_metadata_str = xmp_metadata
+            logger.debug(
+                "XMP metadata extracted successfully",
+                agent="FileAnalysis",
+                node="identify_suspicious_elements",
+                xmp_preview=xmp_metadata[:200] if len(xmp_metadata) > 200 else xmp_metadata
+            )
+        else:
+            xmp_metadata_str = None
+            logger.debug(
+                "No XMP metadata found or extraction failed",
+                agent="FileAnalysis",
+                node="identify_suspicious_elements"
+            )
+
+        structural_summary = {
+            "pdfid": pdfid_output,
+            "pdf_parser": pdf_parser_output,
+            "peepdf": peepdf_output,
+            "xmp_metadata": xmp_metadata_str  # Full XMP output or None
+        }
         additional_context = state.get('additional_context', "None")
-        
+
         logger.debug("Static analysis tools completed", agent="FileAnalysis", node="identify_suspicious_elements")
 
         system_prompt = file_analysis_triage_system_prompt
@@ -99,15 +129,27 @@ async def identify_suspicious_elements(state: FileAnalysisState):
         }
 
         if result.triage_classification_decision == "innocent":
-            logger.info(
-                "✅ Triage Decision: PDF is INNOCENT - No threats detected",
-                agent="FileAnalysis",
-                node="identify_suspicious_elements",
-                event_type="TRIAGE_COMPLETE",
-                decision="innocent",
-                mission_count=0,
-                reasoning=result.triage_classification_reasoning
-            )
+            # Check if investigative missions exist (e.g., metadata analysis for due diligence)
+            if len(result.mission_list) > 0:
+                logger.info(
+                    f"✅ Triage Decision: PDF is INNOCENT - No high-risk threats detected, {len(result.mission_list)} investigation mission(s) for due diligence",
+                    agent="FileAnalysis",
+                    node="identify_suspicious_elements",
+                    event_type="TRIAGE_COMPLETE",
+                    decision="innocent",
+                    mission_count=len(result.mission_list),
+                    reasoning=result.triage_classification_reasoning
+                )
+            else:
+                logger.info(
+                    "✅ Triage Decision: PDF is INNOCENT - No threats detected",
+                    agent="FileAnalysis",
+                    node="identify_suspicious_elements",
+                    event_type="TRIAGE_COMPLETE",
+                    decision="innocent",
+                    mission_count=0,
+                    reasoning=result.triage_classification_reasoning
+                )
         elif result.triage_classification_decision == "suspicious":
             logger.info(
                 f"⚠️  Triage Decision: PDF is SUSPICIOUS - {len(result.mission_list)} investigation mission(s) created",

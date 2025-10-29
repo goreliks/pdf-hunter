@@ -239,26 +239,42 @@ The system operates under three core principles:
 - **Directory Creation**: Creates session-specific directory structure for organized output
 - **Initialization Node**: Validates paths, calculates file hashes (SHA1/MD5), gets page count
 - **Image Extraction Node**: Renders pages to images, calculates perceptual hashes (pHash), saves with pHash-based filenames
-- **URL Extraction Node**: Extracts URLs from annotations and text with coordinates
+- **URL Extraction Node**: Comprehensive URL extraction from multiple sources:
+  - Annotations (clickable links with coordinates)
+  - Text content (parsed URLs)
+  - **XMP Metadata** (document provenance URLs from creator/producer tools and namespace declarations)
+  - Source tracking: Each URL tagged with origin (`annotation`, `text`, `metadata`) and specific source field
 - **QR Code Detection**: Detects QR codes in extracted images using OpenCV and pyzbar
 - **Output**: File metadata, page images with pHash-based naming, URLs, QR code data, session directory
 
 **Agent 2: File Analysis** (`src/pdf_hunter/agents/file_analysis/`):
-- **Triage Node**: Multi-tool PDF scanning (pdfid, pdf-parser, peepdf)
+- **Triage Node**: Multi-tool PDF scanning with provenance analysis:
+  - Static analysis: pdfid, pdf-parser, peepdf
+  - **XMP Metadata Extraction**: Automatic extraction via `get_xmp_metadata()` tool
+  - Full XMP output (provenance summary + XML) included in structural_summary for LLM analysis
+  - LLM can trigger `/Metadata` investigation if provenance appears suspicious
 - **Investigator Subgraph**: Parallel mission-based investigations with strategic reflection
 - **Think Tool Integration**: Uses strategic reflection tool for enhanced decision-making during investigations
+- **XMP Metadata Tool**: `get_xmp_metadata()` available for on-demand deep provenance analysis:
+  - Full XMP XML extraction with parsed provenance summary
+  - Robust: Works with any XMP structure, custom fields, unusual namespaces
+  - Auto-injected file paths via InjectedToolArg pattern
 - **Reviewer Node**: Evidence graph merging and strategic analysis
-- **Threat Detection**: OpenAction, JavaScript, AcroForm, EmbeddedFile analysis
+- **Threat Detection**: OpenAction, JavaScript, AcroForm, EmbeddedFile analysis, optional document provenance investigation
 - **Improved Logging**: Tool usage now visible at INFO level for better investigation transparency
 - **State Persistence**: Automatic final state saving for debugging and analysis tracking
-- **Output**: Evidence graph, mission reports, structural analysis, persistent state files
+- **Output**: Evidence graph, mission reports, structural analysis, XMP metadata, persistent state files
 
 **Agent 3: Image Analysis** (`src/pdf_hunter/agents/image_analysis/`):
 - **Enhanced VDA Persona**: Visual Deception Analyst combining HCI/UX security, cognitive psychology, and digital forensics
 - **Core Analysis**: Visual-technical cross-examination for deception detection
 - **Page-Level Analysis**: Examines visual presentation vs. technical elements
+- **XMP Metadata URL Integration**: Receives metadata URLs from PDF extraction via element_map (page 0 only):
+  - Assesses document provenance URLs (creator/producer tools) for legitimacy and typosquatting
+  - Applies "Incoherence is a Symptom" principle to detect suspicious tool chain patterns
+  - Example: Simple 1-page doc using 3 PDF editors = structural incoherence
 - **Cross-Page Context**: Maintains coherence analysis across document pages
-- **URL Prioritization**: Ranks URLs for deeper investigation based on visual context
+- **URL Prioritization**: Ranks URLs for deeper investigation based on visual context (includes metadata URLs)
 - **Status Tracking**: URLs generated with `NEW` status for downstream processing
 - **Output**: Deception tactics, benign signals, prioritized URLs with status tracking for link analysis
 

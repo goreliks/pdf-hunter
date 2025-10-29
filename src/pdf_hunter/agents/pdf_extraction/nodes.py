@@ -13,7 +13,7 @@ from .schemas import PDFExtractionState, PDFHashData, ExtractedImage, ExtractedU
 
 from pdf_hunter.shared.utils.hashing import calculate_file_hashes
 from pdf_hunter.shared.utils.image_extraction import extract_pages_as_base64_images, calculate_image_phash, get_pdf_page_count, save_image
-from pdf_hunter.shared.utils.url_extraction import extract_urls_from_pdf
+from pdf_hunter.shared.utils.url_extraction import extract_all_urls_from_pdf
 from pdf_hunter.shared.utils.file_operations import ensure_output_directory
 from pdf_hunter.shared.utils.qr_extraction import process_pdf_for_qr_codes
 from pdf_hunter.shared.utils.serializer import dump_state_to_file
@@ -277,8 +277,10 @@ def extract_pdf_images(state: PDFExtractionState):
 
 def find_embedded_urls(state: PDFExtractionState):
     """
-    Extracts URLs from the specified pages of the PDF from both
-    annotations and raw text.
+    Extracts URLs from the specified pages of the PDF from:
+    - Annotations (clickable links)
+    - Raw text content
+    - XMP metadata (document provenance)
     """
     try:
         file_path = state['file_path']
@@ -290,31 +292,46 @@ def find_embedded_urls(state: PDFExtractionState):
             pages_to_process = [0] if state.get('page_count', 0) > 0 else []
 
         # URL extraction start event
-        logger.info("🔗 Searching for embedded URLs",
+        logger.info("🔗 Searching for embedded URLs (content + metadata)",
                     agent="PdfExtraction",
                     node="find_urls",
                     event_type="URL_EXTRACTION_START",
                     session_id=session_id,
                     pages_to_scan=len(pages_to_process))
 
-        # 1. Extract URL data using our final, validated utility
-        url_data_list = extract_urls_from_pdf(
+        # 1. Extract URLs from both content and metadata using comprehensive extraction
+        all_urls = extract_all_urls_from_pdf(
             pdf_path=file_path,
-            specific_pages=pages_to_process
+            specific_pages=pages_to_process,
+            include_metadata=True
         )
 
-        # 2. Convert the dictionaries into ExtractedURL Pydantic objects.
-        extracted_urls = [ExtractedURL(**url_data) for url_data in url_data_list]
+        # 2. Convert to ExtractedURL objects
+        content_urls = [ExtractedURL(**url_data) for url_data in all_urls["content_urls"]]
+        metadata_urls = [ExtractedURL(**url_data) for url_data in all_urls["metadata_urls"]]
 
-        # Calculate URL type breakdown
+        # Combine for downstream processing
+        extracted_urls = content_urls + metadata_urls
+
+        # Calculate URL type and source breakdown
         url_type_counts = {}
+        url_source_counts = {}
         url_list = []
+
         for url_obj in extracted_urls:
+            # Count by type
             url_type_counts[url_obj.url_type] = url_type_counts.get(url_obj.url_type, 0) + 1
+
+            # Count by source (for metadata URLs)
+            if url_obj.source:
+                url_source_counts[url_obj.source] = url_source_counts.get(url_obj.source, 0) + 1
+
+            # Build URL list for logging
             url_list.append({
                 "url": url_obj.url,
                 "url_type": url_obj.url_type,
-                "page_number": url_obj.page_number
+                "page_number": url_obj.page_number,
+                "source": url_obj.source
             })
 
         # URLs found event (INFO level - just data, not suspicious)
@@ -323,29 +340,35 @@ def find_embedded_urls(state: PDFExtractionState):
             url_preview = ", ".join([u["url"][:60] + ("..." if len(u["url"]) > 60 else "") for u in url_list[:3]])
             if len(url_list) > 3:
                 url_preview += f" ... and {len(url_list) - 3} more"
-            
+
             # Format type breakdown for display (escape braces for loguru)
             types_str = str(url_type_counts).replace('{', '{{').replace('}', '}}')
-            
+
             logger.info(
-                f"🔗 Found {len(extracted_urls)} embedded URLs | Types: {types_str} | URLs: {url_preview}",
+                f"🔗 Found {len(extracted_urls)} URLs | Content: {len(content_urls)}, Metadata: {len(metadata_urls)} | Types: {types_str} | Preview: {url_preview}",
                 agent="PdfExtraction",
                 node="find_urls",
                 event_type="URLS_FOUND",
                 session_id=session_id,
                 url_count=len(extracted_urls),
+                content_url_count=len(content_urls),
+                metadata_url_count=len(metadata_urls),
                 url_type_breakdown=url_type_counts,
+                url_source_breakdown=url_source_counts,
                 url_list=url_list,
             )
         else:
             logger.info(
-                "🔗 No embedded URLs found",
+                "🔗 No URLs found (content or metadata)",
                 agent="PdfExtraction",
                 node="find_urls",
                 event_type="URLS_FOUND",
                 session_id=session_id,
                 url_count=0,
+                content_url_count=0,
+                metadata_url_count=0,
                 url_type_breakdown={},
+                url_source_breakdown={},
                 url_list=[],
             )
 
