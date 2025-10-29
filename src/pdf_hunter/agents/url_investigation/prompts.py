@@ -46,6 +46,31 @@ This guidance covers common scenarios to teach you how to think, but it is **not
 *   **Handling Phishing Forms:** If you encounter a login form, use `browser_fill_form` with generic, non-real credentials and click the login button to see where it leads.
 
 ---
+### **Investigation Limits**
+
+To prevent excessive investigations and ensure efficient resource usage, you must operate within these hard limits:
+
+**Browser Action Budget:**
+*   **Standard pages** (simple content, direct destination): 6-8 browser actions maximum
+*   **Multi-step flows** (redirects, login sequences, multi-page chains): 10-12 browser actions maximum
+*   **Absolute hard limit**: 15 browser actions - you MUST conclude after this regardless of findings
+
+**Action Counting Rules:**
+*   Actions that COUNT: `browser_navigate`, `browser_click`, `browser_fill_form` (state-changing interactions)
+*   Actions that DO NOT count: `browser_take_screenshot`, `browser_evaluate`, `browser_network_requests`, `domain_whois`, `think_tool` (observation and analysis tools)
+
+**Mandatory Conclusion Triggers** - You MUST stop investigating when ANY of these conditions are met:
+1.  You have definitively identified the threat type (phishing confirmed OR legitimate site verified OR benign content confirmed)
+2.  You have captured sufficient evidence to support your conclusion (screenshots, whois data, final destination URL, key findings)
+3.  Your last 2 browser actions revealed NO new security-relevant information (investigation has stalled)
+4.  You have reached a stable endpoint (legitimate destination, error page, download prompt, or dead end)
+5.  You have completed a full OODA loop with clear, actionable findings
+
+**If You Hit 15 Browser Actions:** Immediately conclude the investigation with all available evidence. Document your findings clearly and add this note: "Investigation depth limit reached - manual review may be warranted if threat classification remains unclear."
+
+**Efficiency Reminder:** Most investigations should complete in 6-8 browser actions. Thoroughness is important, but efficiency matters. Focus on high-signal actions that reveal the true nature of the URL.
+
+---
 ### **Mission Completion**
 
 You must conclude the investigation when you reach one of these states:
@@ -86,4 +111,33 @@ This is the complete, time-ordered log of every thought, action, and tool output
 
 **Your Mission**:
 Read and synthesize all of the above evidence into the final `AnalystFindings` JSON object. Pay special attention to crafting a detailed, narrative-style `summary`. Your response MUST be only the JSON object.
+"""
+
+
+URL_INVESTIGATION_LOG_SUMMARIZATION_PROMPT = """You are compressing a verbose web investigation log for a security analyst.
+
+**Mission:** {mission_reason}
+
+**Task:** Convert this verbose investigation log into a concise narrative that preserves:
+1. What the investigator did (navigations, clicks, form fills, tools used)
+2. What they found on each page (URLs, titles, key content)
+3. Any security-relevant observations (console errors, suspicious elements, redirects, domain changes)
+4. The investigator's reasoning and key conclusions
+
+**What to REMOVE:**
+- Verbose accessibility trees (thousands of lines of page structure)
+- Repetitive page hierarchy descriptions
+- Detailed element references and nested structures
+- Boilerplate console messages
+
+**What to PRESERVE:**
+- Chronological sequence of actions
+- Key findings and security signals
+- Investigator's reasoning at each step
+- Final conclusions and evidence
+
+**Investigation Log:**
+{investigation_log}
+
+**Output:** A clear, chronological narrative (2-4 paragraphs) of the investigation. Focus on the investigator's journey and key findings.
 """

@@ -67,8 +67,8 @@ URL_INVESTIGATION_CONFIG = {
 
 # URL investigator subgraph (browser tool loops)
 URL_INVESTIGATION_INVESTIGATOR_CONFIG = {
-    "run_name": "Browser Investigation Tools", 
-    "recursion_limit": 20  # investigate_url → browser_tools → investigate_url loops
+    "run_name": "Browser Investigation Tools",
+    "recursion_limit": 30  # investigate_url → browser_tools → investigate_url loops (increased for complex multi-step investigations)
 }
 
 # Priority threshold for URL investigation (1=highest priority, 5=lowest)
