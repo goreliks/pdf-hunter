@@ -144,7 +144,8 @@ http://localhost:5173
 
 **Prerequisites:**
 - **Python**: 3.11.x (strictly required, Python 3.12+ not supported)
-- **Node.js**: 16+ (for Playwright MCP server)
+- **Node.js**: 18+ required, **20.x LTS recommended** (for Playwright MCP server)
+  - Note: Node v24+ tested and compatible
 - **uv**: Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
 
 **System Dependencies (Required):**
@@ -188,8 +189,9 @@ vcpkg install zbar:x64-windows
    # Or basic installation only
    uv sync
    
-   # Install peepdf-3 without dependencies (skip stpyv8 which isn't needed)
-   uv pip install --no-deps peepdf-3==5.1.1
+   # Install peepdf-3 (installs with deps, then removes problematic stpyv8)
+   uv pip install peepdf-3==5.1.1
+   uv pip uninstall stpyv8  # Optional: remove if installed
    ```
 
 3. **Install Node.js dependencies** 
@@ -527,6 +529,163 @@ uv run pytest
 # Test individual components
 uv run python -m pdf_hunter.agents.pdf_extraction.graph
 ```
+
+## 🔧 Troubleshooting
+
+### Common Installation Issues
+
+#### peepdf not found
+
+**Symptom**: Error calling `peepdf` during PDF analysis
+```
+ModuleNotFoundError: No module named 'peepdf'
+# or
+FileNotFoundError: peepdf command not found
+```
+
+**Solutions**:
+1. Ensure running with `uv run` (activates venv automatically):
+   ```bash
+   uv run python -m pdf_hunter.orchestrator.graph
+   ```
+
+2. Verify peepdf is installed and accessible:
+   ```bash
+   uv run peepdf --version  # Should show 5.1.1
+   ```
+
+3. Reinstall peepdf-3:
+   ```bash
+   uv pip install peepdf-3==5.1.1
+   uv pip uninstall stpyv8  # Remove if causes issues
+   ```
+
+**Why separate installation?**
+- peepdf-3 is NOT in `pyproject.toml` to avoid `stpyv8` build issues
+- Installed separately in `install.sh` and `Dockerfile`
+- All Python dependencies already available from main install
+- Works perfectly with `--no-deps` approach
+
+#### @playwright/mcp not found
+
+**Symptom**: MCP server errors during URL investigation
+```
+Error: Cannot find module '@playwright/mcp'
+```
+
+**Solutions**:
+1. Install Node.js packages in project root:
+   ```bash
+   npm install  # Installs @playwright/mcp from package.json
+   ```
+
+2. Verify installation:
+   ```bash
+   npx mcp-server-playwright --help  # Should show usage
+   ls node_modules/@playwright/mcp/  # Directory should exist
+   ```
+
+3. Check Node.js version (v18+ required):
+   ```bash
+   node --version  # Should be v18.0.0 or higher
+   ```
+
+#### Version mismatches after update
+
+**Symptom**: Different package versions than documented
+
+**Solutions**:
+1. Use lock files for exact versions:
+   ```bash
+   # Clean install using lock files
+   rm -rf .venv node_modules
+   uv sync --frozen  # Uses exact versions from uv.lock
+   npm ci  # Uses exact versions from package-lock.json
+   ```
+
+2. Verify installation:
+   ```bash
+   uv run python verify_installation.py
+   ```
+
+#### Docker build failures
+
+**Symptom**: Docker build fails with stpyv8 or peepdf errors
+
+**Solutions**:
+1. Ensure you have the latest Dockerfile (uses `--no-deps` for peepdf-3)
+2. Clear Docker build cache:
+   ```bash
+   docker-compose build --no-cache
+   ```
+
+3. Check Docker logs for specific errors:
+   ```bash
+   docker-compose logs backend
+   ```
+
+#### Python 3.12+ detected
+
+**Symptom**: Installation fails or behaves unexpectedly with Python 3.12+
+
+**Solution**:
+```bash
+# Install Python 3.11 specifically
+# macOS:
+brew install python@3.11
+
+# Ubuntu/Debian:
+sudo apt install python3.11
+
+# Then use with uv:
+uv sync  # Will use Python 3.11 from system
+```
+
+**Note**: Python 3.12+ has breaking changes in some dependencies. PDF Hunter strictly requires Python 3.11.x.
+
+#### Node.js version issues
+
+**Symptom**: Playwright installation fails or MCP server doesn't work
+
+**Current Requirements**:
+- **Minimum**: Node.js v18+
+- **Recommended**: Node.js v20.x LTS
+- **Tested**: Node.js v24+ (compatible)
+
+**Solution**:
+```bash
+# Check version
+node --version
+
+# Upgrade if needed (macOS):
+brew install node@20
+
+# Upgrade if needed (Linux):
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+### Getting Help
+
+If you encounter issues not covered here:
+
+1. **Run verification script**:
+   ```bash
+   uv run python verify_installation.py
+   ```
+
+2. **Check logs**:
+   ```bash
+   # Session logs
+   cat output/{session_id}/logs/session.jsonl
+
+   # Central logs
+   cat logs/pdf_hunter_YYYYMMDD.jsonl
+   ```
+
+3. **Report issues**: [GitHub Issues](https://github.com/goreliks/pdf-hunter/issues)
+
+---
 
 ## 🛠️ Development
 

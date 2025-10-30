@@ -29,11 +29,14 @@ COPY README.md ./
 
 # Install Python dependencies (main + api group for FastAPI)
 # Dev group excluded (Jupyter, IPython kernel not needed in production)
+# Note: peepdf-3 is NOT in pyproject.toml dependencies to avoid stpyv8 build issues
 RUN uv sync --frozen --group api
 
-# Install peepdf-3 without dependencies to avoid stpyv8 (optional dependency not needed)
-# We only use 'peepdf -f' (force parsing mode) which doesn't execute JavaScript
-RUN /root/.local/bin/uv pip install --system --no-deps peepdf-3==5.1.1
+# Install peepdf-3 into the venv WITHOUT dependencies (avoids stpyv8 build issues)
+# peepdf works correctly because all its Python deps are already installed from pyproject.toml
+# We only use 'peepdf -f' (force parsing mode) which doesn't require JavaScript execution
+# This approach creates the peepdf console script while avoiding problematic C++ dependencies
+RUN /root/.local/bin/uv pip install --no-deps peepdf-3==5.1.1
 
 # Install Node.js dependencies
 RUN npm ci

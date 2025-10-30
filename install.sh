@@ -129,10 +129,29 @@ export PATH="$HOME/.local/bin:$PATH"
 uv sync --group dev --group api
 print_success "Python packages installed"
 
-# Install peepdf-3 without dependencies to skip stpyv8
-echo "Installing peepdf-3 (without stpyv8 dependency)..."
-uv pip install --no-deps peepdf-3==5.1.1
-print_success "peepdf-3 installed"
+# Install peepdf-3 (installs with deps, then removes problematic stpyv8)
+echo "Installing peepdf-3..."
+uv pip install peepdf-3==5.1.1
+
+# Remove stpyv8 if it was installed (optional dependency we don't need)
+if uv pip show stpyv8 > /dev/null 2>&1; then
+    echo "Removing stpyv8 (not needed for PDF Hunter)..."
+    uv pip uninstall stpyv8 --yes 2>/dev/null || true
+fi
+
+# Verify peepdf binary is accessible
+if uv run peepdf --version > /dev/null 2>&1; then
+    print_success "peepdf-3 installed and verified"
+else
+    print_error "peepdf-3 installation failed or binary not accessible"
+    print_info "Checking for system peepdf as fallback..."
+    if command -v peepdf &> /dev/null; then
+        print_warning "System peepdf found (will be used as fallback)"
+    else
+        print_error "peepdf not accessible"
+        exit 1
+    fi
+fi
 echo ""
 
 # Step 6: Install Node.js dependencies
@@ -146,7 +165,7 @@ fi
 
 if [ -z "$NODE_VERSION" ] || [ "$NODE_VERSION" -lt 18 ]; then
     if [ -n "$NODE_VERSION" ]; then
-        print_warning "Node.js v$NODE_VERSION found, but Playwright requires v18+. Upgrading..."
+        print_warning "Node.js v$NODE_VERSION found, but v18+ is required. Upgrading..."
     else
         print_warning "Node.js not found, installing..."
     fi
@@ -171,11 +190,25 @@ if [ -z "$NODE_VERSION" ] || [ "$NODE_VERSION" -lt 18 ]; then
     
     print_success "Node.js installed: $(node --version)"
 else
-    print_success "Node.js found: v$NODE_VERSION ($(node --version))"
+    if [ "$NODE_VERSION" -ge 20 ]; then
+        print_success "Node.js found: v$NODE_VERSION (recommended v20+ LTS)"
+    else
+        print_success "Node.js found: v$NODE_VERSION"
+        print_info "Note: v20+ LTS recommended for best compatibility (current v$NODE_VERSION will work)"
+    fi
 fi
 
 npm install
 print_success "Node.js packages installed"
+
+# Verify @playwright/mcp was installed
+if [ -d "node_modules/@playwright/mcp" ]; then
+    print_success "@playwright/mcp installed"
+else
+    print_error "@playwright/mcp NOT found in node_modules"
+    print_info "This is required for URL investigation via MCP"
+    exit 1
+fi
 echo ""
 
 # Step 7: Install Playwright browsers
