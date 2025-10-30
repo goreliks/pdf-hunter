@@ -5,6 +5,9 @@ This module contains execution configuration for all agents including
 recursion limits, execution parameters, runtime settings, and LLM models.
 """
 
+# Initialize PyMuPDF global settings (suppress non-critical parser warnings)
+from . import pymupdf_config  # noqa: F401
+
 # Import execution configuration
 from .execution_config import (
     ORCHESTRATOR_CONFIG,

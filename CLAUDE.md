@@ -18,11 +18,12 @@ The framework is fully asynchronous, utilizing Python's async/await pattern for 
 
 ## Core Philosophy
 
-The system operates under three core principles:
+The system operates under four core principles:
 
 1. **Autonomy is Disease**: Any automatic action capability in a PDF (e.g., /OpenAction, /JavaScript, /Launch, /AA, /EmbeddedFile) is high-signal and prioritized for investigation
 2. **Deception is Confession**: Visual and structural inconsistencies are treated as confessions of malicious intent
 3. **Incoherence is a Symptom**: Cross-page and cross-modal incoherence elevates suspicion
+4. **Fail-Secure Verdicts**: Detection of deceptive tactics or malicious behavior by ANY agent prevents "Benign" verdicts - regardless of claimed intent or context. Real attack techniques disqualify benign classification, even in test/demo files
 
 ## Agent Pipeline Architecture
 
@@ -33,7 +34,7 @@ The system operates under three core principles:
 | **File Analysis** | Static analysis | `file_analysis/` | Multi-tool scanning (pdfid, pdf-parser, peepdf), mission-based investigations, XMP provenance analysis, think_tool integration |
 | **Image Analysis** | Visual deception | `image_analysis/` | VDA persona (HCI/UX + forensics), visual-technical cross-examination, URL prioritization, XMP metadata URL assessment |
 | **URL Investigation** | Web reconnaissance | `url_investigation/` | MCP/Playwright browser automation, strategic reflection, URL status tracking |
-| **Report Generator** | Final synthesis | `report_generator/` | Executive summary, verdict, IOC extraction, artifact cataloging |
+| **Report Generator** | Final synthesis | `report_generator/` | Fail-secure verdict determination, executive summary, IOC extraction, artifact cataloging |
 
 **Workflow**: START → pdf_extraction → {file_analysis, image_analysis} → url_investigation → report_generator → END
 
@@ -49,6 +50,12 @@ The system operates under three core principles:
 **Config Package** (`src/pdf_hunter/config/`):
 - `models_config.py` - LLM instances (10 specialized models), provider settings (OpenAI/Azure/Ollama)
 - `execution_config.py` - Recursion limits, think tool flag, runtime parameters
+- `pymupdf_config.py` - PyMuPDF parser configuration (warning suppression for malformed PDFs)
+
+**Verdict Constraints**: Report Generator enforces hard constraints on verdict determination:
+- **HARD_CONSTRAINT**: Deceptive tactics or malicious behavior detected by any agent → prevents "Benign" verdict
+- Applies regardless of stated purpose, context, or benign payloads
+- Ensures fail-secure classification: when in doubt, flag as suspicious
 
 **Recursion Limits** (prevents infinite loops while allowing complex analysis):
 - Orchestrator: 30 steps
@@ -264,6 +271,34 @@ KNOW WHEN TO STOP:
 - Tool says it CANNOT do something → ACCEPT IT → STOP trying
 - Calling same tool twice returns identical results → DO NOT CALL IT AGAIN
 ```
+
+### Fail-Secure Verdict Logic
+
+**Problem**: Sophisticated attacks may use benign-looking payloads with deceptive delivery tactics, or legitimate test files may employ real attack techniques.
+
+**Solution**: Report Generator enforces HARD_CONSTRAINT in verdict prompts:
+
+```python
+# In prompts.py - REPORT_GENERATOR_VERDICT_SYSTEM_PROMPT
+<HARD_CONSTRAINT>
+OVERRIDE ALL OTHER CONSIDERATIONS: If ANY agent detects malicious behavior,
+deceptive tactics, or exploitable vulnerabilities, the final verdict MUST NOT
+be "Benign" - regardless of perceived intent or other findings.
+
+DO NOT use claimed benign purpose or context to justify a Benign verdict when
+deceptive tactics are present. We cannot be certain we haven't missed a critical
+attack vector. Files that employ real attack techniques are NOT benign regardless
+of their stated purpose.
+</HARD_CONSTRAINT>
+```
+
+**Rationale**:
+- Security tools cannot reliably distinguish "educational malware" from real threats
+- Visual deception + benign payload could mask undetected attack vectors
+- Prevents LLM from over-weighting context/intent over technical behavior
+- Mirrors real-world security operations: samples with attack indicators are quarantined
+
+**Implementation**: Constraint appears in both system and user prompts for `final_verdict_llm` to ensure compliance.
 
 ## Key Implementation Patterns
 
