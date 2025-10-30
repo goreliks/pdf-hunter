@@ -16,7 +16,7 @@ from pdf_hunter.config.execution_config import LLM_TIMEOUT_TEXT
 
 from pdf_hunter.config import url_investigation_investigator_llm, url_investigation_analyst_llm
 from .schemas import URLInvestigationState, URLInvestigatorState, URLAnalysisResult, AnalystFindings
-from .prompts import URL_INVESTIGATION_INVESTIGATOR_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_USER_PROMPT
+from .prompts import URL_INVESTIGATION_INVESTIGATOR_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_SYSTEM_PROMPT, URL_INVESTIGATION_ANALYST_USER_PROMPT, URL_INVESTIGATION_LOG_SUMMARIZATION_PROMPT
 
 # Helper function to load MCP tools asynchronously
 async def load_mcp_tools_async(session):
@@ -273,6 +273,94 @@ async def execute_browser_tools(state: URLInvestigatorState):
         return {"errors": [error_msg]}
 
 
+async def summarize_investigation_log(investigation_log: list, mission: dict) -> str:
+    """
+    Summarize verbose investigation log for analyst consumption.
+
+    This compresses the log by removing verbose accessibility trees while preserving
+    all investigator decisions, tool calls, and key findings.
+
+    Args:
+        investigation_log: List of BaseMessage objects from investigation
+        mission: Mission context dict with reason_flagged
+
+    Returns:
+        Compressed narrative summary as JSON string (for analyst prompt)
+    """
+    from pdf_hunter.config import report_generator_llm  # Use existing summarization-capable model
+
+    logger.debug(
+        f"Summarizing investigation log: {len(investigation_log)} messages",
+        agent="URLInvestigation",
+        node="summarize_investigation_log",
+        message_count=len(investigation_log)
+    )
+
+    # Build readable log preview
+    log_text_parts = []
+    ai_turn = 0
+
+    for i, msg in enumerate(investigation_log):
+        if msg.type == "ai":
+            ai_turn += 1
+            log_text_parts.append(f"\n=== Investigator Turn {ai_turn} ===")
+
+            # Include investigator's reasoning if present
+            if hasattr(msg, "content") and msg.content:
+                reasoning = msg.content[:500] if len(msg.content) > 500 else msg.content
+                log_text_parts.append(f"Reasoning: {reasoning}")
+
+            # Include tool calls
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                tool_names = [tc.get("name", "unknown") if isinstance(tc, dict) else getattr(tc, "name", "unknown") for tc in msg.tool_calls]
+                log_text_parts.append(f"Tools called: {', '.join(tool_names)}")
+
+        elif msg.type == "tool":
+            tool_name = getattr(msg, "name", "unknown")
+            log_text_parts.append(f"\nTool: {tool_name}")
+
+            # Include preview of tool response (first 500 chars)
+            content_preview = msg.content[:500] + "..." if len(msg.content) > 500 else msg.content
+            log_text_parts.append(f"Response preview: {content_preview}")
+
+    full_log_text = "\n".join(log_text_parts)
+
+    # Build summarization prompt from template
+    summary_prompt = URL_INVESTIGATION_LOG_SUMMARIZATION_PROMPT.format(
+        mission_reason=mission.get('reason_flagged', 'URL investigation'),
+        investigation_log=full_log_text
+    )
+
+    try:
+        logger.debug("Invoking LLM for log summarization", agent="URLInvestigation", node="summarize_investigation_log")
+        response = await asyncio.wait_for(
+            report_generator_llm.ainvoke([HumanMessage(content=summary_prompt)]),
+            timeout=LLM_TIMEOUT_TEXT
+        )
+
+        summarized_narrative = response.content
+
+        logger.info(
+            f"✅ Investigation log summarized: {len(full_log_text)} chars → {len(summarized_narrative)} chars",
+            agent="URLInvestigation",
+            node="summarize_investigation_log",
+            original_size=len(full_log_text),
+            summarized_size=len(summarized_narrative),
+            compression_ratio=f"{(1 - len(summarized_narrative)/len(full_log_text))*100:.1f}%"
+        )
+
+        return summarized_narrative
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to summarize investigation log: {e}. Falling back to full log.",
+            agent="URLInvestigation",
+            node="summarize_investigation_log",
+            exc_info=True
+        )
+        # Fallback: return full log as JSON (analyst still works, just with more tokens)
+        return json.dumps([msg.model_dump() for msg in investigation_log], indent=2)
+
 
 # --- Node 2: Analyst ---
 async def analyze_url_content(state: URLInvestigatorState) -> dict:
@@ -298,12 +386,34 @@ async def analyze_url_content(state: URLInvestigatorState) -> dict:
         )
 
         analyst_llm = url_investigation_analyst_llm.with_structured_output(AnalystFindings)
-        
+
+        # Summarize investigation log if it's long (more than ~2-3 turns = >5 messages)
+        # This reduces context window usage for the analyst without losing key findings
+        if len(investigation_log) > 5:
+            logger.debug(
+                f"Investigation log is long ({len(investigation_log)} messages), summarizing for analyst",
+                agent="URLInvestigation",
+                node="analyze_url_content",
+                message_count=len(investigation_log)
+            )
+            investigation_log_json = await summarize_investigation_log(
+                investigation_log,
+                url_task.model_dump()  # Pass mission context
+            )
+        else:
+            logger.debug(
+                f"Investigation log is short ({len(investigation_log)} messages), no summarization needed",
+                agent="URLInvestigation",
+                node="analyze_url_content",
+                message_count=len(investigation_log)
+            )
+            investigation_log_json = json.dumps([msg.model_dump() for msg in investigation_log], indent=2)
+
         logger.debug("Creating analyst prompt", agent="URLInvestigation", node="analyze_url_content")
         analyst_prompt = URL_INVESTIGATION_ANALYST_USER_PROMPT.format(
             current_datetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             initial_briefing_json=url_task.model_dump_json(indent=2),
-            investigation_log_json=json.dumps([msg.model_dump() for msg in investigation_log], indent=2)
+            investigation_log_json=investigation_log_json
         )
         
         logger.debug("Invoking analyst LLM for findings synthesis", agent="URLInvestigation", node="analyze_url_content")

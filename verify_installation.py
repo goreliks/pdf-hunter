@@ -153,28 +153,79 @@ def check_core_dependencies():
 def check_pdf_dependencies():
     """Check PDF processing dependencies."""
     print_header("Checking PDF Processing Dependencies")
-    
+
     dependencies = [
         ('pymupdf', 'PyMuPDF'),
         ('PIL', 'Pillow'),
         ('pdfid', 'PDFiD'),
-        ('peepdf', 'peepdf-3'),
     ]
-    
+
     results = []
     for module_name, display_name in dependencies:
         results.append(check_module(module_name, display_name))
-    
-    # Verify stpyv8 is NOT installed (we use peepdf with --no-deps)
+
+    # Check peepdf-3 separately (needs binary verification)
+    print("\nChecking peepdf-3 (requires binary accessibility)...")
+    peepdf_ok = False
+
+    # Try via uv run (preferred - uses venv)
+    try:
+        result = subprocess.run(
+            ["uv", "run", "peepdf", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False
+        )
+        if result.returncode == 0 and "5.1.1" in result.stdout:
+            print_success("peepdf-3 v5.1.1 accessible via uv run (venv)")
+            peepdf_ok = True
+        else:
+            # Try checking if module exists
+            try:
+                import peepdf
+                print_warning("peepdf module found but binary not accessible via uv run")
+                print("  Try: uv pip install peepdf-3==5.1.1")
+            except ImportError:
+                pass
+    except Exception:
+        pass
+
+    # Fallback: check system installation
+    if not peepdf_ok:
+        try:
+            result = subprocess.run(
+                ["peepdf", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False
+            )
+            if result.returncode == 0:
+                print_warning("peepdf found in system PATH (not in venv)")
+                print("  For best reproducibility, install in venv:")
+                print("  uv pip install peepdf-3==5.1.1")
+                peepdf_ok = True
+        except Exception:
+            pass
+
+    if not peepdf_ok:
+        print_error("peepdf-3 NOT accessible")
+        print("  Install: uv pip install peepdf-3==5.1.1")
+        results.append(False)
+    else:
+        results.append(True)
+
+    # Verify stpyv8 is NOT installed (we don't need it)
     print("\nVerifying stpyv8 is NOT installed...")
     try:
         import stpyv8
         print_warning("stpyv8 is installed (not needed and can cause issues)")
-        print("  This shouldn't be installed. PDF Hunter uses peepdf with --no-deps")
+        print("  PDF Hunter doesn't require stpyv8")
         print("  Consider: uv pip uninstall stpyv8")
     except ImportError:
-        print_success("stpyv8 correctly NOT installed (peepdf with --no-deps)")
-    
+        print_success("stpyv8 correctly NOT installed")
+
     return all(results)
 
 
@@ -218,10 +269,51 @@ def check_vision_dependencies():
 def check_mcp_dependencies():
     """Check MCP (Model Context Protocol) dependencies."""
     print_header("Checking MCP Dependencies")
-    
+
+    results = []
+
+    # Check Python MCP adapter
     mcp_ok = check_module('langchain_mcp_adapters', 'LangChain MCP Adapters')
-    
-    return mcp_ok
+    results.append(mcp_ok)
+
+    # Check @playwright/mcp in root node_modules
+    print("\nChecking @playwright/mcp (Node.js package)...")
+    mcp_path = Path("node_modules/@playwright/mcp/package.json")
+    if mcp_path.exists():
+        try:
+            import json
+            with open(mcp_path) as f:
+                data = json.load(f)
+                version = data.get("version", "unknown")
+                print_success(f"@playwright/mcp v{version} installed")
+
+            # Verify binary works
+            try:
+                result = subprocess.run(
+                    ["npx", "mcp-server-playwright", "--help"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False
+                )
+                if result.returncode == 0:
+                    print_success("mcp-server-playwright binary working")
+                    results.append(True)
+                else:
+                    print_warning("mcp-server-playwright binary not executable")
+                    results.append(False)
+            except Exception:
+                print_warning("Could not verify mcp-server-playwright binary")
+                results.append(False)
+        except Exception as e:
+            print_error(f"Error checking @playwright/mcp: {e}")
+            results.append(False)
+    else:
+        print_error("@playwright/mcp NOT installed in node_modules")
+        print("  Run: npm install")
+        results.append(False)
+
+    return all(results)
 
 
 def check_api_dependencies():

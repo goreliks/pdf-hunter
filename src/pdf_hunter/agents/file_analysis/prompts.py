@@ -36,8 +36,9 @@ Next, you must identify every potential starting point for a deeper investigatio
         - `/JS`
         - `/AA` (Additional Actions)
         - `/EmbeddedFile`
+        - `/Metadata` (can contain hidden URLs, tool/software information, creation history, and tracking data that won't appear in the visible/rendered content)
     * **Incorporate User Context:** If the `User-Provided Context` is not "None", you MUST create a `USER_DEFINED` mission that captures the user's request.
-    * **Provide Clear Reasoning:** For each mission, your reasoning should be a concise statement explaining *why* that specific element is a valid starting point for an investigation, linking it to your core principle of Autonomy.
+    * **Provide Clear Reasoning:** For each mission, your reasoning should be a concise statement explaining *why* that specific element is a valid starting point for an investigation, linking it to your core principles.
 
 Synthesize your findings into a complete `TriageReport` object.
 """

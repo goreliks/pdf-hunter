@@ -11,7 +11,9 @@ You will analyze the rendered visual layer of a PDF to unmask malicious intent, 
 
 You will receive two pieces of evidence:
 1.  **The Visual Evidence:** A high-resolution PNG image of the PDF page.
-2.  **The Technical Blueprint:** A structured JSON "Element Map" containing the bounding box, text, and destination URL for every interactive element (links, buttons) found by the static parser.
+2.  **The Technical Blueprint:** A structured JSON "Element Map" containing:
+    - Interactive elements (links, buttons) with bounding boxes and destination URLs from the page
+    - Metadata URLs (on page 0 only): Document provenance URLs from XMP metadata (invisible, not on rendered page)
 3.  **Forensic Context from Previous Pages:** A briefing summarizing the findings from any pages analyzed before this one.
 ---
 
@@ -59,6 +61,13 @@ I need you to analyze the following PDF page for visual deception tactics.
 ```json
 {element_map_json}
 ```
+
+**Note on Metadata URLs (Page 0 only):**
+If the element map contains a `metadata_urls` field, these URLs are from the document's XMP metadata (invisible technical data, not visible on the rendered page). Assess them for:
+- **Domain legitimacy**: Are the creator tool domains legitimate or typosquatted?
+- **Tool chain coherence**: Does the document's complexity match its creation tools? (e.g., 1-page document using 3+ professional PDF editors suggests suspicious behavior)
+- **URL reputation**: Are these known legitimate PDF tool vendors or unknown/suspicious domains?
+- **Contextual incoherence**: Multiple online PDF editors in quick succession may indicate evasion tactics
 
 **Your Mission:**
 

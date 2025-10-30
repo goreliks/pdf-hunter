@@ -11,9 +11,9 @@ You will repeat this loop until the mission is complete.
 **1. OBSERVE: What is the current state?**
    *   On your very first turn, your observation is the initial briefing.
    *   On all subsequent turns, you MUST perform a full observation of the new page state:
-       1. Take a **tactical screenshot** (`full_page=False`) to get immediate visual context (base64).
+       1. Take a **tactical screenshot** (`fullPage=false`) to get immediate visual context (base64).
        2. **CRITICAL**: If you see any cookie consent dialog, privacy notice, or overlay in the screenshot, you MUST immediately use `browser_click` to dismiss it before proceeding. Look for buttons containing "Accept", "Agree", "OK", "Allow", or similar text.
-       3. Take a **forensic screenshot** (`full_page=True`) to save the complete evidence to a file. This is critical and non-negotiable. You will only get a file path back.
+       3. Take a **forensic screenshot** (`fullPage=true`) to save the complete evidence to a file. This is critical and non-negotiable. You will only get a file path back.
        4. Use `browser_evaluate` to get the page's text (use arrow function: `() => document.body.innerText`).
        5. Use `browser_network_requests` to check for any new activity.
 
@@ -39,11 +39,36 @@ You will repeat this loop until the mission is complete.
 
 This guidance covers common scenarios to teach you how to think, but it is **not an exhaustive list**. You have a full suite of browser tools (clicking, scrolling, dragging, etc.); use your judgment to select the best one for any situation.
 
-*   **On Initial Navigation (Your First Action):** Your first action is always `browser_navigate` to the URL provided in the briefing. This kicks off the first loop. After this, you MUST perform a full initial observation (forensic screenshot, text, network requests, WHOIS).
+*   **On Initial Navigation (Your First Action):** Your first action is always `browser_navigate` to the URL provided in the briefing. **CRITICAL**: Check the navigation result carefully. If the page failed to load (timeout, connection refused, DNS error, or similar), retry `browser_navigate` ONE more time to rule out transient network issues. If the second attempt also fails, do NOT attempt to take screenshots or evaluate page content - the page is inaccessible. Instead, immediately use `domain_whois` to investigate the domain registration, document the navigation failure in your findings, and conclude the investigation. Only if navigation succeeds should you perform a full initial observation (forensic screenshot, text, network requests).
 *   **Handling Cookie Consent Dialogs [CRITICAL]:** Cookie consent dialogs are EXTREMELY common on modern websites and WILL interfere with your investigation if not handled. When you see ANY dialog, popup, overlay, or banner asking about cookies, tracking, privacy, personalization, or containing buttons like "Accept", "Agree", "OK", "Allow", "Accept All", "I Agree", or similar - you MUST immediately click the acceptance button to dismiss it. This is not optional. Examples of text that indicates a cookie dialog: "We use cookies", "personalize your experience", "analyze our services", "tailored advertising", "consent management", "browsing habits", "withdraw your consent". Always click the primary acceptance button (usually "Accept", "Agree", or "Accept All") - never "Disagree" or "Configure" as these will block the investigation. Document that you dismissed a cookie consent dialog.
 *   **Verifying Domain Identity:** After you determine the final domain, if it seems suspicious or is trying to impersonate a known brand, you **MUST** use the `domain_whois` tool on its root domain. A recent registration date is a major red flag.
 *   **Handling Multi-Step Chains:** If the page contains a single, prominent link that seems to be the next step (e.g., a "Continue" button), your mission is to **follow it** using `browser_click` or `browser_navigate`.
 *   **Handling Phishing Forms:** If you encounter a login form, use `browser_fill_form` with generic, non-real credentials and click the login button to see where it leads.
+
+---
+### **Investigation Limits**
+
+To prevent excessive investigations and ensure efficient resource usage, you must operate within these hard limits:
+
+**Browser Action Budget:**
+*   **Standard pages** (simple content, direct destination): 6-8 browser actions maximum
+*   **Multi-step flows** (redirects, login sequences, multi-page chains): 10-12 browser actions maximum
+*   **Absolute hard limit**: 15 browser actions - you MUST conclude after this regardless of findings
+
+**Action Counting Rules:**
+*   Actions that COUNT: `browser_navigate`, `browser_click`, `browser_fill_form` (state-changing interactions)
+*   Actions that DO NOT count: `browser_take_screenshot`, `browser_evaluate`, `browser_network_requests`, `domain_whois`, `think_tool` (observation and analysis tools)
+
+**Mandatory Conclusion Triggers** - You MUST stop investigating when ANY of these conditions are met:
+1.  You have definitively identified the threat type (phishing confirmed OR legitimate site verified OR benign content confirmed)
+2.  You have captured sufficient evidence to support your conclusion (screenshots, whois data, final destination URL, key findings)
+3.  Your last 2 browser actions revealed NO new security-relevant information (investigation has stalled)
+4.  You have reached a stable endpoint (legitimate destination, error page, download prompt, or dead end)
+5.  You have completed a full OODA loop with clear, actionable findings
+
+**If You Hit 15 Browser Actions:** Immediately conclude the investigation with all available evidence. Document your findings clearly and add this note: "Investigation depth limit reached - manual review may be warranted if threat classification remains unclear."
+
+**Efficiency Reminder:** Most investigations should complete in 6-8 browser actions. Thoroughness is important, but efficiency matters. Focus on high-signal actions that reveal the true nature of the URL.
 
 ---
 ### **Mission Completion**
@@ -86,4 +111,33 @@ This is the complete, time-ordered log of every thought, action, and tool output
 
 **Your Mission**:
 Read and synthesize all of the above evidence into the final `AnalystFindings` JSON object. Pay special attention to crafting a detailed, narrative-style `summary`. Your response MUST be only the JSON object.
+"""
+
+
+URL_INVESTIGATION_LOG_SUMMARIZATION_PROMPT = """You are compressing a verbose web investigation log for a security analyst.
+
+**Mission:** {mission_reason}
+
+**Task:** Convert this verbose investigation log into a concise narrative that preserves:
+1. What the investigator did (navigations, clicks, form fills, tools used)
+2. What they found on each page (URLs, titles, key content)
+3. Any security-relevant observations (console errors, suspicious elements, redirects, domain changes)
+4. The investigator's reasoning and key conclusions
+
+**What to REMOVE:**
+- Verbose accessibility trees (thousands of lines of page structure)
+- Repetitive page hierarchy descriptions
+- Detailed element references and nested structures
+- Boilerplate console messages
+
+**What to PRESERVE:**
+- Chronological sequence of actions
+- Key findings and security signals
+- Investigator's reasoning at each step
+- Final conclusions and evidence
+
+**Investigation Log:**
+{investigation_log}
+
+**Output:** A clear, chronological narrative (2-4 paragraphs) of the investigation. Focus on the investigator's journey and key findings.
 """

@@ -21,11 +21,12 @@ class ExtractedImage(BaseModel):
 class ExtractedURL(BaseModel):
     """Information about an extracted URL."""
     url: str = Field(..., description="The extracted URL")
-    page_number: int = Field(..., description="Page number where the URL was found")
-    url_type: str = Field(..., description="Type of URL (e.g., 'annotation', 'text')")
+    page_number: Optional[int] = Field(None, description="Page number where the URL was found (None for metadata URLs)")
+    url_type: str = Field(..., description="Type of URL (e.g., 'annotation', 'text', 'metadata')")
     coordinates: Optional[Dict[str, float]] = Field(None, description="Coordinates of the URL if from an annotation")
     is_external: Optional[bool] = Field(None, description="Whether the URL is external")
     xref: Optional[int] = Field(None, description="The PDF cross-reference number of the link annotation object")
+    source: Optional[str] = Field(None, description="Source of the URL (e.g., 'xmp_metadata', 'metadata_field_Creator') for metadata URLs")
 
 
 class PDFExtractionState(TypedDict):
