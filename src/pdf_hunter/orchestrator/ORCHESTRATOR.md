@@ -201,12 +201,13 @@ errors: Annotated[List[list], operator.add]
 - `pdf_hash`: SHA1 and MD5 hashes
 - `page_count`: Total pages in PDF
 - `extracted_images`: List of `ExtractedImage` with pHash-based naming
-- `extracted_urls`: URLs from annotations and text with coordinates
+- `extracted_urls`: URLs from annotations, text content, and XMP metadata with coordinates and source attribution
 
 **Special Behavior**:
 - Creates session directory structure: `{output_directory}/{session_id}/`
 - Generates session ID if not provided (enables idempotent reruns with same ID)
 - Detects QR codes and extracts embedded URLs
+- Extracts XMP metadata URLs for document provenance analysis
 
 ### Agent 2: File Analysis (Parallel with Image Analysis)
 
@@ -218,7 +219,7 @@ errors: Annotated[List[list], operator.add]
 - `structural_summary` (from PDF Extraction metadata)
 
 **Outputs**:
-- `structural_summary`: pdfid, pdf-parser, peepdf outputs
+- `structural_summary`: pdfid, pdf-parser, peepdf, and XMP metadata outputs
 - `triage_classification_decision`: Initial threat classification
 - `triage_classification_reasoning`: LLM explanation
 - `master_evidence_graph`: Unified evidence graph from all missions
@@ -235,16 +236,17 @@ errors: Annotated[List[list], operator.add]
 
 **Inputs**:
 - `extracted_images`: Page images from PDF Extraction
-- `extracted_urls`: URLs to contextualize and prioritize
+- `extracted_urls`: URLs to contextualize and prioritize (including XMP metadata URLs)
 
 **Outputs**:
-- `visual_analysis_report`: 
+- `visual_analysis_report`:
   - Overall verdict/confidence
   - Per-page analysis
   - Prioritized URLs (1=highest, 5=lowest priority)
   - Deception tactics detected
+  - Document provenance assessment (for page 0 XMP metadata URLs)
 
-**Critical Function**: URL prioritization feeds into URL Investigation filtering
+**Critical Function**: URL prioritization feeds into URL Investigation filtering, including metadata URLs for tool chain coherence analysis
 
 ### Agent 4: URL Investigation (Sequential after Image Analysis)
 

@@ -125,14 +125,15 @@ END
 
 ### 3. find_embedded_urls
 
-**Purpose**: Extract URLs from both PDF annotations and raw text content.
+**Purpose**: Extract URLs from PDF annotations, raw text content, and XMP metadata.
 
 **Extraction Strategy**:
 
-1. **Dual Source Extraction**:
+1. **Triple Source Extraction**:
    - **Annotations**: Extracts clickable links with coordinates from PDF link annotations
    - **Text Content**: Uses regex pattern matching to find URLs in text
-   - Captures both explicit links and text-based URLs
+   - **XMP Metadata**: Extracts URLs from document provenance metadata (creator tools, XML namespaces)
+   - Captures explicit links, text-based URLs, and metadata provenance information
 
 2. **URL Processing**:
    - Validates and normalizes URLs with `_clean_and_validate_url()`
@@ -141,18 +142,20 @@ END
    - Filters out false positives (e.g., "ACME.PROD.V1")
 
 3. **Deduplication**:
-   - Sophisticated strategy using unique keys: `(url, url_type, page_number, coordinates)`
-   - Preserves distinct findings (same URL as both annotation and text)
+   - Sophisticated strategy using unique keys for content URLs: `(url, url_type, page_number, coordinates)`
+   - Separate deduplication for metadata URLs by URL string only
+   - Preserves distinct findings (same URL as annotation, text, and metadata)
    - Prevents duplicate processing
 
 4. **Data Structure**:
    - Creates `ExtractedURL` objects with:
      - `url`: The extracted URL string
-     - `page_number`: 0-based page where found
-     - `url_type`: "annotation" or "text"
+     - `page_number`: 0-based page where found (None for metadata URLs)
+     - `url_type`: "annotation", "text", or "metadata"
      - `coordinates`: Optional dict with link position (for annotations)
      - `xref`: PDF cross-reference number (for annotations)
      - `is_external`: Boolean flag for external links
+     - `source`: Optional source identifier for metadata URLs (e.g., "xmp_metadata", "metadata_field_Creator")
 
 **Regex Pattern**:
 ```python
@@ -165,13 +168,22 @@ r'(?:/?|[/?]\S+)'
 ```
 
 **Key Technologies**:
-- **PyMuPDF**: Link annotation extraction and text content access
-- **Python regex**: URL pattern matching
+- **PyMuPDF**: Link annotation extraction, text content access, and XMP metadata extraction
+- **Python regex**: URL pattern matching in content and XML metadata
 - **Custom validation**: URL cleaning and normalization
+
+**XMP Metadata Extraction**:
+- Extracts URLs from XML-based XMP metadata stream (`doc.get_xml_metadata()`)
+- Extracts URLs from standard PDF metadata dictionary (Creator, Producer, etc.)
+- Provides document provenance analysis capabilities
+- Enables detection of suspicious tool chains and manipulation patterns
 
 **Implementation**:
 - Node: `src/pdf_hunter/agents/pdf_extraction/nodes.py::find_embedded_urls()`
 - Utilities: `src/pdf_hunter/shared/utils/url_extraction.py`
+  - `extract_all_urls_from_pdf()`: Comprehensive extraction function
+  - `extract_urls_from_pdf()`: Content-based URL extraction
+  - `extract_urls_from_xmp_metadata()`: Metadata-based URL extraction
 
 ### 4. scan_qr_codes
 
@@ -260,11 +272,12 @@ class ExtractedImage(BaseModel):
 ```python
 class ExtractedURL(BaseModel):
     url: str                           # The extracted URL
-    page_number: int                   # 0-based page index
-    url_type: str                      # "annotation" or "text"
+    page_number: Optional[int]         # 0-based page index (None for metadata URLs)
+    url_type: str                      # "annotation", "text", or "metadata"
     coordinates: Optional[Dict]        # Position data for annotations
     is_external: Optional[bool]        # External link flag
     xref: Optional[int]                # PDF cross-reference number
+    source: Optional[str]              # Source of metadata URLs (e.g., "xmp_metadata", "metadata_field_Creator")
 ```
 
 ## Core Dependencies
@@ -324,11 +337,22 @@ class ExtractedURL(BaseModel):
 
 ### URL Extraction (`url_extraction.py`)
 
+**extract_all_urls_from_pdf(pdf_path, specific_pages, include_metadata)**:
+- Comprehensive URL extraction function (primary entry point)
+- Returns dict with `content_urls` and `metadata_urls`
+- Combines all extraction methods in unified workflow
+
 **extract_urls_from_pdf(pdf_path, specific_pages)**:
-- Main URL extraction function
+- Content-based URL extraction function
 - Combines annotation and text-based URL extraction
-- Returns list of URL dicts with deduplication
-- Uses sophisticated regex pattern for text URLs
+- Returns list of URL dicts with sophisticated deduplication
+- Uses robust regex pattern for text URLs
+
+**extract_urls_from_xmp_metadata(pdf_path)**:
+- Metadata-based URL extraction function
+- Extracts URLs from XMP metadata XML stream
+- Extracts URLs from standard PDF metadata dictionary
+- Returns list of URL dicts with source attribution
 
 **_clean_and_validate_url(url)**:
 - Internal validation and normalization
@@ -576,7 +600,8 @@ uv run python -m pdf_hunter.agents.pdf_extraction.graph --file test.pdf --pages 
 
 The PDF Extraction agent provides a **safe, comprehensive, and efficient** foundation for PDF analysis:
 
-✅ **Multi-Source Extraction**: Images, URLs (annotations + text), QR codes
+✅ **Multi-Source Extraction**: Images, URLs (annotations + text + XMP metadata), QR codes
+✅ **Document Provenance Analysis**: XMP metadata extraction enables tool chain and manipulation detection
 ✅ **Intelligent Naming**: pHash-based filenames enable deduplication
 ✅ **Parallel Processing**: Concurrent extraction for performance
 ✅ **Session Management**: Organized output with unique identifiers
@@ -584,4 +609,4 @@ The PDF Extraction agent provides a **safe, comprehensive, and efficient** found
 ✅ **State Persistence**: Complete state serialization for debugging
 ✅ **Structured Logging**: Detailed event tracking across multiple destinations
 
-The agent successfully balances **safety** (no content execution), **completeness** (multiple extraction methods), and **performance** (parallel processing) to provide downstream agents with rich, structured data for threat analysis.
+The agent successfully balances **safety** (no content execution), **completeness** (multiple extraction methods including metadata provenance), and **performance** (parallel processing) to provide downstream agents with rich, structured data for threat analysis.

@@ -81,15 +81,17 @@ src/pdf_hunter/
 │   ├── url_investigation/  # Browser automation, link analysis
 │   └── report_generator/   # Final report synthesis
 ├── orchestrator/           # Master coordination graph
+├── api/                    # FastAPI server, SSE streaming, session management
 ├── shared/
 │   ├── analyzers/          # External PDF tools (pdfid, peepdf wrappers)
-│   ├── schemas/            # Shared data models
+│   ├── tools/              # Shared tools (think_tool for strategic reflection)
 │   └── utils/              # file_operations, hashing, image_extraction,
 │                           #  url_extraction, qr_extraction, mcp_client, serializer
 └── config/                 # models_config, execution_config
 
 tests/
-├── agents/                 # Agent-specific tests
+├── agents/                 # Agent-specific tests (error handling, XMP integration)
+├── api/                    # API server and SSE streaming tests
 └── assets/
     ├── pdfs/               # Test PDF files
     └── images/             # Test images (QR codes)

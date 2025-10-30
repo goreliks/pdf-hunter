@@ -598,6 +598,16 @@ The URL Investigation agent's prompts represent a **key implementation innovatio
 - Suspicious domains: WHOIS verification required
 - Phishing forms: Fill with fake credentials to trace endpoint
 
+**Hard Limits** (Resource Management):
+- **Browser Action Budget**:
+  - Standard pages (simple content): 6-8 actions maximum
+  - Multi-step flows (redirects, login sequences): 10-12 actions maximum
+  - **Absolute hard limit**: 15 browser actions
+- **Action Counting Rules**:
+  - Actions that COUNT: `browser_navigate`, `browser_click`, `browser_fill_form` (state-changing interactions)
+  - Actions that DO NOT count: `browser_take_screenshot`, `browser_evaluate`, `browser_network_requests`, `domain_whois`, `think_tool` (observation/analysis tools)
+- **Rationale**: Prevents excessive investigation loops while allowing thorough analysis of complex attack chains
+
 ---
 
 #### Analyst System Prompt

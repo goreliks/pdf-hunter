@@ -120,6 +120,7 @@ END
    
    a. **Context Preparation**:
       - Creates "Element Map" containing all interactive elements (URLs) for current page
+      - **Page 0 Only**: Adds `metadata_urls` field with XMP metadata URLs for document provenance analysis
       - Includes previous page's analysis as forensic context (cross-page coherence checking)
       - First page receives: "This is the first page. There is no prior context."
    
@@ -333,9 +334,16 @@ This framework is the **key innovation** preventing false positives:
    - Example: "Click here to verify" → leads to phishing site
    - OS/app mimicry: Fake system dialogs as hyperlinked images
 
-4. **Structural Deception**: 
+4. **Structural Deception**:
    - Question: Does structure contradict appearance?
    - Example: Appears scanned (to look authentic) but has perfect vector text
+
+5. **Document Provenance Incoherence** (Page 0 Only):
+   - Question: Does the document's complexity match its creation tool chain?
+   - Example: Simple 1-page document using 3+ professional PDF editors suggests obfuscation
+   - Question: Are the creator tool domains legitimate or typosquatted?
+   - Question: Do multiple online editors in quick succession suggest evasion tactics?
+   - Enables "Incoherence is a Symptom" principle applied to metadata
 
 **Part B: Searching for Coherence (Signs of Legitimacy)**
 
@@ -361,7 +369,8 @@ This part is **equally critical** - prevents over-flagging legitimate documents:
 2. **Technical Blueprint**: Structured JSON "Element Map" containing:
    - Interactive element coordinates
    - Link text and destination URLs
-   - Element types (annotation, text, qr_code)
+   - Element types (annotation, text, qr_code, metadata)
+   - **Page 0 Only**: `metadata_urls` field with XMP document provenance URLs
 3. **Forensic Context**: Briefing from previous pages with high-significance findings
 
 **Output Requirements** (Enforced via Prompt + Schema Binding):

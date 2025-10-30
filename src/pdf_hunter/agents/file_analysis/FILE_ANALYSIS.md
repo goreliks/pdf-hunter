@@ -140,7 +140,8 @@ END (returns MissionReport)
    - **pdfid**: Keyword frequency analysis for suspicious elements (/OpenAction, /JavaScript, /Launch, /AA, /EmbeddedFile, /XFA, etc.)
    - **pdf-parser**: Full statistical analysis with `-a -O` flags for object type counts and unreferenced objects
    - **peepdf**: Enhanced PDF analysis with JavaScript analysis and vulnerability detection
-   - All outputs stored in `structural_summary` dictionary
+   - **get_xmp_metadata**: Document provenance analysis extracting creator tools, producer, and timestamps
+   - All outputs stored in `structural_summary` dictionary, including XMP metadata when present
 
 2. **LLM-Based Triage Classification**:
    - Uses `file_analysis_triage_llm` with structured output (`TriageReport`)
@@ -421,6 +422,13 @@ All tools are wrappers around `pdf-parser.py` with intelligent defaults and safe
    - Uses `rtfobj` from oletools to analyze RTF files
    - Identifies embedded OLE objects and exploit indicators
    - **Use**: Analyzing extracted RTF payloads (CVE-2017-11882, etc.)
+
+8. **get_xmp_metadata(pdf_file_path)**
+   - Extracts XMP metadata for document provenance analysis
+   - Uses InjectedToolArg pattern (file path hidden from LLM)
+   - Returns creator tool, producer, timestamps, and toolkit information
+   - **Use**: Detecting suspicious tool chains, rapid modifications, obfuscation patterns
+   - Enables "Incoherence is a Symptom" principle application to document provenance
 
 **Tool Manifest**: `pdf_parser_tools_manifest` provides tool descriptions for LLM prompt
 

@@ -9,8 +9,20 @@ PDF Hunter is a sophisticated threat hunting framework that uses multiple AI age
 The system operates under three core principles:
 
 1. **Autonomy is Disease**: Any automatic action capability in a PDF (e.g., /OpenAction, /JavaScript, /Launch, /AA, /EmbeddedFile) is high-signal and prioritized for investigation
-2. **Deception is Confession**: Visual and structural inconsistencies are treated as confessions of malicious intent  
+2. **Deception is Confession**: Visual and structural inconsistencies are treated as confessions of malicious intent
 3. **Incoherence is a Symptom**: Cross-page and cross-modal incoherence elevates suspicion
+
+### Research Foundations
+
+This architecture synthesizes insights from multiple security research domains:
+
+- **Deception Theory & Social Engineering**: Visual manipulation patterns, psychological triggers, dark patterns in phishing campaigns
+- **Cognitive Bias & Decision-Making**: How attackers exploit human cognitive vulnerabilities through urgency, authority, and fear
+- **PDF Malware Analysis Research**: Attack vectors, exploitation techniques, obfuscation patterns documented in CVE databases and threat intelligence
+- **Incident Response Patterns**: Real-world attack chains observed in phishing campaigns, malware delivery, and targeted attacks
+- **Cross-Modal Forensics**: Detecting inconsistencies between visual presentation, document structure, and embedded metadata
+
+The agent behaviors, prompt engineering, and threat detection heuristics were designed to address the most prevalent attack patterns while maintaining low false-positive rates through balanced "deception vs. coherence" analysis frameworks.
 
 ## 🏗️ Architecture Overview
 
@@ -20,11 +32,11 @@ PDF Hunter uses a sophisticated 5-agent pipeline orchestrated via LangGraph:
 
 ### Agent Capabilities
 
-- **🔍 PDF Extraction**: Extract metadata, images, URLs, QR codes safely
-- **🧬 File Analysis**: Multi-tool PDF scanning with mission-based investigations and strategic reflection
-- **👁️ Image Analysis**: Visual deception detection and URL prioritization
-- **🌐 URL Investigation**: Automated web reconnaissance with strategic reflection
-- **📊 Report Generator**: Comprehensive report generation and final verdict
+- **🔍 PDF Extraction**: Extract metadata, images, URLs (annotations + text + XMP metadata), QR codes safely
+- **🧬 File Analysis**: Multi-tool PDF scanning (pdfid, pdf-parser, peepdf, XMP provenance) with mission-based investigations and strategic reflection
+- **👁️ Image Analysis**: Visual deception detection, document provenance assessment, and URL prioritization
+- **🌐 URL Investigation**: Automated web reconnaissance with strategic reflection and hard-limit resource management
+- **📊 Report Generator**: Comprehensive report generation and final verdict determination
 
 ### Key Features
 
@@ -361,15 +373,16 @@ PDF Hunter organizes test files in a structured directory hierarchy:
 
 ```
 tests/
-├── assets/                  # Organized test assets
-│   ├── pdfs/                # PDF test files
-│   │   ├── hello_qr.pdf     # QR code test samples
-│   │   ├── hello_qr_and_link.pdf
-│   │   ├── test_mal_one.pdf # Malicious PDF sample
-│   │   └── *.pdf            # Additional test PDFs
-│   └── images/              # Test images
-│       └── qrmonkey.jpg     # QR code test image
-└── agents/                  # Agent-specific tests
+├── agents/                  # Agent-specific tests (error handling, XMP integration)
+├── api/                     # API server and SSE streaming tests
+└── assets/                  # Organized test assets
+    ├── pdfs/                # PDF test files
+    │   ├── hello_qr.pdf     # QR code test samples
+    │   ├── hello_qr_and_link.pdf
+    │   ├── test_mal_one.pdf # Malicious PDF sample
+    │   └── *.pdf            # Additional test PDFs
+    └── images/              # Test images
+        └── qrmonkey.jpg     # QR code test image
 ```
 
 ### Output Organization
@@ -635,6 +648,7 @@ PDF Hunter is a **defensive security tool** designed for safe PDF analysis:
 - **🌐 Web Reconnaissance**: Automated URL investigation with MCP Playwright integration
 - **📋 Executive Reports**: Human-readable analysis summaries
 - **🔍 QR Code Detection**: Automated QR code extraction and analysis
+- **🔬 Document Provenance Analysis**: XMP metadata extraction for tool chain coherence and manipulation detection
 - **💾 State Persistence**: Complete analysis state saving for debugging
 - **⚡ LangGraph Studio**: Full compatibility with non-blocking async architecture
 
