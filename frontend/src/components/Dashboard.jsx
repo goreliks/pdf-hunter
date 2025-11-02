@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSSEStream } from '../hooks/useSSEStream';
 import { groupLogsByAgent } from '../utils/logUtils';
 import { loadMockSession, simulateStreaming } from '../utils/mockDataLoader';
@@ -9,13 +9,16 @@ export default function Dashboard({ sessionId, filename, onSessionEnd, devMode =
   const { logs: sseLogs, isConnected, error, connectionState } = useSSEStream(sessionId, !devMode);
   const [mockLogs, setMockLogs] = useState([]);
   const [isLoadingMock, setIsLoadingMock] = useState(false);
-  
+  const hasLoadedMockRef = useRef(false);
+
   // Use mock logs in dev mode, SSE logs otherwise
   const logs = devMode ? mockLogs : sseLogs;
-  
+
   // Load and stream mock data in dev mode
   useEffect(() => {
-    if (devMode) {
+    // Prevent double-loading in React Strict Mode
+    if (devMode && !hasLoadedMockRef.current) {
+      hasLoadedMockRef.current = true;
       setIsLoadingMock(true);
       loadMockSession().then(loadedLogs => {
         if (loadedLogs.length > 0) {
@@ -27,6 +30,13 @@ export default function Dashboard({ sessionId, filename, onSessionEnd, devMode =
         setIsLoadingMock(false);
       });
     }
+
+    // Reset flag when devMode changes
+    return () => {
+      if (!devMode) {
+        hasLoadedMockRef.current = false;
+      }
+    };
   }, [devMode]);
   
   // View mode state with localStorage persistence
