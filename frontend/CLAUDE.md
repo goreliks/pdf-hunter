@@ -10,39 +10,47 @@ This is a **React 19.1.1 + Vite 7.1.7 + Tailwind CSS 3.4.17** single-page applic
 
 **Purpose**: Monitor 5 specialized AI agents analyzing PDFs for threats in real-time.
 
-## Project State (October 2025)
+## Project State (November 2025)
 
 ### What's Implemented ✅
 
 1. **Three-Screen Flow**:
-   - LandingPage: PDF upload + max pages slider
+   - LandingPage: PDF upload + max pages slider + Dev Mode toggle
    - TransitionAnimation: Loading progress (3 phases)
    - Dashboard: Real-time log monitoring
 
-2. **SSE Streaming**:
+2. **Agent Detail Modal System** 🆕:
+   - Sidebar: Right-side navigation with 7 tabs
+   - AgentDetailModal: Full-screen modal with agent-specific data
+   - 7 tabs: PDF Extraction, File Analysis, Image Analysis, URL Investigation, Report Generator, Final State, Raw Logs
+   - Features: JSON viewer (@uiw/react-json-view), Markdown renderer (react-markdown), image lightbox, download buttons
+   - Tab activation: Only after respective agent completes
+   - File loading: Agent-specific state files from `/output/{sessionId}/`
+
+3. **SSE Streaming**:
    - Custom `useSSEStream` hook
    - Auto-reconnection (5 attempts, 2s delay)
    - Connection state management
    - Log accumulation and routing
 
-3. **View Mode Toggle**:
+4. **View Mode Toggle**:
    - Three modes: Both, Messages, Structured
    - localStorage persistence (`pdf-hunter-view-mode`)
    - Scroll position preservation during mode changes
 
-4. **Log Display**:
+5. **Log Display**:
    - Two formats: Message headers + Structured field rows
    - Auto-scroll with user override detection
    - Conditional rendering based on view mode
    - Empty row prevention
 
-5. **Field System**:
+6. **Field System**:
    - Comprehensive schema mapping (579 lines)
    - Display name mappings (65+ fields)
    - Smart field extraction and formatting
    - Priority-based sorting
 
-6. **Styling**:
+7. **Styling**:
    - Purple/pink gradient theme throughout
    - Glass-morphism effects on containers
    - Animated gradient background
@@ -51,11 +59,17 @@ This is a **React 19.1.1 + Vite 7.1.7 + Tailwind CSS 3.4.17** single-page applic
    - Card glow effects
    - Status badges with gradients
 
-7. **Optimizations**:
+8. **Optimizations**:
    - Text wrapping (`break-all`) on long filenames/messages
    - Terminal-optimized font size (12px)
    - Compact spacing (33% reduction)
    - Efficient rendering (early returns)
+
+9. **Dev Mode** 🆕:
+   - Toggle on landing page
+   - Mock data from `dev/mock-session.jsonl` (3MB real session)
+   - Simulated real-time streaming with 100ms delays
+   - No backend required for frontend development
 
 ### What's NOT Implemented ❌
 
@@ -437,6 +451,214 @@ useEffect(() => {
   }
 }, [viewMode]);
 ```
+
+## Agent Detail Modal System
+
+**New in November 2025**: Full-screen modal system for viewing complete agent data, state files, and downloadable reports.
+
+### Components
+
+**Sidebar.jsx** - Right-side navigation panel with 7 tabs
+- Fixed position button (‹›) on right edge
+- Slides in from right (400px width)
+- Glass-morphism background
+- 7 section tabs (only active after agent completes)
+- Passes `agentName` to modal on click
+
+**AgentDetailModal.jsx** - Full-screen modal overlay
+- Props: `agentName`, `sessionId`, `onClose`
+- Darkened overlay (bg-black/80)
+- Centered modal card (90vw/90vh)
+- Fetches agent-specific data on mount
+- Supports ESC key to close
+- Image lightbox for galleries
+- Download buttons for JSON/JSONL
+
+### Tab System
+
+7 tabs map to agent names:
+```javascript
+const agentNames = {
+  'pdf-extraction': 'PdfExtraction',
+  'file-analysis': 'FileAnalysis',
+  'image-analysis': 'ImageAnalysis',
+  'url-investigation': 'URLInvestigation',
+  'report-generator': 'ReportGenerator',
+  'analysis-report': 'AnalysisReport',  // Final State
+  'raw-logs': 'RawLogs'
+};
+```
+
+### Data Loading Pattern
+
+Each agent has its own `fetch{AgentName}Data()` function:
+
+```javascript
+const fetchPdfExtractionData = async (sessionId) => {
+  // 1. Load agent-specific state file
+  const statePath = `/output/${sessionId}/pdf_extraction/pdf_extraction_final_state_session_${sessionId}.json`;
+  const stateData = await fetch(statePath).then(r => r.json());
+
+  // 2. Extract relevant data
+  const extractedImages = stateData.extracted_images || [];
+  const imagePaths = extractedImages
+    .sort((a, b) => (a.page_number || 0) - (b.page_number || 0))
+    .map(img => `/output/${sessionId}/pdf_extraction/${img.saved_path.split('/').pop()}`);
+
+  // 3. Set to state
+  setAgentData({
+    loading: false,
+    error: null,
+    data: { images: imagePaths, state: stateData }
+  });
+};
+```
+
+### File Paths by Agent
+
+| Agent | State File Path | Notes |
+|-------|----------------|-------|
+| PDF Extraction | `/output/{sessionId}/pdf_extraction/pdf_extraction_final_state_session_{sessionId}.json` | Contains `extracted_images` array |
+| File Analysis | `/output/{sessionId}/file_analysis/file_analysis_final_state_session_{sessionId}.json` | Contains `static_analysis_final_report` |
+| Image Analysis | `/output/{sessionId}/image_analysis/image_analysis_state_session_{sessionId}.json` | Contains verdicts, summaries |
+| URL Investigation | `/output/{sessionId}/url_investigation/url_investigation_state_session_{sessionId}.json` | Contains `link_analysis_final_reports` |
+| Report Generator | `/output/{sessionId}/report_generator/final_state_session_{sessionId}.json` + `.md` file | JSON + Markdown |
+| Final State | `/output/{sessionId}/analysis_report_session_{sessionId}.json` | Complete system state (all agents) |
+| Raw Logs | `/output/{sessionId}/logs/session.jsonl` | All log entries |
+
+### Key Features
+
+**1. Image Lightbox**
+```javascript
+const [lightboxImage, setLightboxImage] = useState(null);
+
+// Click image to open
+<img onClick={() => setLightboxImage(imagePath)} />
+
+// Lightbox overlay
+{lightboxImage && (
+  <div onClick={() => setLightboxImage(null)}>
+    <img src={lightboxImage} className="max-w-[90vw] max-h-[90vh]" />
+  </div>
+)}
+```
+
+**2. JSON Viewer**
+```javascript
+import JsonView from '@uiw/react-json-view';
+
+<JsonView
+  value={agentData.data.state}
+  collapsed={false}
+  displayDataTypes={true}
+  enableClipboard={true}
+  style={{
+    '--w-rjv-background-color': 'transparent',
+    '--w-rjv-color': '#e9d5ff',
+    // ... purple/pink theme
+  }}
+/>
+```
+
+**3. Markdown Renderer**
+```javascript
+import ReactMarkdown from 'react-markdown';
+
+<ReactMarkdown className="prose prose-invert prose-purple max-w-none">
+  {reportMarkdown}
+</ReactMarkdown>
+```
+
+**4. Download Buttons**
+```javascript
+const handleDownload = (data, filename) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+```
+
+### Tab Activation Logic
+
+Tabs only become clickable after their agent completes:
+
+```javascript
+// In Sidebar.jsx
+const sections = [
+  {
+    id: 'pdf-extraction',
+    name: 'PDF Extraction',
+    icon: '📄',
+    active: agentStatuses.PdfExtraction === 'complete'  // ← Checks status
+  },
+  // ... 4 more agent tabs
+  {
+    id: 'analysis-report',
+    name: 'Final State',
+    icon: '📋',
+    active: agentStatuses.ReportGenerator === 'complete'  // ← After all agents
+  },
+  {
+    id: 'raw-logs',
+    name: 'Raw Logs',
+    icon: '📝',
+    active: agentStatuses.ReportGenerator === 'complete'  // ← After all agents
+  }
+];
+```
+
+### Error Handling
+
+All fetch functions handle errors gracefully:
+
+```javascript
+try {
+  const response = await fetch(filePath);
+  if (!response.ok) {
+    throw new Error(`File Analysis hasn't completed yet. (Status: ${response.status})`);
+  }
+  const data = await response.json();
+  setAgentData({ loading: false, error: null, data: processedData });
+} catch (error) {
+  setAgentData({
+    loading: false,
+    error: `Failed to load data: ${error.message}`,
+    data: null
+  });
+}
+```
+
+### Dependencies
+
+**@uiw/react-json-view** (v2.0.0-alpha.27)
+- Displays JSON with syntax highlighting
+- Collapsible tree view
+- Copy to clipboard
+- Themeable (purple/pink customization)
+
+**react-markdown** (v9.0.2)
+- Renders markdown to React components
+- Supports GitHub Flavored Markdown
+- Used for Report Generator's `.md` files
+
+### Backend Changes Required
+
+For File Analysis tab to work, the backend must save the `static_analysis_final_report`:
+
+```python
+# In src/pdf_hunter/agents/file_analysis/nodes.py (line 1000-1007)
+state_with_report = {**state, "static_analysis_final_report": static_analysis_final_report.model_dump()}
+serializable_state = serialize_state_safely(state_with_report)
+
+with open(json_path, 'w', encoding='utf-8') as f:
+    json.dump(serializable_state, f, indent=2, ensure_ascii=False)
+```
+
+This ensures the report is available immediately when File Analysis completes, not just at the end of all agents.
 
 ## Agent Specifications
 

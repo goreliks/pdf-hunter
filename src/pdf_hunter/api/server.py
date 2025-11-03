@@ -218,11 +218,34 @@ async def run_pdf_analysis(session_id: str, pdf_path: str, max_pages: int):
         
         # Run the orchestrator (no streaming needed since logging is already setup)
         final_result = await orchestrator_graph.ainvoke(initial_state)
-        
+
+        # Save final state to JSON file (same as CLI)
+        if final_result:
+            from pdf_hunter.shared.utils.serializer import serialize_state_safely
+            import json
+
+            filename = f"analysis_report_session_{session_id}.json"
+            json_path = Path(output_directory) / filename
+
+            # Convert final state to JSON-serializable format
+            serializable_state = serialize_state_safely(final_result)
+
+            # Save to JSON file
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(serializable_state, f, indent=2, ensure_ascii=False)
+
+            logger.info(
+                f"📄 Final state saved to: {json_path}",
+                agent="api",
+                node="run_pdf_analysis",
+                session_id=session_id,
+                output_file=str(json_path)
+            )
+
         # Update status
         if session_id in active_analyses:
             active_analyses[session_id]["status"] = "complete"
-        
+
         logger.success(
             f"✅ PDF analysis complete",
             agent="api",
