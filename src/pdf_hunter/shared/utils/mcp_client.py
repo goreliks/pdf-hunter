@@ -19,7 +19,7 @@ def get_mcp_config(task_id: str = None, base_output_dir: str = None):
     return {
         "playwright": {
             "command": "npx",
-            "args": ["@playwright/mcp@latest", "--headless", f"--output-dir={task_output_dir}", "--save-trace", "--isolated"],
+            "args": ["@playwright/mcp", "--browser", "chromium", "--headless", f"--output-dir={task_output_dir}", "--save-trace", "--isolated"],
             "transport": "stdio"
         }
     }
