@@ -57,18 +57,26 @@ const LandingPage = ({ onAnalysisStart }) => {
       formData.append('file', file);
       formData.append('max_pages', maxPages.toString());
 
-      const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+      const apiUrl = `${API_BASE_URL}/api/analyze`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Upload failed');
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || `Server error: ${response.status} ${response.statusText}`;
+        } catch {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      
+
       // Start the analysis with the session ID
       onAnalysisStart({
         sessionId: data.session_id,
@@ -78,7 +86,15 @@ const LandingPage = ({ onAnalysisStart }) => {
         devMode: false  // Real analysis, not dev mode
       });
     } catch (err) {
-      setError(err.message || 'Failed to upload file');
+      console.error('Upload error:', err);
+
+      // Provide more specific error messages
+      let errorMessage = err.message;
+      if (err.message === 'Failed to fetch') {
+        errorMessage = `Cannot connect to backend server at ${API_BASE_URL}. Make sure the backend is running on port 8000.`;
+      }
+
+      setError(errorMessage);
       setIsUploading(false);
     }
   };
@@ -86,7 +102,7 @@ const LandingPage = ({ onAnalysisStart }) => {
   const handleDevMode = () => {
     // Start dev mode with mock data
     onAnalysisStart({
-      sessionId: 'dev-mode-mock-session',
+      sessionId: '242fc6a46e4b36fcc00a3cfaabefe29a8cf8a5c9_20251029_181451',  // Must match output folder name
       streamUrl: null,  // No real stream URL in dev mode
       statusUrl: null,
       filename: 'mock-analysis.pdf',
@@ -95,41 +111,69 @@ const LandingPage = ({ onAnalysisStart }) => {
   };
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center p-8">
-      <div className="max-w-2xl w-full space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center space-x-4">
-            {/* Animated pulse circle with purple/pink gradient */}
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse"></div>
-              <div className="absolute inset-0 w-16 h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-ping opacity-25"></div>
-            </div>
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-              PDF Hunter
-            </h1>
-          </div>
-          <p className="text-xl text-purple-100">
-            AI-Powered PDF Threat Analysis
-          </p>
-          <p className="text-sm text-purple-300/70">
-            Upload a PDF file to begin deep security analysis
-          </p>
-        </div>
+    <div className="min-h-screen relative overflow-hidden gradient-bg">
+      {/* Nebula Background */}
+      <div className="nebula-bg"></div>
 
-        {/* Dev Mode Toggle */}
-        <div className="flex justify-end">
+      {/* Cosmic Particles */}
+      <div className="cosmic-particles">
+        {/* Generate floating particles */}
+        {[...Array(30)].map((_, i) => (
+          <div
+            key={`particle-${i}`}
+            className="particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animationDuration: `${15 + Math.random() * 15}s`,
+              animationDelay: `${Math.random() * 10}s`,
+            }}
+          />
+        ))}
+        {/* Generate twinkling stars */}
+        {[...Array(50)].map((_, i) => (
+          <div
+            key={`star-${i}`}
+            className="star"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+            }}
+          />
+        ))}
+        {/* Generate cosmic rays */}
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={`ray-${i}`}
+            className="cosmic-ray"
+            style={{
+              top: `${Math.random() * 100}%`,
+              width: `${300 + Math.random() * 200}px`,
+              animationDuration: `${3 + Math.random() * 2}s`,
+              animationDelay: `${Math.random() * 5}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Dev Mode Toggle - Subtle (Outside landing-centered for absolute positioning) */}
+      <div className="absolute top-6 right-6 z-20">
           <button
             onClick={() => setDevMode(!devMode)}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg backdrop-blur-sm transition-all duration-300 ${
-              devMode
-                ? 'bg-purple-500/40 border-2 border-purple-400 card-glow'
-                : 'bg-gray-800/30 border-2 border-purple-500/30 hover:border-purple-400/50'
+            className={`flex items-center space-x-2 px-3 py-2 rounded-lg backdrop-blur-xl transition-all duration-300 text-xs ${
+              devMode ? 'cosmic-upload-zone' : 'opacity-40 hover:opacity-100'
             }`}
+            style={devMode ? {
+              borderColor: 'rgba(155, 143, 255, 0.6)',
+              boxShadow: '0 0 20px rgba(155, 143, 255, 0.4)'
+            } : {
+              background: 'rgba(11, 13, 23, 0.4)',
+              border: '1px solid rgba(155, 143, 255, 0.2)'
+            }}
             title="Enable dev mode to use mock data for frontend development"
           >
-            <svg 
-              className={`w-5 h-5 ${devMode ? 'text-purple-200' : 'text-purple-300/60'}`} 
+            <svg
+              className={`w-5 h-5 ${devMode ? 'text-blackalgo-text-light' : 'text-blackalgo-text-muted'}`} 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -147,10 +191,40 @@ const LandingPage = ({ onAnalysisStart }) => {
                 d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
-            <span className={`text-sm font-medium ${devMode ? 'text-purple-200' : 'text-purple-300/70'}`}>
+            <span className={`text-sm font-medium ${devMode ? 'text-blackalgo-text-light' : 'text-blackalgo-text-muted'}`}>
               Dev Mode {devMode ? 'ON' : 'OFF'}
             </span>
           </button>
+      </div>
+
+      {/* Centered Content */}
+      <div className="landing-centered">
+        <div className="max-w-2xl w-full space-y-6">
+
+        {/* AI Core Header - Compact */}
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="ai-core-compact rounded-xl inline-block">
+              <div className="flex items-center gap-4">
+                {/* Main Title */}
+                <div>
+                  <h1 className="text-5xl font-bold tactical-heading neon-text-purple tracking-wider">
+                    PDF HUNTER
+                  </h1>
+                  <div className="text-xs tracking-widest neon-text mt-1 opacity-80">
+                    AI CORE 16.1
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Subtitle */}
+          <p className="text-base text-blackalgo-cyan tactical-mono" style={{
+            textShadow: '0 0 10px rgba(0, 255, 209, 0.6)'
+          }}>
+            &gt; MULTI-AGENT THREAT DETECTION SYSTEM
+          </p>
         </div>
 
         {/* File Upload Area */}
@@ -158,11 +232,13 @@ const LandingPage = ({ onAnalysisStart }) => {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer backdrop-blur-sm ${
-            isDragging
-              ? 'border-pink-500 bg-pink-500/20 scale-105 shadow-lg shadow-pink-500/30'
-              : 'border-purple-500/30 bg-gray-800/30 hover:border-purple-400/50 card-glow'
+          className={`cosmic-upload-zone hud-corners terminal-scanlines rounded-2xl p-10 text-center cursor-pointer ${
+            isDragging ? 'scale-105' : ''
           }`}
+          style={isDragging ? {
+            borderColor: 'rgba(0, 255, 209, 0.8)',
+            boxShadow: '0 0 50px rgba(0, 255, 209, 0.6)'
+          } : {}}
           onClick={() => fileInputRef.current?.click()}
         >
           <input
@@ -176,7 +252,7 @@ const LandingPage = ({ onAnalysisStart }) => {
           <div className="space-y-4">
             <div className="flex justify-center">
               <svg
-                className="w-16 h-16 text-purple-300/60"
+                className="w-16 h-16 text-blackalgo-text-muted"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -195,16 +271,16 @@ const LandingPage = ({ onAnalysisStart }) => {
                 <p className="text-emerald-400 font-medium text-lg break-all px-4">
                   ✓ {file.name}
                 </p>
-                <p className="text-purple-300/70 text-sm">
+                <p className="text-blackalgo-text-muted text-sm">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-purple-100 text-lg font-medium">
+                <p className="text-blackalgo-text-light text-lg font-medium">
                   Drop your PDF here or click to browse
                 </p>
-                <p className="text-purple-300/50 text-sm">
+                <p className="text-blackalgo-text-muted text-sm">
                   Supports PDF files up to 10MB
                 </p>
               </div>
@@ -213,12 +289,14 @@ const LandingPage = ({ onAnalysisStart }) => {
         </div>
 
         {/* Page Slider */}
-        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 space-y-4 border border-purple-500/20 card-glow">
+        <div className="cosmic-upload-zone hud-corners terminal-scanlines rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-purple-100 font-medium">
-              Pages to Analyze
+            <label className="text-blackalgo-text-light font-semibold tracking-wider uppercase text-xs tactical-mono">
+              <span className="neon-text">ANALYSIS DEPTH</span>
             </label>
-            <span className="text-pink-400 text-2xl font-bold">
+            <span className="text-blackalgo-cyan text-2xl font-bold tactical-mono pixelated-text" style={{
+              textShadow: '0 0 20px rgba(0, 255, 209, 0.8)'
+            }}>
               {maxPages}
             </span>
           </div>
@@ -228,20 +306,23 @@ const LandingPage = ({ onAnalysisStart }) => {
             max="4"
             value={maxPages}
             onChange={(e) => setMaxPages(parseInt(e.target.value))}
-            className="w-full h-2 bg-gray-700/50 rounded-lg appearance-none cursor-pointer slider"
+            className="w-full h-2 bg-blackalgo-bg-darker/80 rounded-lg appearance-none cursor-pointer slider"
           />
-          <div className="flex justify-between text-xs text-purple-300/60">
-            <span>1 page</span>
-            <span>2 pages</span>
-            <span>3 pages</span>
-            <span>4 pages</span>
+          <div className="flex justify-between text-xs text-blackalgo-text-muted tactical-mono">
+            <span>1 PAGE</span>
+            <span>2 PAGES</span>
+            <span>3 PAGES</span>
+            <span>4 PAGES</span>
           </div>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/50 rounded-lg p-4 text-center backdrop-blur-sm">
-            <p className="text-rose-400">{error}</p>
+          <div className="cosmic-upload-zone rounded-lg p-4 text-center" style={{
+            borderColor: 'rgba(251, 113, 133, 0.5)',
+            boxShadow: '0 0 30px rgba(251, 113, 133, 0.3)'
+          }}>
+            <p className="text-rose-400 tactical-mono">&gt; ERROR: {error}</p>
           </div>
         )}
 
@@ -249,42 +330,72 @@ const LandingPage = ({ onAnalysisStart }) => {
         {devMode ? (
           <button
             onClick={handleDevMode}
-            className="w-full py-4 px-8 rounded-xl font-semibold text-lg transition-all duration-300 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 hover:shadow-lg hover:shadow-purple-500/50 transform hover:scale-105"
+            className="w-full py-5 px-8 rounded-xl font-bold text-lg transition-all duration-300 uppercase tracking-wider transform hover:scale-105 tactical-heading"
+            style={{
+              background: 'linear-gradient(135deg, #00FFD1 0%, #9B8FFF 100%)',
+              boxShadow: '0 0 40px rgba(0, 255, 209, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4)',
+              color: '#0B0D17',
+              border: '2px solid rgba(0, 255, 209, 0.5)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 60px rgba(0, 255, 209, 0.9), 0 12px 32px rgba(0, 0, 0, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 40px rgba(0, 255, 209, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4)';
+            }}
           >
             <span className="flex items-center justify-center space-x-3">
-              <svg 
-                className="w-5 h-5" 
-                fill="none" 
-                stroke="currentColor" 
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
                   d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"
                 />
               </svg>
-              <span>Start Dev Mode Analysis</span>
+              <span>INITIATE DEV ANALYSIS</span>
             </span>
           </button>
         ) : (
           <button
             onClick={handleUpload}
             disabled={!file || isUploading}
-            className={`w-full py-4 px-8 rounded-xl font-semibold text-lg transition-all duration-300 ${
-              !file || isUploading
-                ? 'bg-gray-700/50 text-purple-300/40 cursor-not-allowed border border-purple-500/20'
-                : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 hover:shadow-lg hover:shadow-purple-500/50 transform hover:scale-105'
-            }`}
+            className="w-full py-5 px-8 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 tactical-heading uppercase tracking-wider"
+            style={!file || isUploading ? {
+              background: 'rgba(11, 13, 23, 0.6)',
+              color: 'rgba(168, 167, 184, 0.4)',
+              cursor: 'not-allowed',
+              border: '2px solid rgba(109, 76, 255, 0.2)'
+            } : {
+              background: 'linear-gradient(135deg, #00FFD1 0%, #9B8FFF 100%)',
+              color: '#0B0D17',
+              boxShadow: '0 0 40px rgba(0, 255, 209, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4)',
+              border: '2px solid rgba(0, 255, 209, 0.5)'
+            }}
+            onMouseEnter={(e) => {
+              if (file && !isUploading) {
+                e.currentTarget.style.boxShadow = '0 0 60px rgba(0, 255, 209, 0.9), 0 12px 32px rgba(0, 0, 0, 0.5)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (file && !isUploading) {
+                e.currentTarget.style.boxShadow = '0 0 40px rgba(0, 255, 209, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4)';
+              }
+            }}
           >
             {isUploading ? (
               <span className="flex items-center justify-center space-x-3">
                 <svg
-                  className="animate-spin h-5 w-5 text-white"
+                  className="animate-spin h-5 w-5"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
+                  style={{ filter: 'drop-shadow(0 0 8px rgba(0, 255, 209, 0.8))' }}
                 >
                   <circle
                     className="opacity-25"
@@ -300,22 +411,40 @@ const LandingPage = ({ onAnalysisStart }) => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span>Starting Analysis...</span>
+              <span>INITIALIZING THREAT SCAN...</span>
             </span>
           ) : (
-            '🚀 Start Analysis'
+            <span className="flex items-center justify-center space-x-3">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              <span>INITIATE THREAT SCAN</span>
+            </span>
           )}
           </button>
         )}
 
         {/* Info Footer */}
-        <div className="text-center text-purple-300/60 text-sm space-y-2">
-          <p>
-            Powered by GPT-4 + LangGraph Multi-Agent System
+        <div className="text-center text-blackalgo-text-muted text-sm space-y-2 tactical-mono">
+          <p className="text-blackalgo-purple-light" style={{
+            textShadow: '0 0 8px rgba(155, 143, 255, 0.5)'
+          }}>
+            POWERED BY AI MULTI-AGENT SYSTEM
           </p>
-          <p className="text-xs">
-            5 specialized agents • Real-time streaming • Comprehensive reports
+          <p className="text-xs opacity-75 text-blackalgo-cyan">
+            &gt; 5 SPECIALIZED AGENTS • REAL-TIME STREAMING • COMPREHENSIVE REPORTS
           </p>
+        </div>
         </div>
       </div>
     </div>

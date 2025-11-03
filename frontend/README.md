@@ -1,41 +1,27 @@
-# PDF Hunter Frontend# React + Vite
+# PDF Hunter Frontend
 
+**Real-time monitoring dashboard for PDF Hunter's multi-agent threat analysis system.**
 
-
-**Real-time monitoring dashboard for PDF Hunter's multi-agent threat analysis system.**This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-
-
-[![React](https://img.shields.io/badge/React-19.1.1-blue.svg)](https://react.dev/)Currently, two official plugins are available:
-
+[![React](https://img.shields.io/badge/React-19.1.1-blue.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-7.1.7-646CFF.svg)](https://vitejs.dev/)
-
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4.17-38B2AC.svg)](https://tailwindcss.com/)- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4.17-38B2AC.svg)](https://tailwindcss.com/)
 
 ## Overview
 
-## React Compiler
-
 A modern React dashboard that provides real-time streaming visualization of PDF threat hunting operations. Built with Vite for fast development and Tailwind CSS for styling, featuring a purple/pink gradient theme inspired by n8n's design aesthetic.
-
-The React Compiler is not enabled on this template. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
 ### Key Features
 
-## Expanding the ESLint configuration
-
 - 🔴 **Live SSE Streaming** - Real-time log streaming from backend via Server-Sent Events
-
-- 🤖 **Multi-Agent Monitoring** - Individual panels for 5 specialized agentsIf you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-
+- 🤖 **Multi-Agent Monitoring** - Individual panels for 5 specialized agents
+- 📱 **Agent Detail Modals** - Full-screen modals with complete agent data, downloadable reports, and state files
 - 🎨 **Purple/Pink Theme** - Modern gradient design with glass-morphism effects
 - 📊 **View Mode Toggle** - Switch between messages, structured data, or both
 - 🎯 **Smart Field Display** - Intelligent field extraction and formatting
 - 💾 **localStorage Persistence** - View mode preferences saved across sessions
 - 🔄 **Auto-Scroll & Manual Control** - Smart scrolling with user override detection
 - 🌟 **Animated Transitions** - Smooth loading animations between screens
+- 🔍 **Dev Mode** - Frontend development without backend (mock data replay)
 
 ## Architecture
 
@@ -44,7 +30,7 @@ The React Compiler is not enabled on this template. To add it, see [this documen
 ```
 ┌─────────────────┐
 │  LandingPage    │  PDF Upload + Configuration
-│  (File Select)  │  └─ Max Pages Slider (1-4)
+│  (File Select)  │  └─ Max Pages Slider (1-4) + Dev Mode Toggle
 └────────┬────────┘
          │ Upload
          ▼
@@ -58,10 +44,18 @@ The React Compiler is not enabled on this template. To add it, see [this documen
 │   Dashboard     │  Real-time Monitoring
 │                 │  ├─ Header (Status + Session ID)
 │                 │  ├─ ViewModeToggle (Both/Messages/Structured)
-│                 │  └─ AgentPanels (5 Agents)
-│                 │      └─ LogViewer (Collapsible)
-│                 │          ├─ Messages (Log Level + Text)
-│                 │          └─ Structured Fields (Node | Event | Field | Value)
+│                 │  ├─ AgentPanels (5 Agents)
+│                 │  │   └─ LogViewer (Collapsible)
+│                 │  │       ├─ Messages (Log Level + Text)
+│                 │  │       └─ Structured Fields (Node | Event | Field | Value)
+│                 │  └─ Sidebar (Right Side)
+│                 │      └─ Agent Detail Tabs (7 Tabs)
+│                 │          ├─ Click tab → Opens AgentDetailModal
+│                 │          └─ Full-screen modal with:
+│                 │              ├─ Agent-specific data
+│                 │              ├─ JSON state viewer
+│                 │              ├─ Download buttons
+│                 │              └─ Lightbox for images
 └─────────────────┘
 ```
 
@@ -70,31 +64,36 @@ The React Compiler is not enabled on this template. To add it, see [this documen
 ```
 src/
 ├── components/
-│   ├── LandingPage.jsx       # File upload + configuration
-│   ├── TransitionAnimation.jsx # Loading states
-│   ├── Dashboard.jsx          # Main monitoring dashboard
-│   ├── AgentPanel.jsx         # Individual agent display
-│   ├── LogViewer.jsx          # Log rendering engine
-│   └── ViewModeToggle.jsx     # View mode switcher
+│   ├── LandingPage.jsx         # File upload + configuration + Dev Mode
+│   ├── TransitionAnimation.jsx # Loading states (3 phases)
+│   ├── Dashboard.jsx           # Main monitoring dashboard
+│   ├── AgentPanel.jsx          # Individual agent status panels
+│   ├── LogViewer.jsx           # Log rendering engine
+│   ├── ViewModeToggle.jsx      # View mode switcher
+│   ├── Sidebar.jsx             # Agent navigation sidebar
+│   └── AgentDetailModal.jsx    # Full-screen agent detail modal
 ├── hooks/
-│   └── useSSEStream.js        # SSE connection management
+│   └── useSSEStream.js         # SSE connection management
 ├── utils/
-│   ├── logUtils.js            # Log routing + formatting
-│   └── fieldExtractor.js      # Field extraction + display
+│   ├── logUtils.js             # Log routing + formatting
+│   ├── fieldExtractor.js       # Field extraction + display
+│   └── mockDataLoader.js       # Dev mode mock data loader
 ├── config/
-│   ├── api.js                 # API endpoints
-│   └── logFieldSchema.js      # Field mappings for all agents
-└── index.css                  # Global styles + theme
+│   ├── api.js                  # API endpoints
+│   └── logFieldSchema.js       # Field mappings for all agents (579 lines)
+├── dev/
+│   ├── README.md               # Dev mode documentation
+│   └── mock-session.jsonl      # Mock session data (3MB)
+└── index.css                   # Global styles + theme + animations
 ```
 
 ## Installation
 
 ### Prerequisites
 
-- **Node.js** 18+ (LTS recommended)
-# **Node.js** 20+ (LTS recommended)
+- **Node.js** 20+ (LTS recommended)
 - **npm** 9+ or **pnpm** 8+
-- **Backend Server** running on port 8000 (see main project README)
+- **Backend Server** running on port 8000 (see main project README) - optional for Dev Mode
 
 ### Quick Start
 
@@ -148,18 +147,30 @@ frontend/
 ├── public/              # Static assets
 ├── src/
 │   ├── assets/          # Images, icons
-│   ├── components/      # React components (6 files)
+│   ├── components/      # React components (8 files)
+│   │   ├── LandingPage.jsx
+│   │   ├── TransitionAnimation.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── AgentPanel.jsx
+│   │   ├── LogViewer.jsx
+│   │   ├── ViewModeToggle.jsx
+│   │   ├── Sidebar.jsx
+│   │   └── AgentDetailModal.jsx
 │   ├── config/          # Configuration files (API, schema)
 │   ├── hooks/           # Custom React hooks (SSE streaming)
-│   ├── utils/           # Utility functions (log processing)
+│   ├── utils/           # Utility functions (log processing, mock data)
+│   ├── dev/             # Dev mode assets
 │   ├── App.jsx          # Root component
 │   ├── main.jsx         # React entry point
-│   └── index.css        # Global styles + Tailwind
+│   └── index.css        # Global styles + Tailwind + animations
 ├── index.html           # HTML template
-├── package.json         # Dependencies
+├── package.json         # Dependencies (@uiw/react-json-view, react-markdown)
 ├── vite.config.js       # Vite configuration
 ├── tailwind.config.js   # Tailwind configuration
-└── postcss.config.js    # PostCSS configuration
+├── postcss.config.js    # PostCSS configuration
+├── README.md            # This file
+├── CLAUDE.md            # Technical deep dive for AI assistants
+└── QUICKSTART.md        # Quick reference guide
 ```
 
 ## Usage Guide
@@ -194,6 +205,47 @@ Each panel shows:
 - **Running** (Purple/Pink animated) - Currently processing
 - **Complete** (Green) - Finished successfully
 - **Error** (Red) - Encountered an error
+
+### 5. Agent Detail Modals
+
+Click the **›** button on the right side to open the agent detail sidebar with 7 tabs:
+
+#### 📄 PDF Extraction
+- **Analyzed Images** - Lightbox gallery of extracted page screenshots
+- **Extraction State** - Complete JSON state with download option
+
+#### 🔍 File Analysis
+- **Triage Classification** - Initial threat assessment
+- **Structural Analysis** - PDFiD, PDF Parser, Peepdf, XMP metadata outputs
+- **Static Analysis Report** - Final verdict, executive summary, IOCs
+- **Full State** - Complete JSON with all missions and evidence graphs
+
+#### 🖼️ Image Analysis
+- **Analyzed Pages** - Gallery of analyzed images (click for lightbox)
+- **Visual Analysis Summary** - Overall verdict, confidence, executive summary
+- **Document Flow Summary** - Cross-page narrative analysis
+- **Analysis State** - Complete JSON state
+
+#### 🔗 URL Investigation
+- **URL Results** - Per-URL verdicts, confidence scores, summaries
+- **Investigation State** - Complete JSON with browser analysis data
+
+#### 📊 Report Generator
+- **Final Verdict** - Overall threat classification
+- **Confidence Score** - Final confidence percentage
+- **Executive Summary** - High-level findings
+- **Markdown Report** - Full formatted report with reasoning
+- **Report State** - Complete JSON
+
+#### 📋 Final State (Available after all agents complete)
+- **Complete Analysis JSON** - Full system state with all agent outputs
+- **Download Option** - Save analysis_report_session_{sessionId}.json
+
+#### 📝 Raw Logs (Available after all agents complete)
+- **Session JSONL** - All log entries in JSONL format
+- **Download Option** - Save session.jsonl for debugging
+
+**Note**: Tabs activate only after their respective agents complete. The sidebar remains accessible throughout the analysis.
 
 ## Log Display System
 

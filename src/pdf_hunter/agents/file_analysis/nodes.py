@@ -989,13 +989,22 @@ async def summarize_file_analysis(state: FileAnalysisState):
         )
 
         # Save the final state to a JSON file for debugging and records
+        # Include static_analysis_final_report in the saved JSON for frontend access
         session_output_directory = state.get("output_directory", "output")
         session_id = state.get("session_id", "unknown_session")
         finalizer_directory = os.path.join(session_output_directory, "file_analysis")
         await asyncio.to_thread(os.makedirs, finalizer_directory, exist_ok=True)
         json_filename = f"file_analysis_final_state_session_{session_id}.json"
         json_path = os.path.join(finalizer_directory, json_filename)
-        await dump_state_to_file(state, json_path)
+
+        # Add static_analysis_final_report to state before saving
+        from pdf_hunter.shared.utils.serializer import serialize_state_safely
+        state_with_report = {**state, "static_analysis_final_report": static_analysis_final_report.model_dump()}
+        serializable_state = serialize_state_safely(state_with_report)
+
+        # Write to JSON file
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(serializable_state, f, indent=2, ensure_ascii=False)
         
         verdict = static_analysis_final_report.final_verdict
         ioc_count = len(static_analysis_final_report.indicators_of_compromise)

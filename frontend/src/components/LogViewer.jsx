@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { getLogLevelColor } from '../utils/logUtils';
 import { extractFieldsFromLog } from '../utils/fieldExtractor';
 
-export default function LogViewer({ logs, agentName, viewMode = 'both' }) {
+export default function LogViewer({ logs, agentName, viewMode = 'both', fillHeight = false }) {
   const logContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
   const prevViewModeRef = useRef(viewMode);
@@ -42,11 +42,11 @@ export default function LogViewer({ logs, agentName, viewMode = 'both' }) {
   };
 
   return (
-    <div className="bg-gray-900/30 p-4">
+    <div className={`bg-gray-900/30 p-4 ${fillHeight ? 'flex-1 flex flex-col min-h-0' : ''}`}>
       <div
         ref={logContainerRef}
         onScroll={handleScroll}
-        className="font-mono text-xs h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-gray-800/50 transition-opacity duration-150"
+        className={`font-mono text-xs ${fillHeight ? 'flex-1 min-h-0' : 'h-64'} overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-gray-800/50 transition-opacity duration-150`}
       >
         {logs.length === 0 ? (
           <div className="text-purple-300/40 italic">No logs yet...</div>
@@ -123,33 +123,33 @@ function LogEntry({ log, viewMode }) {
 
 function FieldRow({ timestamp, node, eventType, fieldName, value }) {
   return (
-    <div className="flex items-center gap-3 py-1 text-xs font-mono leading-snug">
+    <div className="flex items-start gap-2 py-1 text-xs font-mono leading-snug">
       {/* Timestamp */}
-      <span className="text-purple-300/50 shrink-0">{timestamp}</span>
-      
+      <span className="text-purple-300/50 shrink-0 w-[65px]">{timestamp}</span>
+
       {/* Separator */}
-      <span className="text-purple-400/40 font-bold">|</span>
-      
+      <span className="text-purple-400/40 font-bold shrink-0">|</span>
+
       {/* Node */}
-      <span className="text-fuchsia-400 shrink-0 min-w-[140px]">{node}</span>
-      
+      <span className="text-fuchsia-400 shrink-0 w-[100px] truncate" title={node}>{node}</span>
+
       {/* Separator */}
-      <span className="text-purple-400/40 font-bold">|</span>
-      
+      <span className="text-purple-400/40 font-bold shrink-0">|</span>
+
       {/* Event Type */}
-      <span className="text-violet-400 shrink-0 min-w-[180px]">{eventType}</span>
-      
+      <span className="text-violet-400 shrink-0 w-[120px] truncate" title={eventType}>{eventType}</span>
+
       {/* Separator */}
-      <span className="text-purple-400/40 font-bold">|</span>
-      
+      <span className="text-purple-400/40 font-bold shrink-0">|</span>
+
       {/* Field Name */}
-      <span className="text-pink-400 shrink-0 min-w-[140px]">{fieldName}</span>
-      
+      <span className="text-pink-400 shrink-0 w-[90px] truncate" title={fieldName}>{fieldName}</span>
+
       {/* Separator */}
-      <span className="text-purple-400/40 font-bold">|</span>
-      
+      <span className="text-purple-400/40 font-bold shrink-0">|</span>
+
       {/* Value */}
-      <span className="text-purple-100/90 break-all">{value}</span>
+      <span className="text-purple-100/90 flex-1 min-w-0 break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>{value}</span>
     </div>
   );
 }
