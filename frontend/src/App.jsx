@@ -2,19 +2,13 @@ import { useState, useEffect } from 'react'
 import LandingPage from './components/LandingPage'
 import TransitionAnimation from './components/TransitionAnimation'
 import Dashboard from './components/Dashboard'
-import ConnectionDemo from './components/ConnectionDemo'
 import './App.css'
 
 const SESSION_STORAGE_KEY = 'pdf-hunter-session';
 
 function App() {
-  // Check for demo mode via URL parameter
-  const urlParams = new URLSearchParams(window.location.search);
-  const isDemoMode = urlParams.get('demo') === 'true';
-
   // Initialize state from sessionStorage if available
   const [view, setView] = useState(() => {
-    if (isDemoMode) return 'demo';
     const savedSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
     return savedSession ? 'dashboard' : 'landing';
   });
@@ -54,9 +48,6 @@ function App() {
 
   return (
     <div className="App">
-      {view === 'demo' && (
-        <ConnectionDemo />
-      )}
       {view === 'landing' && (
         <LandingPage onAnalysisStart={handleAnalysisStart} />
       )}
