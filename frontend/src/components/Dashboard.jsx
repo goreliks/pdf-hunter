@@ -152,7 +152,7 @@ export default function Dashboard({ sessionId, filename, onSessionEnd, devMode =
     {
       fromId: 'agent-pdf',
       toId: 'agent-file',
-      fromPoint: 'bottom-left-quarter', // Bottom edge at left quarter
+      fromPoint: 'bottom-left-quarter', // Bottom edge at 25% from left (middle of left half)
       toPoint: 'top-center',
       color: '#00FFD1', // cyan
       delay: 0,
@@ -164,7 +164,7 @@ export default function Dashboard({ sessionId, filename, onSessionEnd, devMode =
     {
       fromId: 'agent-pdf',
       toId: 'agent-image',
-      fromPoint: 'bottom-right-quarter', // Bottom edge at right quarter
+      fromPoint: 'bottom-right-quarter', // Bottom edge at 75% from left (middle of right half)
       toPoint: 'top-center',
       color: '#9B8FFF', // purple
       delay: 0.2,
@@ -191,7 +191,7 @@ export default function Dashboard({ sessionId, filename, onSessionEnd, devMode =
       fromId: 'agent-file',
       toId: 'agent-report',
       fromPoint: 'bottom-center',
-      toPoint: 'top-left-quarter', // Top edge at left quarter
+      toPoint: 'top-left-quarter', // Top edge at 25% from left (middle of left half)
       color: '#00FFD1', // cyan
       delay: 0,
       duration: 2,
@@ -204,7 +204,7 @@ export default function Dashboard({ sessionId, filename, onSessionEnd, devMode =
       fromId: 'agent-url',
       toId: 'agent-report',
       fromPoint: 'bottom-center',
-      toPoint: 'top-right-quarter', // Top edge at right quarter
+      toPoint: 'top-right-quarter', // Top edge at 75% from left (middle of right half)
       color: '#9B8FFF', // purple
       delay: 0.2,
       duration: 2,
@@ -400,7 +400,7 @@ export default function Dashboard({ sessionId, filename, onSessionEnd, devMode =
             id="agent-file"
             glowColor={getNodeStyle(agentStatuses.FileAnalysis).glowColor}
             active={getNodeStyle(agentStatuses.FileAnalysis).shouldGlow}
-            className="h-full overflow-hidden"
+            className="h-full"
           >
             <div
               className="rounded-lg transition-all duration-300 h-full overflow-hidden"

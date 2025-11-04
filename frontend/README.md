@@ -71,7 +71,9 @@ src/
 │   ├── LogViewer.jsx           # Log rendering engine
 │   ├── ViewModeToggle.jsx      # View mode switcher
 │   ├── Sidebar.jsx             # Agent navigation sidebar
-│   └── AgentDetailModal.jsx    # Full-screen agent detail modal
+│   ├── AgentDetailModal.jsx    # Full-screen agent detail modal
+│   ├── ConnectionNetwork.jsx   # SVG data flow animation manager
+│   └── FlowingConnection.jsx   # Animated connection lines between agents
 ├── hooks/
 │   └── useSSEStream.js         # SSE connection management
 ├── utils/

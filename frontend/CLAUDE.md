@@ -65,7 +65,13 @@ This is a **React 19.1.1 + Vite 7.1.7 + Tailwind CSS 3.4.17** single-page applic
    - Compact spacing (33% reduction)
    - Efficient rendering (early returns)
 
-9. **Dev Mode** 🆕:
+9. **Data Flow Animations** 🆕:
+   - Animated SVG connections between agent panels showing workflow
+   - Custom attachment points (bottom-left-quarter, top-right-quarter, etc.)
+   - Flow animations during agent execution, solid lines when complete
+   - Agent panel glow effects when active
+
+10. **Dev Mode** 🆕:
    - Toggle on landing page
    - Mock data from `dev/mock-session.jsonl` (3MB real session)
    - Simulated real-time streaming with 100ms delays
