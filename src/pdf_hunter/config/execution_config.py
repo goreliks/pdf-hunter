@@ -72,7 +72,7 @@ URL_INVESTIGATION_INVESTIGATOR_CONFIG = {
 }
 
 # Priority threshold for URL investigation (1=highest priority, 5=lowest)
-URL_INVESTIGATION_PRIORITY_LEVEL = 5
+URL_INVESTIGATION_PRIORITY_LEVEL = 2
 
 # -- REPORT GENERATION AGENT CONFIGURATION --
 # Final report synthesis and verdict determination

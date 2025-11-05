@@ -15,23 +15,3 @@ From the output of rtfobj we learn that the extracted RTF file exploited CVE-201
 https://www.virustotal.com/gui/file/0a4f3f9acc61b85183108a31a306115fe34b571240da70920f0a1425fc32c3de/details
 https://intezer.com/blog/analyze-malicious-pdf-files/
 The JavaScript in object 3 calls exportDataObject with a dictionary containing 'cName' set to 'downl.SettingContent-ms'. (in video)
-
-
-7614bf994c0d17d6e9ad69317bfc9157190211a93c2768f91ae4b029e357d9e9
-https://www.virustotal.com/gui/file/7614bf994c0d17d6e9ad69317bfc9157190211a93c2768f91ae4b029e357d9e9/detection (0 detections)
-
-
-87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13
-https://www.virustotal.com/gui/file/87c740d2b7c22f9ccabbdef412443d166733d4d925da0e8d6e5b310ccfc89e13
-
-
-Phishing from VT
-200b16b4b38eaa85db2a040f521782ff508949139711dab6a32b93cf078411bb
-run id - 5b1c623feb44ccf65a6559b16077a3e78115c7d2
-
-a6fe634094f37fa037d99b9f490708b5c4a9152b723bdb997fa6d10d72b19f4d
-
-34f33612c9f6b132430385e6dc3f8603ff897d34c780bfa5a4cf7663922252ba
-run id - 97c4856baca81fa5826fd415d813a94c6944b855
-
-5b1c623feb44ccf65a6559b16077a3e78115c7d2

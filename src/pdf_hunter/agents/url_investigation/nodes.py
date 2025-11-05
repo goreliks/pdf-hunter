@@ -195,20 +195,24 @@ async def execute_browser_tools(state: URLInvestigatorState):
             # Execute tool calls (sequentially for reliability)
             observations = []
             for tool_call in tool_calls:
-                tool_name = tool_call["name"]
+                # Handle both dict and object formats for tool_call
+                tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name")
                 logger.info(f"🔧 Executing tool: {tool_name}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_CALL", tool_name=tool_name)
-                
+
                 try:
                     tool = tool_by_name[tool_name]
                     
+                    # Handle both dict and object formats for tool_call args
+                    tool_args = tool_call.get("args") if isinstance(tool_call, dict) else getattr(tool_call, "args")
+
                     if tool_name == "domain_whois":
                         # Use async invoke to prevent blocking
-                        observation = await asyncio.to_thread(tool.invoke, tool_call["args"])
+                        observation = await asyncio.to_thread(tool.invoke, tool_args)
                     elif tool_name == "think_tool":
                         # Use async invoke to prevent blocking
-                        observation = await asyncio.to_thread(tool.invoke, tool_call["args"])
+                        observation = await asyncio.to_thread(tool.invoke, tool_args)
                         # Log the strategic reflection at INFO level
-                        reflection_text = tool_call["args"].get("reflection", "")
+                        reflection_text = tool_args.get("reflection", "") if isinstance(tool_args, dict) else getattr(tool_args, "reflection", "")
                         if reflection_text:
                             logger.info(
                                 f"💭 Strategic Reflection: {reflection_text}",
@@ -220,7 +224,7 @@ async def execute_browser_tools(state: URLInvestigatorState):
                             )
                     else:
                         # MCP browser tools
-                        observation = await tool.ainvoke(tool_call["args"])
+                        observation = await tool.ainvoke(tool_args)
                         
                     logger.info(f"✅ Tool {tool_name} executed successfully", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_SUCCESS", tool_name=tool_name)
                     observations.append(observation)
@@ -241,14 +245,18 @@ async def execute_browser_tools(state: URLInvestigatorState):
                     logger.error(f"Unexpected error in tool {tool_name}: {safe_error}", agent="URLInvestigation", node="execute_browser_tools", event_type="TOOL_ERROR", tool_name=tool_name, exc_info=True)
                     observations.append(error_msg)
 
-            tool_outputs = [
-                ToolMessage(
-                    content=observation,
-                    name=tool_call["name"],
-                    tool_call_id=tool_call["id"]
+            # Create tool output messages, handling both dict and object formats
+            tool_outputs = []
+            for observation, tool_call in zip(observations, tool_calls):
+                tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name")
+                tool_call_id = tool_call.get("id") if isinstance(tool_call, dict) else getattr(tool_call, "id")
+                tool_outputs.append(
+                    ToolMessage(
+                        content=observation,
+                        name=tool_name,
+                        tool_call_id=tool_call_id
+                    )
                 )
-                for observation, tool_call in zip(observations, tool_calls)
-            ]
             
             logger.debug(f"Created {len(tool_outputs)} tool messages", agent="URLInvestigation", node="execute_browser_tools")
             return tool_outputs
