@@ -576,7 +576,7 @@ async def filter_high_priority_urls(state: URLInvestigationState):
                         low_priority_count += 1
                         
                 logger.info(
-                    f"🔎 Filtered URLs: {high_priority_count} high priority (≤5), {low_priority_count} low priority (>5)",
+                    f"🔎 Filtered URLs: {high_priority_count} high priority (≤{URL_INVESTIGATION_PRIORITY_LEVEL}), {low_priority_count} low priority (>{URL_INVESTIGATION_PRIORITY_LEVEL}) out of {len(all_priority_urls)} total",
                     agent="URLInvestigation",
                     node="filter_high_priority_urls",
                     event_type="FILTER_COMPLETE",
