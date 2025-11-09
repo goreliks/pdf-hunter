@@ -1,0 +1,29 @@
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9
+Content-Disposition: form-data; name="log"
+
+[{"name":"necessary","status":"yes"},{"name":"functional","status":"yes"},{"name":"performance","status":"yes"},{"name":"advertisement","status":"yes"},{"name":"CookieYes Consent","status":"yes"}]
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9
+Content-Disposition: form-data; name="key"
+
+666fd302444803b68fe7fd85
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9
+Content-Disposition: form-data; name="ip"
+
+{"ip":"85.250.246.0","country_name":"Israel"}
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9
+Content-Disposition: form-data; name="consent_id"
+
+dGRWbk12WXpkTGk1TXpOejRWZjF1cWdPcldxbEhhbE8
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9
+Content-Disposition: form-data; name="language"
+
+en
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9
+Content-Disposition: form-data; name="consented_domain"
+
+www.foxit.com
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9
+Content-Disposition: form-data; name="cookie_list_version"
+
+206
+------WebKitFormBoundaryLgNhIBXMdmfMiQo9--

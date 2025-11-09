@@ -1,0 +1,17 @@
+------WebKitFormBoundaryBBEXZeBlBhPB0Uon
+Content-Disposition: form-data; name="key"
+
+666fd302444803b68fe7fd85
+------WebKitFormBoundaryBBEXZeBlBhPB0Uon
+Content-Disposition: form-data; name="request_type"
+
+banner_load
+------WebKitFormBoundaryBBEXZeBlBhPB0Uon
+Content-Disposition: form-data; name="event_log_time"
+
+1761754625
+------WebKitFormBoundaryBBEXZeBlBhPB0Uon
+Content-Disposition: form-data; name="payload"
+
+{"consent_session_id":"dGRWbk12WXpkTGk1TXpOejRWZjF1cWdPcldxbEhhbE8","banner_id":""}
+------WebKitFormBoundaryBBEXZeBlBhPB0Uon--

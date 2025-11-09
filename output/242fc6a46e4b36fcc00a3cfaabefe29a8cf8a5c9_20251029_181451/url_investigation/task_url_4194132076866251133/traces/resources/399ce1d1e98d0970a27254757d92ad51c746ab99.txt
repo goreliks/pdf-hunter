@@ -1,0 +1,2 @@
+en=FCP&ep.url_passthrough=true&ep.content_group=Homepages&ep.web_vitals_measurement_name=FCP&ep.web_vitals_measurement_id=v5-1761754625569-3706699187314&epn.web_vitals_measurement_value=596&epn.value=596&_et=71
+en=TTFB&ep.url_passthrough=true&ep.content_group=Homepages&ep.web_vitals_measurement_name=TTFB&ep.web_vitals_measurement_id=v5-1761754625569-6283838733392&epn.web_vitals_measurement_value=518.7000000476837&epn.value=518.7000000476837&_et=2

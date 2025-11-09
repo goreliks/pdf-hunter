@@ -63,8 +63,11 @@ coverage.xml
 .langgraph_api/
 
 # Project specific
-output/
+/output/*
+!/output/242fc6a46e4b36fcc00a3cfaabefe29a8cf8a5c9_20251029_181451/
 logs/
+frontend/output/
+notebooks/development/output/
 
 # Mac specific
 .DS_Store
