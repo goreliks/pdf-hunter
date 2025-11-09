@@ -290,6 +290,12 @@ file_analysis_finalizer_user_prompt = """Dr. Reed, the investigation is complete
 **Your Autopsy Protocol (You must complete all sections):**
 
 **1. Final Verdict:** Based on the totality of the evidence, provide your final, conclusive verdict: `Benign`, `Suspicious`, or `Malicious`.
+
+**IMPORTANT - Tool Discrepancy Handling:**
+If the initial anatomical report (pdfid/peepdf/pdf-parser) indicates the presence of a threat indicator (e.g., /JS, /JavaScript, /EmbeddedFile, /OpenAction) but your investigation missions were unable to locate or confirm it, this discrepancy is itself suspicious. Do NOT mark the verdict as "Benign" when threat indicators remain unexplained. Instead, mark as "Suspicious" and note the unresolved anomaly in your reasoning.
+
+Fail-secure principle: Absence of evidence is not evidence of absence when tools disagree. If you cannot prove it's safe, do not claim it's benign.
+
 **2. Executive Summary:** Write a brief, high-level summary (2-3 sentences) describing the core findings. What is the nature of this file? What does it do?
 **3. Reconstruct the Attack Chain:** Analyze the `master_evidence_graph`, focusing on the nodes and their connecting edges. Translate this graph into a chronological, step-by-step narrative of the attack. Populate the `attack_chain` with a list of `AttackChainLink` objects. The chain should start from an initial trigger (like `/OpenAction`) and end at the final payload or action.
 **4. Extract All Indicators of Compromise (IoCs):** Meticulously scan the `master_evidence_graph` for all nodes with a node_type of `'IOC'`. Extract each one into a structured `IndicatorOfCompromise` object. Ensure the list is de-duplicated.

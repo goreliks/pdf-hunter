@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime
 from loguru import logger
 from langchain_core.messages import SystemMessage, HumanMessage
+from langsmith import get_current_run_tree
 from pdf_hunter.config import report_generator_llm, final_verdict_llm
 from .schemas import ReportGeneratorState, FinalVerdict
 from pdf_hunter.shared.utils.serializer import serialize_state_safely, dump_state_to_file
