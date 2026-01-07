@@ -65,6 +65,7 @@ coverage.xml
 # Project specific
 /output/*
 !/output/242fc6a46e4b36fcc00a3cfaabefe29a8cf8a5c9_20251029_181451/
+!/output/401085b06add6611ef012bcaa5ded8f285840814_20251106_161639/
 logs/
 frontend/output/
 notebooks/development/output/

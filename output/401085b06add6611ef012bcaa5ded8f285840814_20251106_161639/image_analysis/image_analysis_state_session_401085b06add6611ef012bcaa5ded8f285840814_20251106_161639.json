@@ -1,0 +1,208 @@
+{
+  "overall_verdict": "Highly Deceptive",
+  "overall_confidence": 1.0,
+  "executive_summary": "Visual analysis of 1 page(s) resulted in an overall verdict of 'Highly Deceptive'.\nThe analysis produced 4 specific forensic findings, which were summarized into 4 deception tactics and 1 benign signals.\nFlagged 2 URLs for further investigation.",
+  "document_flow_summary": "Page 0: A professional-looking notification styled as a Bank of America alert, warning the recipient of a temporary account hold due to suspicious activity. The page features the Bank of America logo, formal language, and several links, including a prominent blue hyperlink that visually appears to be the official bank website.",
+  "page_analyses": [
+    {
+      "page_description": "A professional-looking notification styled as a Bank of America alert, warning the recipient of a temporary account hold due to suspicious activity. The page features the Bank of America logo, formal language, and several links, including a prominent blue hyperlink that visually appears to be the official bank website.",
+      "detailed_findings": [
+        {
+          "element_type": "logo",
+          "page_number": 0,
+          "visual_description": "Bank of America logo and branding at the top of the page, with a red banner and blue text.",
+          "technical_data": null,
+          "assessment": "The branding is visually consistent with Bank of America, but this alone does not confirm legitimacy.",
+          "significance": "medium"
+        },
+        {
+          "element_type": "link",
+          "page_number": 0,
+          "visual_description": "A blue hyperlink styled as 'https://bankofamerica.com' appears under the main message, suggesting it leads to the official Bank of America website.",
+          "technical_data": "{\"url\": \"https://bankofamerica.comjmhbh.com\", \"xref\": null}",
+          "assessment": "The visible text claims to be the official bank URL, but the actual destination is a deceptive, typosquatted domain ('bankofamerica.comjmhbh.com'), which is not owned by Bank of America. This is a classic phishing tactic.",
+          "significance": "high"
+        },
+        {
+          "element_type": "link",
+          "page_number": 0,
+          "visual_description": "A hidden annotation link (not visually indicated) in the area near the main message.",
+          "technical_data": "{\"url\": \"https://insight.adsrvr.org/track/clk?imp=7a6241a4-c068-4865-94c9-c95d9560af91&...\", \"xref\": 9}",
+          "assessment": "This is a tracking/advertising link embedded in the document, not visually disclosed to the user. Its presence in a supposed bank notification is highly suspicious and suggests ulterior motives.",
+          "significance": "high"
+        },
+        {
+          "element_type": "metadata_url",
+          "page_number": 0,
+          "visual_description": "XMP metadata URLs referencing standard Adobe and RDF namespaces.",
+          "technical_data": "{\"urls\": [\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\", \"http://ns.adobe.com/pdf/1.3/\", \"http://purl.org/dc/elements/1.1/\", \"http://ns.adobe.com/xap/1.0/\", \"http://ns.adobe.com/xap/1.0/mm/\"]}",
+          "assessment": "All metadata URLs are standard and legitimate for PDF documents. No evidence of toolchain obfuscation or suspicious PDF editor domains.",
+          "significance": "low"
+        }
+      ],
+      "deception_tactics": [
+        {
+          "tactic_type": "Brand Impersonation",
+          "description": "The document uses Bank of America branding, logo, and language to impersonate the bank and gain the recipient's trust.",
+          "confidence": 1.0,
+          "evidence": [
+            "Bank of America logo and color scheme",
+            "Formal language referencing Bank of America trademarks"
+          ]
+        },
+        {
+          "tactic_type": "Interactive Element Deception",
+          "description": "The visible hyperlink text claims to be the official Bank of America website, but the actual link destination is a deceptive, typosquatted domain ('bankofamerica.comjmhbh.com').",
+          "confidence": 1.0,
+          "evidence": [
+            "Visible text: https://bankofamerica.com",
+            "Actual URL: https://bankofamerica.comjmhbh.com"
+          ]
+        },
+        {
+          "tactic_type": "Psychological Manipulation (Urgency/Fear)",
+          "description": "The message uses urgency and fear of account compromise to pressure the recipient into clicking the malicious link.",
+          "confidence": 0.95,
+          "evidence": [
+            "Language: 'temporary hold', 'recent suspicious activity detected', 'please sign in and verify your recent activity'"
+          ]
+        },
+        {
+          "tactic_type": "Hidden Tracking Link",
+          "description": "A hidden annotation link is embedded in the document, likely for tracking or analytics, which is not disclosed to the user.",
+          "confidence": 0.9,
+          "evidence": [
+            "Annotation link to https://insight.adsrvr.org/track/clk?imp=..."
+          ]
+        }
+      ],
+      "benign_signals": [
+        {
+          "signal_type": "Standard PDF Metadata",
+          "description": "All XMP metadata URLs are standard and legitimate, matching expected PDF creation toolchains.",
+          "confidence": 1.0
+        }
+      ],
+      "prioritized_urls": [
+        {
+          "url": "https://bankofamerica.comjmhbh.com",
+          "priority": 1,
+          "reason": "Typosquatted domain used in phishing attempt; visible as official bank link but leads to a malicious site.",
+          "page_number": 0,
+          "source_context": "PDF document with urgent account verification prompt",
+          "extraction_method": "text",
+          "mission_status": "new"
+        },
+        {
+          "url": "https://insight.adsrvr.org/track/clk?imp=7a6241a4-c068-4865-94c9-c95d9560af91&ag=v6hqmh1&sfe=1b2f44cd&sig=Fd4r8cOkKgYZwE1YFmoBCTcDZ5NTm_2s2ZOCSwDdCzc.&crid=9zeosoav&cf=9590818&fq=0&t=1&td_s=www.mail.com&rcats=&mste=&mfld=4&mssi=&mfsi=&sv=openx&uhow=58&agsa=&wp=AAABmgfYwk3s2qtwppBRUD4sfiXe8w3rTTV21Q&rgz=89101&dt=PC&osf=Windows&os=Windows10&br=Firefox&svpid=540690262&rlangs=en&mlang=&did=&rcxt=Other&tmpc=18.370000000000005&vrtd=&osi=&osv=&daid=&dnr=0&vpb=&crrelr=&npt=&cc=1~KLUv_WNa1XJFJADVBwCzzjfeQB5vAM8buGMN2LUGrG6Bux4rAohYAnmeQB4_AFWEATtzgJ3XAGtyABRXyLp_AJ0rZOH-AUPYLQLwUoD1BLRhBUDxASCxAfKQM1sbW5UGBrj6AHT1zbTNuqg2rttUvASCAENECRCyq3o8cYFbmvwWJL919_M4be1-K4nfCtLbysFqoWK1QAkIooVIQBCtPC0zuv2kpvBp7dgSsmqSuD8sRR4LisdKogXM0RNmuf-nivVBYn13M31MxkZZnrF8ZvzPS8bIlgOXBVaQEjI1mszQo4dJARI23nNO-aUFywAcBvw6C6qi7f9viSHS0Zkz1UUnPyccqB8C&dur=1~KLUv_SMFoCgkdoUCAENFEBFcQIVlJymNk07cebjlxTDKSKHXVsNJJ_bTU5b0XMn_lyfqTU0UNFFFIYUYMV4Nh7tqqexojYCGFKVcR0mZBkULAvwNCYEEmVRLok0B&durs=_cOGBD&bdc=137&mk=Other&adpt=nopx&fpa=214&pcm=3&ict=Unknown&said=a8fd4739-e262-4c71-9216-b3874fbef81e&auct=1&tail=1&r=https%3A%2F%2Fwww.theshorturl.com%2FTzHhlvzI",
+          "priority": 2,
+          "reason": "Hidden tracking/advertising link embedded in a sensitive document, not disclosed to the user.",
+          "page_number": 0,
+          "source_context": "PDF document with urgent account verification prompt",
+          "extraction_method": "annotation",
+          "mission_status": "new"
+        }
+      ],
+      "visual_verdict": "Highly Deceptive",
+      "confidence_score": 1.0,
+      "summary": "This page is a highly deceptive phishing attempt. It impersonates Bank of America using professional branding and urgent language to induce fear and prompt action. The most prominent link visually claims to be the official bank website but actually leads to a typosquatted, malicious domain. Additionally, a hidden tracking link is embedded in the document, further indicating malicious intent. While the PDF metadata is standard, the overall design and technical evidence overwhelmingly support a verdict of 'Highly Deceptive.'"
+    }
+  ],
+  "all_detailed_findings": [
+    {
+      "element_type": "logo",
+      "page_number": 0,
+      "visual_description": "Bank of America logo and branding at the top of the page, with a red banner and blue text.",
+      "technical_data": null,
+      "assessment": "The branding is visually consistent with Bank of America, but this alone does not confirm legitimacy.",
+      "significance": "medium"
+    },
+    {
+      "element_type": "link",
+      "page_number": 0,
+      "visual_description": "A blue hyperlink styled as 'https://bankofamerica.com' appears under the main message, suggesting it leads to the official Bank of America website.",
+      "technical_data": "{\"url\": \"https://bankofamerica.comjmhbh.com\", \"xref\": null}",
+      "assessment": "The visible text claims to be the official bank URL, but the actual destination is a deceptive, typosquatted domain ('bankofamerica.comjmhbh.com'), which is not owned by Bank of America. This is a classic phishing tactic.",
+      "significance": "high"
+    },
+    {
+      "element_type": "link",
+      "page_number": 0,
+      "visual_description": "A hidden annotation link (not visually indicated) in the area near the main message.",
+      "technical_data": "{\"url\": \"https://insight.adsrvr.org/track/clk?imp=7a6241a4-c068-4865-94c9-c95d9560af91&...\", \"xref\": 9}",
+      "assessment": "This is a tracking/advertising link embedded in the document, not visually disclosed to the user. Its presence in a supposed bank notification is highly suspicious and suggests ulterior motives.",
+      "significance": "high"
+    },
+    {
+      "element_type": "metadata_url",
+      "page_number": 0,
+      "visual_description": "XMP metadata URLs referencing standard Adobe and RDF namespaces.",
+      "technical_data": "{\"urls\": [\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\", \"http://ns.adobe.com/pdf/1.3/\", \"http://purl.org/dc/elements/1.1/\", \"http://ns.adobe.com/xap/1.0/\", \"http://ns.adobe.com/xap/1.0/mm/\"]}",
+      "assessment": "All metadata URLs are standard and legitimate for PDF documents. No evidence of toolchain obfuscation or suspicious PDF editor domains.",
+      "significance": "low"
+    }
+  ],
+  "all_deception_tactics": [
+    {
+      "tactic_type": "Brand Impersonation",
+      "description": "The document uses Bank of America branding, logo, and language to impersonate the bank and gain the recipient's trust.",
+      "confidence": 1.0,
+      "evidence": [
+        "Bank of America logo and color scheme",
+        "Formal language referencing Bank of America trademarks"
+      ]
+    },
+    {
+      "tactic_type": "Interactive Element Deception",
+      "description": "The visible hyperlink text claims to be the official Bank of America website, but the actual link destination is a deceptive, typosquatted domain ('bankofamerica.comjmhbh.com').",
+      "confidence": 1.0,
+      "evidence": [
+        "Visible text: https://bankofamerica.com",
+        "Actual URL: https://bankofamerica.comjmhbh.com"
+      ]
+    },
+    {
+      "tactic_type": "Psychological Manipulation (Urgency/Fear)",
+      "description": "The message uses urgency and fear of account compromise to pressure the recipient into clicking the malicious link.",
+      "confidence": 0.95,
+      "evidence": [
+        "Language: 'temporary hold', 'recent suspicious activity detected', 'please sign in and verify your recent activity'"
+      ]
+    },
+    {
+      "tactic_type": "Hidden Tracking Link",
+      "description": "A hidden annotation link is embedded in the document, likely for tracking or analytics, which is not disclosed to the user.",
+      "confidence": 0.9,
+      "evidence": [
+        "Annotation link to https://insight.adsrvr.org/track/clk?imp=..."
+      ]
+    }
+  ],
+  "all_benign_signals": [
+    {
+      "signal_type": "Standard PDF Metadata",
+      "description": "All XMP metadata URLs are standard and legitimate, matching expected PDF creation toolchains.",
+      "confidence": 1.0
+    }
+  ],
+  "all_priority_urls": [
+    {
+      "url": "https://bankofamerica.comjmhbh.com",
+      "priority": 1,
+      "reason": "Typosquatted domain used in phishing attempt; visible as official bank link but leads to a malicious site.",
+      "page_number": 0,
+      "source_context": "PDF document with urgent account verification prompt",
+      "extraction_method": "text",
+      "mission_status": "new"
+    },
+    {
+      "url": "https://insight.adsrvr.org/track/clk?imp=7a6241a4-c068-4865-94c9-c95d9560af91&ag=v6hqmh1&sfe=1b2f44cd&sig=Fd4r8cOkKgYZwE1YFmoBCTcDZ5NTm_2s2ZOCSwDdCzc.&crid=9zeosoav&cf=9590818&fq=0&t=1&td_s=www.mail.com&rcats=&mste=&mfld=4&mssi=&mfsi=&sv=openx&uhow=58&agsa=&wp=AAABmgfYwk3s2qtwppBRUD4sfiXe8w3rTTV21Q&rgz=89101&dt=PC&osf=Windows&os=Windows10&br=Firefox&svpid=540690262&rlangs=en&mlang=&did=&rcxt=Other&tmpc=18.370000000000005&vrtd=&osi=&osv=&daid=&dnr=0&vpb=&crrelr=&npt=&cc=1~KLUv_WNa1XJFJADVBwCzzjfeQB5vAM8buGMN2LUGrG6Bux4rAohYAnmeQB4_AFWEATtzgJ3XAGtyABRXyLp_AJ0rZOH-AUPYLQLwUoD1BLRhBUDxASCxAfKQM1sbW5UGBrj6AHT1zbTNuqg2rttUvASCAENECRCyq3o8cYFbmvwWJL919_M4be1-K4nfCtLbysFqoWK1QAkIooVIQBCtPC0zuv2kpvBp7dgSsmqSuD8sRR4LisdKogXM0RNmuf-nivVBYn13M31MxkZZnrF8ZvzPS8bIlgOXBVaQEjI1mszQo4dJARI23nNO-aUFywAcBvw6C6qi7f9viSHS0Zkz1UUnPyccqB8C&dur=1~KLUv_SMFoCgkdoUCAENFEBFcQIVlJymNk07cebjlxTDKSKHXVsNJJ_bTU5b0XMn_lyfqTU0UNFFFIYUYMV4Nh7tqqexojYCGFKVcR0mZBkULAvwNCYEEmVRLok0B&durs=_cOGBD&bdc=137&mk=Other&adpt=nopx&fpa=214&pcm=3&ict=Unknown&said=a8fd4739-e262-4c71-9216-b3874fbef81e&auct=1&tail=1&r=https%3A%2F%2Fwww.theshorturl.com%2FTzHhlvzI",
+      "priority": 2,
+      "reason": "Hidden tracking/advertising link embedded in a sensitive document, not disclosed to the user.",
+      "page_number": 0,
+      "source_context": "PDF document with urgent account verification prompt",
+      "extraction_method": "annotation",
+      "mission_status": "new"
+    }
+  ]
+}
